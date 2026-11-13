@@ -1,0 +1,16 @@
+# Build outputs
+build/
+app/build/
+.gradle/
+local.properties
+
+# IDE
+.idea/
+*.iml
+
+# Downloaded core binaries (fetched by tools/fetch_cores.sh or gradle)
+app/libs/*.aar
+
+# OS
+.DS_Store
+Thumbs.db

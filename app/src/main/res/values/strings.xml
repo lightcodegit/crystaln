@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">CrystalN</string>
+    <string name="notif_channel">CrystalN tunnel</string>
+    <string name="notif_connected">Connected: %1$s</string>
+    <string name="notif_connecting">Connecting…</string>
+    <string name="action_stop">Disconnect</string>
+    <string name="connect">Connect</string>
+    <string name="disconnect">Disconnect</string>
+    <string name="no_profile">No profile selected</string>
+    <string name="add_profile">Add profile</string>
+    <string name="edit_profile">Edit profile</string>
+    <string name="delete_profile">Delete</string>
+    <string name="import_clipboard">Import from clipboard</string>
+    <string name="import_result">Imported: %1$d, failed: %2$d</string>
+    <string name="name">Name</string>
+    <string name="protocol">Protocol</string>
+    <string name="address">Address (host or IP)</string>
+    <string name="port">Port</string>
+    <string name="save">Save</string>
+    <string name="cancel">Cancel</string>
+    <string name="state_off">Disconnected</string>
+    <string name="state_starting">Starting…</string>
+    <string name="state_connected">Connected</string>
+    <string name="state_stopping">Disconnecting…</string>
+    <string name="state_error">Error: %1$s</string>
+    <string name="traffic_format">%1$s ↓ / %2$s ↑</string>
+    <string name="delete_confirm">Delete profile “%1$s”?</string>
+    <string name="vpn_permission_denied">VPN permission denied</string>
+    <string name="start_failed">Failed to start tunnel</string>
+</resources>
