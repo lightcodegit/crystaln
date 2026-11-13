@@ -13,6 +13,15 @@
     <string name="delete_profile">Delete</string>
     <string name="import_clipboard">Import from clipboard</string>
     <string name="import_result">Imported: %1$d, failed: %2$d</string>
+    <string name="import_result_ok">Imported: %1$d</string>
+    <string name="import_nothing">Nothing to import</string>
+    <string name="import_too_large">File is too large for a config</string>
+    <string name="wallpaper_too_large">Image is too large</string>
+    <string name="import_file">Import from file</string>
+    <string name="import_selected">Selected: %1$s</string>
+    <string name="export_file">Export profiles to file</string>
+    <string name="profiles_io">Profiles: import / export</string>
+    <string name="export_done">Profiles exported</string>
     <string name="name">Name</string>
     <string name="protocol">Protocol</string>
     <string name="address">Address (host or IP)</string>

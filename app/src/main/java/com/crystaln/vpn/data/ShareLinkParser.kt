@@ -68,6 +68,27 @@ object ShareLinkParser {
         }
     }
 
+    /**
+     * host:port splitter that understands bare IPv6 in brackets,
+     * e.g. "[2001:db8::1]:8388".
+     */
+    private fun splitHostPort(raw: String): Pair<String, Int>? {
+        val t = raw.substringBefore('/').substringBefore('?').trim()
+        if (t.startsWith("[")) {
+            val close = t.indexOf(']')
+            if (close <= 0) return null
+            val host = t.substring(1, close)
+            val port = t.substring(close + 1).removePrefix(":").toIntOrNull() ?: return null
+            if (port !in 1..65535) return null
+            return host to port
+        }
+        val colon = t.lastIndexOf(':')
+        if (colon <= 0) return null
+        val port = t.substring(colon + 1).toIntOrNull() ?: return null
+        if (port !in 1..65535) return null
+        return t.substring(0, colon) to port
+    }
+
     private fun parseShadowsocks(link: String): Profile? {
         return try {
             val body = link.removePrefix("ss://")
@@ -82,10 +103,9 @@ object ShareLinkParser {
             if (at >= 0) {
                 // SIP002: base64(method:password)@host:port
                 cred = decodeUserInfo(main.substring(0, at)) ?: return null
-                val hostPart = main.substring(at + 1).substringBefore('/').substringBefore('?')
-                val parts = hostPart.split(':')
-                host = parts.getOrNull(0)?.trimStart('[')?.trimEnd(']') ?: return null
-                port = parts.getOrNull(1)?.toIntOrNull() ?: return null
+                val (h, p) = splitHostPort(main.substring(at + 1)) ?: return null
+                host = h
+                port = p
             } else {
                 // Legacy: base64(method:password@host:port)
                 val decoded = String(Base64.decode(main.substringBefore('/'), Base64.DEFAULT)).trim()
@@ -95,9 +115,9 @@ object ShareLinkParser {
                 val i = creds.indexOf(':')
                 if (i <= 0) return null
                 cred = creds.substring(0, i) to creds.substring(i + 1)
-                val parts = decoded.substring(atIdx + 1).split(':')
-                host = parts.getOrNull(0)?.trimStart('[')?.trimEnd(']') ?: return null
-                port = parts.getOrNull(1)?.substringBefore('/')?.toIntOrNull() ?: return null
+                val (h, p) = splitHostPort(decoded.substring(atIdx + 1)) ?: return null
+                host = h
+                port = p
             }
             Profile(
                 name = nameOf(frag, "SS"),
