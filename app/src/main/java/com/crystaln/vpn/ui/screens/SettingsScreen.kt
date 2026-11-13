@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
@@ -24,6 +25,7 @@ import androidx.compose.material.icons.filled.FileOpen
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Wallpaper
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -45,6 +47,8 @@ import androidx.compose.ui.unit.dp
 import com.crystaln.vpn.BuildConfig
 import com.crystaln.vpn.data.SettingsStore
 import com.crystaln.vpn.ui.glass.Glass
+import com.crystaln.vpn.ui.glass.GlassTab
+import com.crystaln.vpn.ui.glass.GlassTabBar
 import com.crystaln.vpn.ui.glass.liquidGlass
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -64,27 +68,29 @@ fun SettingsScreen(
     onExport: () -> Unit,
     onBack: () -> Unit,
 ) {
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Настройки", fontWeight = FontWeight.Bold) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                },
-            )
-        },
-    ) { pad ->
-        Column(
-            Modifier
-                .fillMaxSize()
-                .padding(pad)
-                .systemBarsPadding()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
-        ) {
+    Box(Modifier.fillMaxSize()) {
+        Scaffold(
+            topBar = {
+                TopAppBar(
+                    title = { Text("Настройки", fontWeight = FontWeight.Bold) },
+                    navigationIcon = {
+                        IconButton(onClick = onBack) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        }
+                    },
+                )
+            },
+        ) { pad ->
+            Column(
+                Modifier
+                    .fillMaxSize()
+                    .padding(pad)
+                    .systemBarsPadding()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 20.dp)
+                    .padding(bottom = 120.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
+            ) {
             SettingsCard(isDark = isDark, icon = Icons.Default.Palette, title = "Оформление") {
                 Text("Тема", style = MaterialTheme.typography.bodyMedium)
                 Spacer(Modifier.height(8.dp))
@@ -207,6 +213,22 @@ fun SettingsScreen(
 
             Spacer(Modifier.height(24.dp))
         }
+        }
+
+        // Floating liquid-glass tab bar, iOS-style.
+        GlassTabBar(
+            isDark = isDark,
+            tabs = listOf(
+                GlassTab(Icons.Default.Bolt, "Подключение"),
+                GlassTab(Icons.Default.Settings, "Настройки"),
+            ),
+            selected = 1,
+            onSelect = { index -> if (index == 0) onBack() },
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .navigationBarsPadding()
+                .padding(horizontal = 28.dp, vertical = 12.dp),
+        )
     }
 }
 

@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
@@ -74,6 +75,8 @@ import com.crystaln.vpn.data.Profile
 import com.crystaln.vpn.data.Protocol
 import com.crystaln.vpn.service.VpnManager
 import com.crystaln.vpn.ui.glass.Glass
+import com.crystaln.vpn.ui.glass.GlassTab
+import com.crystaln.vpn.ui.glass.GlassTabBar
 import com.crystaln.vpn.ui.glass.liquidGlass
 import com.crystaln.vpn.ui.glass.liquidSheen
 import com.crystaln.vpn.ui.glass.rememberBreath
@@ -137,7 +140,7 @@ fun MainScreen(
                         .systemBarsPadding()
                         .padding(horizontal = 20.dp),
                 ) {
-                    Header(state = state, onSettings = onSettings)
+                    Header(state = state)
 
             Spacer(Modifier.height(12.dp))
 
@@ -169,7 +172,7 @@ fun MainScreen(
             LazyColumn(
                 Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
-                contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 96.dp),
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 150.dp),
             ) {
                 if (profiles.isEmpty()) {
                     item { EmptyProfiles(glassDark, onImport = onImport, onAdd = onAdd) }
@@ -189,12 +192,12 @@ fun MainScreen(
             }
         }
 
-        // FABs overlay the list so short screens still show everything.
+        // FABs hover above the glass tab bar.
         Row(
             Modifier
                 .align(Alignment.BottomEnd)
                 .systemBarsPadding()
-                .padding(end = 20.dp, bottom = 20.dp),
+                .padding(end = 20.dp, bottom = 112.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -216,6 +219,22 @@ fun MainScreen(
                 Icon(Icons.Default.Add, contentDescription = "Add profile")
             }
         }
+
+        // Floating liquid-glass tab bar, iOS-style.
+        GlassTabBar(
+            isDark = glassDark,
+            overWallpaper = overWallpaper,
+            tabs = listOf(
+                GlassTab(Icons.Default.PowerSettingsNew, "Подключение"),
+                GlassTab(Icons.Default.Settings, "Настройки"),
+            ),
+            selected = 0,
+            onSelect = { index -> if (index == 1) onSettings() },
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .navigationBarsPadding()
+                .padding(horizontal = 28.dp, vertical = 12.dp),
+        )
             }
         }
     }
@@ -320,7 +339,7 @@ private fun Blob(color: Color, size: Dp, x: Dp, y: Dp) {
 }
 
 @Composable
-private fun Header(state: VpnManager.UiState, onSettings: () -> Unit) {
+private fun Header(state: VpnManager.UiState) {
     Row(
         Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
@@ -342,10 +361,6 @@ private fun Header(state: VpnManager.UiState, onSettings: () -> Unit) {
         )
         Spacer(Modifier.weight(1f))
         StatusPill(state)
-        Spacer(Modifier.width(4.dp))
-        IconButton(onClick = onSettings) {
-            Icon(Icons.Default.Settings, contentDescription = "Settings")
-        }
     }
 }
 
