@@ -42,6 +42,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.crystaln.vpn.BuildConfig
 import com.crystaln.vpn.data.SettingsStore
 import com.crystaln.vpn.ui.glass.Glass
 import com.crystaln.vpn.ui.glass.liquidGlass
@@ -191,7 +192,7 @@ fun SettingsScreen(
 
             SettingsCard(isDark = isDark, icon = Icons.Default.Info, title = "О приложении") {
                 Text(
-                    "CrystalN 0.2.0",
+                    "CrystalN ${BuildConfig.VERSION_NAME}",
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.SemiBold,
                 )
