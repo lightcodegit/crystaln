@@ -13,10 +13,27 @@
 | Shadowsocks | Xray                              | все методы ядра |
 | SOCKS5      | Xray                              | с авторизацией и без |
 | HTTP        | Xray                              | с авторизацией и без |
-| WireGuard   | wireguard-go (официальный AAR)    | wg-quick конфиг, AllowedIPs, DNS |
+| WireGuard   | amneziawg-go (официальное ядро Amnezia) | wg-quick конфиг, AllowedIPs, DNS |
+| AmneziaWG   | amneziawg-go                      | junk-параметры Jc/Jmin/Jmax/S1/S2/H1–H4 |
 
 TLS и REALITY настраиваются для любого Xray-профиля (SNI, uTLS fingerprint,
 ALPN, publicKey/shortId/spiderX).
+
+## AmneziaWG (настоящее ядро)
+
+AmneziaWG работает через официальный `amneziawg-go` userspace-кор
+(репозиторий `amnezia-vpn/amneziawg-android`, пакет `org.amnezia.awg.*`).
+Обычные WireGuard-конфиги ходят через то же ядро: amneziawg-go — надмножество
+WireGuard, при нулевых junk-параметрах поведение идентично.
+
+Параметры обфускации хранятся в профиле и добавляются в секцию `[Interface]`
+конфига (стандарт AmneziaWG); ключи, уже прописанные в конфиге, не дублируются.
+
+Сборка ядра (нужны Go 1.25+ и Android NDK):
+
+```sh
+bash tools/build_awg_core.sh   # клонирует third_party/amneziawg-android и собирает AAR
+```
 
 ## Сборка
 
