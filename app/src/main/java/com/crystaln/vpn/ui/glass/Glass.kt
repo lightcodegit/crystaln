@@ -8,7 +8,6 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -20,53 +19,57 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.drawOutline
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.dp
 
 /**
- * Liquid Glass: frosted translucent surfaces with a specular rim, a soft
- * reflection on the top edge and an animated sheen — the glass look, tuned
- * per light/dark and per background type.
+ * Liquid Glass, the Apple-style recipe:
+ *
+ *  1. The surface is nearly transparent — the frosted look comes from a
+ *     heavily blurred backdrop behind it, not from a white fill.
+ *  2. Light bends at the edges: an inner "lens" ring catches light around
+ *     the border.
+ *  3. Specular highlights sit on the top-left (main light) with a weaker
+ *     counter-glint bottom-right, plus a soft reflection on the top edge.
+ *  4. A thin bright rim traces the whole shape.
  */
 object Glass {
 
-    /** Base translucent fill for a glass surface. */
+    /** Base translucent fill. Deliberately light — blur does the frosting. */
     fun tint(isDark: Boolean, overWallpaper: Boolean): Color =
         if (isDark) {
-            Color(0xFF151A33).copy(alpha = if (overWallpaper) 0.60f else 0.82f)
+            Color(0xFF10131F).copy(alpha = if (overWallpaper) 0.30f else 0.55f)
         } else {
-            Color.White.copy(alpha = if (overWallpaper) 0.60f else 0.80f)
+            Color.White.copy(alpha = if (overWallpaper) 0.32f else 0.55f)
         }
 
     /** Slightly stronger fill for small elements (pills, chips). */
     fun tintSoft(isDark: Boolean, overWallpaper: Boolean): Color =
         if (isDark) {
-            Color(0xFF1B2040).copy(alpha = if (overWallpaper) 0.50f else 0.72f)
+            Color(0xFF161A2B).copy(alpha = if (overWallpaper) 0.40f else 0.65f)
         } else {
-            Color.White.copy(alpha = if (overWallpaper) 0.52f else 0.70f)
+            Color.White.copy(alpha = if (overWallpaper) 0.42f else 0.65f)
         }
 
-    /** Light-bending rim: bright at top-left, fading along the edge. */
+    /** Light-bending rim: bright at top-left, a mid glint at bottom-right. */
     fun rim(dark: Boolean): Brush = Brush.linearGradient(
         listOf(
-            Color.White.copy(alpha = if (dark) 0.30f else 0.90f),
-            Color.White.copy(alpha = 0.06f),
-            Color.White.copy(alpha = if (dark) 0.16f else 0.40f),
+            Color.White.copy(alpha = if (dark) 0.55f else 0.95f),
+            Color.White.copy(alpha = 0.08f),
+            Color.White.copy(alpha = if (dark) 0.30f else 0.50f),
         ),
     )
 
     fun border(dark: Boolean): BorderStroke =
-        BorderStroke(1.2.dp, rim(dark))
-
-    /** Soft reflection hugging the top edge of a glass surface. */
-    fun topReflection(isDark: Boolean): Brush = Brush.verticalGradient(
-        listOf(
-            Color.White.copy(alpha = if (isDark) 0.10f else 0.26f),
-            Color.Transparent,
-        ),
-    )
+        BorderStroke(1.dp, rim(dark))
 }
 
-/** Draws a glass fill + specular rim + top reflection for [shape]. */
+/**
+ * Draws the full glass stack UNDER the content for [shape]:
+ * tint -> specular streak (top-left) -> counter glint (bottom-right) ->
+ * top edge reflection -> inner lens ring -> content.
+ */
 fun Modifier.liquidGlass(
     shape: Shape,
     fill: Color,
@@ -74,33 +77,91 @@ fun Modifier.liquidGlass(
 ): Modifier = this
     .clip(shape)
     .drawWithContent {
-        // Glass fill and reflection go UNDER the content. Gradients get
-        // explicit bounds — the default infinite span would never fade out
-        // and leave a hard edge at the reflection's end.
+        // 1. Base tint with a vertical falloff.
         drawRect(
             Brush.verticalGradient(
-                listOf(fill.copy(alpha = fill.alpha * 0.80f), fill),
+                listOf(fill.copy(alpha = fill.alpha * 0.65f), fill),
                 startY = 0f,
                 endY = size.height,
             ),
         )
+
+        // 2. Specular streak from the top-left — the main light source.
+        drawRect(
+            Brush.radialGradient(
+                listOf(
+                    Color.White.copy(alpha = if (isDark) 0.20f else 0.38f),
+                    Color.Transparent,
+                ),
+                center = Offset(size.width * 0.10f, size.height * -0.05f),
+                radius = size.width * 1.15f,
+            ),
+        )
+
+        // 3. Weaker counter-glint bottom-right — glass bends light both ways.
+        drawRect(
+            Brush.radialGradient(
+                listOf(
+                    Color.White.copy(alpha = if (isDark) 0.09f else 0.16f),
+                    Color.Transparent,
+                ),
+                center = Offset(size.width * 1.05f, size.height * 1.08f),
+                radius = size.width * 0.85f,
+            ),
+        )
+
+        // 4. Reflection hugging the top edge, fading out fast.
         drawRect(
             Brush.verticalGradient(
                 listOf(
-                    Color.White.copy(alpha = if (isDark) 0.10f else 0.24f),
+                    Color.White.copy(alpha = if (isDark) 0.13f else 0.28f),
                     Color.Transparent,
                 ),
                 startY = 0f,
-                endY = size.height * 0.40f,
+                endY = size.height * 0.35f,
             ),
-            size = Size(size.width, size.height * 0.40f),
+            size = Size(size.width, size.height * 0.35f),
         )
+
+        // 5. Inner lens ring: a soft, wide stroke + a thin bright one, both
+        //    centered on the outline. The clip keeps only the inner halves,
+        //    which reads as light refracting through the edge.
+        val outline = shape.createOutline(size, layoutDirection, this)
+        drawOutline(
+            outline = outline,
+            brush = Brush.verticalGradient(
+                listOf(
+                    Color.White.copy(alpha = if (isDark) 0.30f else 0.60f),
+                    Color.Transparent,
+                    Color.White.copy(alpha = if (isDark) 0.20f else 0.40f),
+                ),
+                startY = 0f,
+                endY = size.height,
+            ),
+            style = Stroke(width = 8.dp.toPx()),
+        )
+        drawOutline(
+            outline = outline,
+            brush = Brush.verticalGradient(
+                listOf(
+                    Color.White.copy(alpha = if (isDark) 0.45f else 0.85f),
+                    Color.Transparent,
+                    Color.White.copy(alpha = if (isDark) 0.30f else 0.55f),
+                ),
+                startY = 0f,
+                endY = size.height,
+            ),
+            style = Stroke(width = 2.dp.toPx()),
+        )
+
         drawContent()
     }
-    .border(1.2.dp, Glass.rim(isDark), shape)
+    .border(1.dp, Glass.rim(isDark), shape)
 
-/** Animated sheen sweeping across a glass surface, like light refracting
- * through liquid. Draw it as the last layer inside a clipped node. */
+/**
+ * Animated sheen sweeping across a glass surface, like light refracting
+ * through liquid. Draw it as the last layer inside a clipped node.
+ */
 @Composable
 fun Modifier.liquidSheen(
     isDark: Boolean,

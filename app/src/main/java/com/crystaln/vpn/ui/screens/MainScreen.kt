@@ -222,8 +222,9 @@ fun MainScreen(
 }
 
 /**
- * Full-screen photo backdrop: the image (softly blurred where supported) plus
- * a dark scrim so white/colored UI text stays readable over any photo.
+ * Full-screen photo backdrop. The image is heavily blurred — that blur is
+ * what makes the glass surfaces above read as real frosted glass — and a
+ * soft scrim keeps text readable over any photo.
  */
 @Composable
 private fun WallpaperLayer(bitmap: Bitmap, isDark: Boolean) {
@@ -235,9 +236,15 @@ private fun WallpaperLayer(bitmap: Bitmap, isDark: Boolean) {
             modifier = Modifier
                 .fillMaxSize()
                 .clipToBounds()
+                // Scale up so the blur's transparent edge falloff stays
+                // outside the screen.
+                .graphicsLayer {
+                    scaleX = 1.25f
+                    scaleY = 1.25f
+                }
                 .then(
                     if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
-                        Modifier.blur(18.dp)
+                        Modifier.blur(48.dp)
                     } else {
                         Modifier
                     },
@@ -249,8 +256,8 @@ private fun WallpaperLayer(bitmap: Bitmap, isDark: Boolean) {
                 .background(
                     Brush.verticalGradient(
                         listOf(
-                            Color.Black.copy(alpha = if (isDark) 0.50f else 0.28f),
-                            Color.Black.copy(alpha = if (isDark) 0.72f else 0.46f),
+                            Color.Black.copy(alpha = if (isDark) 0.40f else 0.18f),
+                            Color.Black.copy(alpha = if (isDark) 0.62f else 0.34f),
                         ),
                     ),
                 ),
@@ -261,36 +268,36 @@ private fun WallpaperLayer(bitmap: Bitmap, isDark: Boolean) {
 /** Soft color blobs slowly drifting behind the content, like light in liquid. */
 @Composable
 private fun LiquidBlobs(isDark: Boolean) {
-    val blob = MaterialTheme.colorScheme.primary.copy(alpha = if (isDark) 0.20f else 0.13f)
-    val blob2 = MaterialTheme.colorScheme.secondary.copy(alpha = if (isDark) 0.14f else 0.10f)
-    val blob3 = MaterialTheme.colorScheme.tertiary.copy(alpha = if (isDark) 0.13f else 0.09f)
+    val blob = MaterialTheme.colorScheme.primary.copy(alpha = if (isDark) 0.50f else 0.26f)
+    val blob2 = MaterialTheme.colorScheme.secondary.copy(alpha = if (isDark) 0.38f else 0.20f)
+    val blob3 = MaterialTheme.colorScheme.tertiary.copy(alpha = if (isDark) 0.34f else 0.18f)
 
     val t = rememberInfiniteTransition(label = "blobs")
     val drift1 by t.animateFloat(
-        -36f, 36f,
+        -64f, 64f,
         infiniteRepeatable(tween(9000, easing = FastOutSlowInEasing), RepeatMode.Reverse),
         label = "drift1",
     )
     val drift2 by t.animateFloat(
-        28f, -28f,
+        48f, -48f,
         infiniteRepeatable(tween(11500, easing = FastOutSlowInEasing), RepeatMode.Reverse),
         label = "drift2",
     )
     val drift3 by t.animateFloat(
-        -24f, 24f,
+        -40f, 40f,
         infiniteRepeatable(tween(13500, easing = FastOutSlowInEasing), RepeatMode.Reverse),
         label = "drift3",
     )
     val breathe = rememberBreath(4200)
 
-    Blob(blob, 340.dp, (-130 + drift1).dp, (-160 + drift1 * 0.6f).dp)
-    Blob(blob2, 300.dp, (220 + drift2).dp, (140 - drift2 * 0.8f).dp)
-    Blob(blob3, 250.dp, (-90 - drift3).dp, (560 + drift3).dp)
+    Blob(blob, 460.dp, (-160 + drift1).dp, (-200 + drift1 * 0.6f).dp)
+    Blob(blob2, 400.dp, (260 + drift2).dp, (160 - drift2 * 0.8f).dp)
+    Blob(blob3, 340.dp, (-110 - drift3).dp, (620 + drift3).dp)
     Blob(
-        blob.copy(alpha = blob.alpha * 0.7f),
-        (280 + breathe * 40).dp,
-        (60 + drift2 * 0.5f).dp,
-        (900 - drift1 * 0.4f).dp,
+        blob.copy(alpha = blob.alpha * 0.75f),
+        (380 + breathe * 50).dp,
+        (70 + drift2 * 0.5f).dp,
+        (960 - drift1 * 0.4f).dp,
     )
 }
 
@@ -301,7 +308,14 @@ private fun Blob(color: Color, size: Dp, x: Dp, y: Dp) {
             .offset(x = x, y = y)
             .size(size)
             .clip(CircleShape)
-            .background(Brush.radialGradient(listOf(color, Color.Transparent))),
+            .background(Brush.radialGradient(listOf(color, Color.Transparent)))
+            .then(
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+                    Modifier.blur(32.dp)
+                } else {
+                    Modifier
+                },
+            ),
     )
 }
 
@@ -489,6 +503,7 @@ private fun ConnectButton(isDark: Boolean, state: VpnManager.UiState, onClick: (
                 .size(112.dp)
                 .clip(CircleShape)
                 .background(gradient)
+                .liquidGlass(CircleShape, Color.White.copy(alpha = 0.28f), isDark)
                 .liquidSheen(isDark)
                 .clickable(onClick = onClick),
             contentAlignment = Alignment.Center,
