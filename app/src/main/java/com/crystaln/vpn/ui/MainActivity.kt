@@ -4,42 +4,95 @@ import android.Manifest
 import android.app.Activity
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.VpnService
 import android.os.Build
 import android.os.Bundle
-import android.widget.TextView
 import android.widget.Toast
+import androidx.activity.compose.setContent
+import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.appcompat.app.AppCompatActivity
+import androidx.activity.ComponentActivity
+import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ContentPaste
+import androidx.compose.material.icons.filled.FileOpen
+import androidx.compose.material.icons.filled.FileDownload
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
-import androidx.lifecycle.lifecycleScope
-import androidx.recyclerview.widget.LinearLayoutManager
-import androidx.recyclerview.widget.RecyclerView
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.crystaln.vpn.R
 import com.crystaln.vpn.data.Profile
+import com.crystaln.vpn.data.ProfileImporter
 import com.crystaln.vpn.data.ProfileStore
-import com.crystaln.vpn.data.ShareLinkParser
+import com.crystaln.vpn.data.SettingsStore
 import com.crystaln.vpn.service.VpnManager
-import com.google.android.material.floatingactionbutton.FloatingActionButton
-import com.google.android.material.snackbar.Snackbar
+import com.crystaln.vpn.ui.screens.EditorScreen
+import com.crystaln.vpn.ui.screens.MainScreen
+import com.crystaln.vpn.ui.screens.SettingsScreen
+import com.crystaln.vpn.ui.theme.CrystalNTheme
+import java.io.File
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
-class MainActivity : AppCompatActivity() {
-
-    private lateinit var adapter: ProfilesAdapter
-    private lateinit var stateText: TextView
-    private lateinit var profileText: TextView
-    private lateinit var trafficText: TextView
-    private lateinit var errorText: TextView
-    private lateinit var connectButton: com.google.android.material.button.MaterialButton
+class MainActivity : ComponentActivity() {
 
     private var pendingProfileId: String? = null
-    private var trafficJob: Job? = null
+
+    /** Max size of an imported config, protects against OOM from a hostile URI. */
+    private val maxImportBytes = 512 * 1024
+
+    /** Max size of a wallpaper image copied into internal storage. */
+    private val maxWallpaperBytes = 25L * 1024 * 1024
+
+    // Simple in-process navigation state.
+    private enum class Nav { MAIN, SETTINGS, EDITOR }
+
+    private val nav = mutableStateOf(Nav.MAIN)
+    private val editing = mutableStateOf<Profile?>(null)
+    private val themeMode = mutableStateOf(SettingsStore.ThemeMode.SYSTEM)
+    private val dynamicColor = mutableStateOf(false)
+    private val autoConnect = mutableStateOf(false)
+    private val importMenu = mutableStateOf(false)
+    private val wallpaperPath = mutableStateOf<String?>(null)
+    // Live profile list + selection, refreshed after every import/edit/delete.
+    private val profiles = mutableStateOf<List<Profile>>(emptyList())
+    private val selectedId = mutableStateOf<String?>(null)
+
+    /** Auto-connect must only trigger on a cold start, not on a rotation. */
+    private var freshLaunch: Boolean = true
+
+    private fun refreshProfiles() {
+        profiles.value = ProfileStore.load(this).toList()
+        selectedId.value = ProfileStore.selectedId
+    }
+
+    private fun refreshWallpaper() {
+        wallpaperPath.value = SettingsStore.wallpaper(this)
+    }
 
     private val vpnPermission =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
@@ -55,48 +108,240 @@ class MainActivity : AppCompatActivity() {
     private val notifPermission =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
 
+    private val fileImport =
+        registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+            if (uri == null) return@registerForActivityResult
+            readTextFromUri(uri)?.let { importText(it) }
+        }
+
+    private val fileExport =
+        registerForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+            if (uri == null) return@registerForActivityResult
+            try {
+                val json = ProfileImporter.exportJson(
+                    ProfileStore.load(this).toList(), ProfileStore.selectedId,
+                )
+                contentResolver.openOutputStream(uri)?.use { it.write(json.toByteArray()) }
+                Toast.makeText(this, R.string.export_done, Toast.LENGTH_SHORT).show()
+            } catch (t: Throwable) {
+                Toast.makeText(this, t.message ?: t.javaClass.simpleName, Toast.LENGTH_LONG).show()
+            }
+        }
+
+    private val wallpaperPicker =
+        registerForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+            if (uri == null) return@registerForActivityResult
+            try {
+                val dst = File(filesDir, WALLPAPER_FILE)
+                contentResolver.openInputStream(uri)?.use { input ->
+                    dst.outputStream().use { output ->
+                        val copied = input.copyLimitedTo(output, maxWallpaperBytes)
+                        if (copied > maxWallpaperBytes) {
+                            dst.delete()
+                            Toast.makeText(this, R.string.wallpaper_too_large, Toast.LENGTH_LONG).show()
+                            return@registerForActivityResult
+                        }
+                    }
+                } ?: return@registerForActivityResult
+                SettingsStore.setWallpaper(this, WALLPAPER_FILE)
+                refreshWallpaper()
+            } catch (t: Throwable) {
+                Toast.makeText(this, t.message ?: t.javaClass.simpleName, Toast.LENGTH_LONG).show()
+            }
+        }
+
     override fun onCreate(savedInstanceState: Bundle?) {
+        enableEdgeToEdge()
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
+        // A saved instance state means this is a recreation (rotation, theme
+        // switch) — auto-connect must not re-fire against the user's intent.
+        freshLaunch = savedInstanceState == null
+        themeMode.value = SettingsStore.themeMode(this)
+        dynamicColor.value = SettingsStore.dynamicColor(this)
+        autoConnect.value = SettingsStore.autoConnect(this)
+        refreshProfiles()
+        refreshWallpaper()
 
-        stateText = findViewById(R.id.stateText)
-        profileText = findViewById(R.id.profileText)
-        trafficText = findViewById(R.id.trafficText)
-        errorText = findViewById(R.id.errorText)
-        connectButton = findViewById(R.id.connectButton)
+        handleViewIntent(intent)
 
-        adapter = ProfilesAdapter(
-            profiles = ProfileStore.load(this).toList(),
-            selectedId = ProfileStore.selectedId,
-            onSelect = { p ->
-                ProfileStore.select(this, p.id)
-                adapter.submit(ProfileStore.load(this).toList(), p.id)
-                renderIdle()
-            },
-            onEdit = { p -> ProfileEditorDialog(this, p) { updated -> saveAndRefresh(updated) }.show() },
-            onDelete = { p ->
-                ProfileStore.remove(this, p.id)
-                adapter.submit(ProfileStore.load(this).toList(), ProfileStore.selectedId)
-                renderIdle()
-            },
-        )
-        findViewById<RecyclerView>(R.id.profilesList).apply {
-            layoutManager = LinearLayoutManager(this@MainActivity)
-            adapter = this@MainActivity.adapter
+        setContent {
+            val dark = when (themeMode.value) {
+                SettingsStore.ThemeMode.SYSTEM -> isSystemInDarkTheme()
+                SettingsStore.ThemeMode.LIGHT -> false
+                SettingsStore.ThemeMode.DARK -> true
+            }
+            CrystalNTheme(darkTheme = dark, dynamicColor = dynamicColor.value) {
+                val uiState by VpnManager.ui.collectAsStateWithLifecycle()
+
+                LaunchedEffect(Unit) {
+                    if (Build.VERSION.SDK_INT >= 33 &&
+                        ContextCompat.checkSelfPermission(
+                            this@MainActivity,
+                            Manifest.permission.POST_NOTIFICATIONS,
+                        ) != PackageManager.PERMISSION_GRANTED
+                    ) {
+                        notifPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+                    }
+                }
+
+                // Live traffic counters while connected.
+                LaunchedEffect(Unit) {
+                    launch(Dispatchers.IO) {
+                        while (isActive) {
+                            if (VpnManager.current().state == VpnManager.State.CONNECTED) {
+                                val (rx, tx) = VpnManager.pollTraffic()
+                                VpnManager.notifyTraffic(rx, tx)
+                            }
+                            delay(1000)
+                        }
+                    }
+                }
+
+                // Auto-connect the selected profile on cold launch, if enabled.
+                if (freshLaunch) {
+                    LaunchedEffect(Unit) {
+                        if (SettingsStore.autoConnect(this@MainActivity) &&
+                            VpnManager.current().state == VpnManager.State.OFF
+                        ) {
+                            val p = ProfileStore.selected(this@MainActivity)
+                                ?: ProfileStore.load(this@MainActivity).firstOrNull()
+                            if (p != null) {
+                                ProfileStore.select(this@MainActivity, p.id)
+                                refreshProfiles()
+                                onConnectClicked()
+                            }
+                        }
+                    }
+                }
+
+                when (nav.value) {
+                    Nav.MAIN -> MainScreen(
+                        isDark = dark,
+                        state = uiState,
+                        profiles = profiles.value,
+                        selectedId = selectedId.value,
+                        wallpaperPath = wallpaperPath.value,
+                        onSelect = { p ->
+                            ProfileStore.select(this, p.id)
+                            refreshProfiles()
+                        },
+                        onEdit = { p ->
+                            editing.value = p
+                            nav.value = Nav.EDITOR
+                        },
+                        onDelete = { p ->
+                            // Stop the tunnel first if this profile is live.
+                            if (VpnManager.current().profile?.id == p.id) {
+                                VpnManager.stop(this)
+                            }
+                            ProfileStore.remove(this, p.id)
+                            refreshProfiles()
+                        },
+                        onAdd = {
+                            editing.value = null
+                            nav.value = Nav.EDITOR
+                        },
+                        onImport = { importMenu.value = true },
+                        onConnect = { onConnectClicked() },
+                        onSettings = { nav.value = Nav.SETTINGS },
+                    )
+
+                    Nav.SETTINGS -> SettingsScreen(
+                        isDark = dark,
+                        themeMode = themeMode.value,
+                        onThemeChange = { mode ->
+                            themeMode.value = mode
+                            SettingsStore.setThemeMode(this, mode)
+                        },
+                        dynamicColor = dynamicColor.value,
+                        onDynamicColorChange = { on ->
+                            dynamicColor.value = on
+                            SettingsStore.setDynamicColor(this, on)
+                        },
+                        autoConnect = autoConnect.value,
+                        onAutoConnectChange = { on ->
+                            autoConnect.value = on
+                            SettingsStore.setAutoConnect(this, on)
+                        },
+                        wallpaperSet = wallpaperPath.value != null,
+                        onPickWallpaper = {
+                            wallpaperPicker.launch(
+                                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
+                            )
+                        },
+                        onClearWallpaper = {
+                            File(filesDir, WALLPAPER_FILE).delete()
+                            SettingsStore.setWallpaper(this, null)
+                            refreshWallpaper()
+                        },
+                        onImport = {
+                            importMenu.value = false
+                            fileImport.launch(arrayOf("*/*"))
+                        },
+                        onExport = {
+                            importMenu.value = false
+                            fileExport.launch("crystaln_profiles.json")
+                        },
+                        onBack = { nav.value = Nav.MAIN },
+                    )
+
+                    Nav.EDITOR -> EditorScreen(
+                        existing = editing.value,
+                        onSave = { p ->
+                            ProfileStore.upsert(this, p)
+                            refreshProfiles()
+                            nav.value = Nav.MAIN
+                        },
+                        onBack = { nav.value = Nav.MAIN },
+                    )
+                }
+
+                if (importMenu.value) {
+                    ImportDialog(
+                        onDismiss = { importMenu.value = false },
+                        onClipboard = {
+                            importMenu.value = false
+                            importClipboard()
+                        },
+                        onFile = {
+                            importMenu.value = false
+                            fileImport.launch(arrayOf("*/*"))
+                        },
+                        onExport = {
+                            importMenu.value = false
+                            fileExport.launch("crystaln_profiles.json")
+                        },
+                    )
+                }
+            }
         }
+    }
 
-        findViewById<FloatingActionButton>(R.id.addButton).setOnClickListener {
-            ProfileEditorDialog(this, null) { p -> saveAndRefresh(p) }.show()
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        handleViewIntent(intent)
+    }
+
+    /** Opening a config file from a file manager (VIEW intent). */
+    private fun handleViewIntent(intent: Intent?) {
+        val uri = intent?.data ?: return
+        if (intent.action != Intent.ACTION_VIEW) return
+        readTextFromUri(uri)?.let { importText(it) }
+    }
+
+    private fun readTextFromUri(uri: android.net.Uri): String? = try {
+        contentResolver.openInputStream(uri)?.use { input ->
+            val bytes = input.readLimited(maxImportBytes)
+            if (bytes.size > maxImportBytes) {
+                Toast.makeText(this, R.string.import_too_large, Toast.LENGTH_LONG).show()
+                null
+            } else {
+                String(bytes, Charsets.UTF_8)
+            }
         }
-        findViewById<FloatingActionButton>(R.id.importButton).setOnClickListener { importClipboard() }
-        connectButton.setOnClickListener { onConnectClicked() }
-
-        requestNotifPermission()
-
-        lifecycleScope.launch {
-            VpnManager.ui.collect { render(it) }
-        }
-        startTrafficPolling()
+    } catch (t: Throwable) {
+        Toast.makeText(this, t.message ?: t.javaClass.simpleName, Toast.LENGTH_LONG).show()
+        null
     }
 
     private fun onConnectClicked() {
@@ -126,92 +371,105 @@ class MainActivity : AppCompatActivity() {
     private fun importClipboard() {
         val cm = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
         val text = cm.primaryClip?.getItemAt(0)?.text?.toString() ?: return
-        val parsed = ShareLinkParser.parseAll(text)
+        importText(text)
+    }
+
+    private fun importText(text: String) {
+        if (text.length > maxImportBytes) {
+            Toast.makeText(this, R.string.import_too_large, Toast.LENGTH_LONG).show()
+            return
+        }
+        val parsed = ProfileImporter.parseText(text)
         if (parsed.isEmpty()) {
-            Snackbar.make(findViewById(R.id.profilesList), "Nothing to import", Snackbar.LENGTH_SHORT).show()
+            Toast.makeText(this, R.string.import_nothing, Toast.LENGTH_SHORT).show()
             return
         }
         parsed.forEach { ProfileStore.upsert(this, it) }
-        adapter.submit(ProfileStore.load(this).toList(), ProfileStore.selectedId)
-        Snackbar.make(
-            findViewById(R.id.profilesList),
-            getString(R.string.import_result, parsed.size, 0),
-            Snackbar.LENGTH_SHORT,
+        // Install-and-select: the first imported profile becomes active at once.
+        ProfileStore.select(this, parsed.first().id)
+        refreshProfiles()
+        Toast.makeText(
+            this,
+            getString(R.string.import_result_ok, parsed.size) + " · " +
+                getString(R.string.import_selected, parsed.first().name),
+            Toast.LENGTH_SHORT,
         ).show()
     }
 
-    private fun saveAndRefresh(p: Profile) {
-        ProfileStore.upsert(this, p)
-        adapter.submit(ProfileStore.load(this).toList(), ProfileStore.selectedId)
-        renderIdle()
+    companion object {
+        const val WALLPAPER_FILE = "wallpaper.jpg"
     }
+}
 
-    private fun renderIdle() {
-        render(VpnManager.current())
-    }
-
-    private fun render(s: VpnManager.UiState) {
-        stateText.text = when (s.state) {
-            VpnManager.State.OFF -> getString(R.string.state_off)
-            VpnManager.State.STARTING -> getString(R.string.state_starting)
-            VpnManager.State.CONNECTED -> getString(R.string.state_connected)
-            VpnManager.State.STOPPING -> getString(R.string.state_stopping)
+/** Reads at most [limit]+1 bytes so oversized inputs fail instead of OOM-ing. */
+private fun java.io.InputStream.readLimited(limit: Int): ByteArray {
+    val out = java.io.ByteArrayOutputStream()
+    val buf = ByteArray(64 * 1024)
+    var total = 0
+    while (true) {
+        val n = read(buf)
+        if (n <= 0) break
+        total += n
+        if (total > limit) {
+            out.write(buf, 0, n)
+            break
         }
-        profileText.text = s.profile?.summary() ?: ProfileStore.selected(this)?.summary() ?: getString(R.string.no_profile)
-        errorText.visibility = if (s.error == null) TextView.GONE else TextView.VISIBLE
-        errorText.text = s.error?.let { getString(R.string.state_error, it) }
+        out.write(buf, 0, n)
+    }
+    return out.toByteArray()
+}
 
-        when (s.state) {
-            VpnManager.State.OFF -> {
-                connectButton.text = getString(R.string.connect)
-                trafficText.visibility = TextView.GONE
+/** Copies up to [limit]+1 bytes, returning the actual copied count. */
+private fun java.io.InputStream.copyLimitedTo(
+    output: java.io.OutputStream,
+    limit: Long,
+): Long {
+    val buf = ByteArray(64 * 1024)
+    var total = 0L
+    while (true) {
+        val n = read(buf)
+        if (n <= 0) break
+        total += n
+        output.write(buf, 0, n)
+        if (total > limit) break
+    }
+    return total
+}
+
+@Composable
+private fun ImportDialog(
+    onDismiss: () -> Unit,
+    onClipboard: () -> Unit,
+    onFile: () -> Unit,
+    onExport: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {},
+        dismissButton = {},
+        title = { Text("Профили") },
+        text = {
+            Column {
+                ImportAction(Icons.Default.FileOpen, "Установить конфиг из файла", onFile)
+                ImportAction(Icons.Default.ContentPaste, "Импорт из буфера", onClipboard)
+                ImportAction(Icons.Default.FileDownload, "Экспорт в файл", onExport)
             }
+        },
+    )
+}
 
-            VpnManager.State.CONNECTED -> {
-                connectButton.text = getString(R.string.disconnect)
-                trafficText.visibility = TextView.VISIBLE
-                trafficText.text = formatTraffic(s.rx, s.tx)
-            }
-
-            else -> connectButton.text = getString(R.string.disconnect)
-        }
-    }
-
-    private fun formatTraffic(rx: Long, tx: Long): String =
-        getString(R.string.traffic_format, humanBytes(rx), humanBytes(tx))
-
-    private fun humanBytes(v: Long): String {
-        val units = arrayOf("B", "KB", "MB", "GB", "TB")
-        var x = v.toDouble()
-        var u = 0
-        while (x >= 1024 && u < units.size - 1) {
-            x /= 1024
-            u++
-        }
-        return "%.1f %s".format(x, units[u])
-    }
-
-    private fun startTrafficPolling() {
-        trafficJob?.cancel()
-        trafficJob = lifecycleScope.launch(Dispatchers.IO) {
-            while (isActive) {
-                if (VpnManager.current().state == VpnManager.State.CONNECTED) {
-                    val (rx, tx) = VpnManager.pollTraffic()
-                    runOnUiThread {
-                        trafficText.visibility = TextView.VISIBLE
-                        trafficText.text = formatTraffic(rx, tx)
-                    }
-                }
-                delay(1000)
-            }
-        }
-    }
-
-    private fun requestNotifPermission() {
-        if (Build.VERSION.SDK_INT >= 33 &&
-            ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
-        ) {
-            notifPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+@Composable
+private fun ImportAction(icon: ImageVector, label: String, onClick: () -> Unit) {
+    TextButton(onClick = onClick, modifier = Modifier.fillMaxWidth()) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+                icon,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.width(24.dp),
+            )
+            Spacer(Modifier.width(10.dp))
+            Text(label)
         }
     }
 }

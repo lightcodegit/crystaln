@@ -2,7 +2,8 @@
 <resources>
     <color name="crystal_primary">#4F6AF6</color>
     <color name="crystal_on_primary">#FFFFFF</color>
-    <color name="crystal_surface">#F7F8FC</color>
+    <color name="crystal_surface">#F8F9FE</color>
+    <color name="crystal_bg_dark">#0C0E1A</color>
     <color name="crystal_connected">#2BB673</color>
     <color name="crystal_error">#D93025</color>
 </resources>
