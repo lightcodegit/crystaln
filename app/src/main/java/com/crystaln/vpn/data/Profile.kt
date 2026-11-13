@@ -11,7 +11,8 @@ enum class Protocol(val displayName: String) {
     SHADOWSOCKS("Shadowsocks"),
     SOCKS("SOCKS5"),
     HTTP("HTTP"),
-    WIREGUARD("WireGuard");
+    WIREGUARD("WireGuard"),
+    AMNEZIAWG("AmneziaWG");
 
     companion object {
         fun fromNameOrNull(name: String?): Protocol? =
@@ -29,7 +30,7 @@ enum class Protocol(val displayName: String) {
 data class Profile(
     val id: String = UUID.randomUUID().toString(),
     var name: String,
-    val protocol: Protocol,
+    var protocol: Protocol,
     var address: String = "",
     var port: Int = 0,
     var fields: MutableMap<String, String> = mutableMapOf(),
@@ -37,11 +38,16 @@ data class Profile(
 ) {
     val isWireGuard: Boolean get() = protocol == Protocol.WIREGUARD
 
+    /** WireGuard-family protocols run on the GoBackend, not through Xray. */
+    val isWireGuardFamily: Boolean
+        get() = protocol == Protocol.WIREGUARD || protocol == Protocol.AMNEZIAWG
+
     /** Short description line shown under the profile name in lists. */
     fun summary(): String = when (protocol) {
-        Protocol.WIREGUARD ->
+        Protocol.WIREGUARD, Protocol.AMNEZIAWG ->
             wgConfig.lineSequence().firstOrNull { it.startsWith("Endpoint") }
-                ?.substringAfter('=')?.trim()?.ifEmpty { null } ?: "WireGuard"
+                ?.substringAfter('=')?.trim()?.ifEmpty { null }
+                ?: protocol.displayName
         else -> "$address:${if (port > 0) port else "?"} · ${transportLabel()}"
     }
 

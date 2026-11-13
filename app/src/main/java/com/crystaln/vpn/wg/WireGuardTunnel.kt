@@ -2,22 +2,23 @@ package com.crystaln.vpn.wg
 
 import android.content.Context
 import com.crystaln.vpn.data.Profile
-import com.wireguard.android.backend.GoBackend
-import com.wireguard.android.backend.Tunnel
-import com.wireguard.config.Config
 import java.io.BufferedReader
 import java.io.StringReader
+import org.amnezia.awg.backend.GoBackend
+import org.amnezia.awg.backend.Tunnel
+import org.amnezia.awg.config.Config
 
 /**
- * WireGuard tunnel over the official userspace (wireguard-go) backend.
- *
- * The backend starts [GoBackend.VpnService] itself, which must be declared in
- * the manifest; the raw wg-quick style config comes from the profile.
+ * Plain WireGuard tunnel. Runs on the AmneziaWG userspace core
+ * (amneziawg-go is a WireGuard superset: standard wg-quick configs work
+ * unchanged; junk/obfuscation params simply stay at defaults).
  */
 class WireGuardTunnel(context: Context, private val profile: Profile) : Tunnel {
 
     private val backend = GoBackend(context.applicationContext)
-    private val config: Config = Config.parse(BufferedReader(StringReader(profile.wgConfig)))
+    private val config: Config = Config.parse(
+        BufferedReader(StringReader(WgConfigNormalizer.normalize(profile.wgConfig))),
+    )
 
     @Volatile
     private var up = false
@@ -40,10 +41,9 @@ class WireGuardTunnel(context: Context, private val profile: Profile) : Tunnel {
 
     fun isUp(): Boolean = up
 
-    /** Cumulative byte counters since tunnel start; null when not up. */
     fun traffic(): Pair<Long, Long>? {
         if (!isUp()) return null
-        val t = WgStats.totals(backend.getStatistics(this))
-        return t[0] to t[1]
+        val stats = backend.getStatistics(this) ?: return null
+        return stats.totalRx() to stats.totalTx()
     }
 }

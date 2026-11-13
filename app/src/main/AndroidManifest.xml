@@ -50,12 +50,13 @@
                 android:value="vpn" />
         </service>
 
-        <!-- WireGuard userspace backend service from com.wireguard.android:tunnel -->
+
+        <!-- AmneziaWG userspace backend service (official amneziawg-go core) -->
         <service
-            android:name="com.wireguard.android.backend.GoBackend$VpnService"
+            android:name="org.amnezia.awg.backend.GoBackend$VpnService"
             android:enabled="true"
             android:exported="false"
-            android:label="CrystalN WireGuard"
+            android:label="CrystalN AmneziaWG"
             android:permission="android.permission.BIND_VPN_SERVICE">
             <intent-filter>
                 <action android:name="android.net.VpnService" />

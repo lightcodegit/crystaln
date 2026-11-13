@@ -11,6 +11,9 @@ local.properties
 # Downloaded core binaries (fetched by tools/fetch_cores.sh or gradle)
 app/libs/*.aar
 
+# AmneziaWG source tree (nested git repo; rebuild via tools/build_awg_core.sh)
+third_party/
+
 # OS
 .DS_Store
 Thumbs.db

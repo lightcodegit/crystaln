@@ -45,7 +45,7 @@ class CrystalVpnService : VpnService() {
                 val id = intent?.getStringExtra(EXTRA_PROFILE_ID)
                 val profile = id?.let { ProfileStore.load(this).firstOrNull { p -> p.id == it } }
                     ?: ProfileStore.selected(this)
-                if (profile == null || profile.isWireGuard) {
+                if (profile == null || profile.isWireGuardFamily) {
                     stopSelf()
                     return START_NOT_STICKY
                 }

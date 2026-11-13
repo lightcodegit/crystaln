@@ -87,7 +87,8 @@ object XrayConfigBuilder {
         Protocol.SHADOWSOCKS -> "shadowsocks"
         Protocol.SOCKS -> "socks"
         Protocol.HTTP -> "http"
-        Protocol.WIREGUARD -> throw IllegalArgumentException("WireGuard is not routed through Xray")
+        Protocol.WIREGUARD, Protocol.AMNEZIAWG ->
+            throw IllegalArgumentException("WireGuard-family is not routed through Xray")
     }
 
     private fun settingsFor(p: Profile): JSONObject = when (p.protocol) {
@@ -162,7 +163,8 @@ object XrayConfigBuilder {
             ),
         )
 
-        Protocol.WIREGUARD -> throw IllegalArgumentException("WireGuard is not routed through Xray")
+        Protocol.WIREGUARD, Protocol.AMNEZIAWG ->
+            throw IllegalArgumentException("WireGuard-family is not routed through Xray")
     }
 
     private fun server(p: Profile): JSONObject =

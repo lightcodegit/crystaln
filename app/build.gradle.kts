@@ -51,9 +51,8 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.4")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
 
-    // WireGuard: userspace (wireguard-go) backend + config parser, prebuilt natives included.
-    implementation("com.wireguard.android:tunnel:1.0.20230706")
-
     // Xray core bindings (VMess, VLESS, Trojan, Shadowsocks, SOCKS, HTTP, ...).
     implementation(files("libs/libv2ray.aar"))
+    // AmneziaWG core (amneziawg-go), built from third_party/amneziawg-android.
+    implementation(files("libs/amneziawg.aar"))
 }
