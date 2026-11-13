@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 12+ data extraction rules: no cloud backup, no device transfer,
+     no adb extraction — profiles.json contains private keys in plaintext. -->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="file" path="." />
+        <exclude domain="sharedpref" path="." />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="file" path="." />
+        <exclude domain="sharedpref" path="." />
+    </device-transfer>
+    <d2d-backup>
+        <exclude domain="file" path="." />
+        <exclude domain="sharedpref" path="." />
+    </d2d-backup>
+</data-extraction-rules>

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Backup is disabled app-wide (android:allowBackup=false); these rules
+     exist as defense-in-depth so profiles with private keys are never
+     included in cloud/adb backups or device-to-device migrations. -->
+<full-backup-content>
+    <exclude domain="file" path="." />
+    <exclude domain="sharedpref" path="." />
+</full-backup-content>
