@@ -48,8 +48,9 @@ fun GlassTabBar(
             .height(76.dp)
             .liquidGlass(
                 RoundedCornerShape(999.dp),
-                Glass.tint(isDark, overWallpaper),
+                Glass.tintFloating(isDark, overWallpaper),
                 isDark,
+                flat = true,
             ),
     ) {
         Row(Modifier.fillMaxSize()) {
@@ -73,8 +74,9 @@ fun GlassTabBar(
                                             .liquidGlass(
                                                 RoundedCornerShape(999.dp),
                                                 Color.White
-                                                    .copy(alpha = if (isDark) 0.32f else 0.85f),
+                                                    .copy(alpha = if (isDark) 0.55f else 0.85f),
                                                 isDark,
+                                                flat = true,
                                             )
                                     } else {
                                         Modifier

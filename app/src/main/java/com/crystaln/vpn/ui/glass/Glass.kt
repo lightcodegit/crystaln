@@ -39,17 +39,29 @@ object Glass {
     /** Base translucent fill. Deliberately light — blur does the frosting. */
     fun tint(isDark: Boolean, overWallpaper: Boolean): Color =
         if (isDark) {
-            Color(0xFF10131F).copy(alpha = if (overWallpaper) 0.30f else 0.55f)
+            Color(0xFF10131F).copy(alpha = if (overWallpaper) 0.48f else 0.55f)
         } else {
-            Color.White.copy(alpha = if (overWallpaper) 0.32f else 0.55f)
+            Color.White.copy(alpha = if (overWallpaper) 0.50f else 0.55f)
         }
 
     /** Slightly stronger fill for small elements (pills, chips). */
     fun tintSoft(isDark: Boolean, overWallpaper: Boolean): Color =
         if (isDark) {
-            Color(0xFF161A2B).copy(alpha = if (overWallpaper) 0.40f else 0.65f)
+            Color(0xFF161A2B).copy(alpha = if (overWallpaper) 0.55f else 0.65f)
         } else {
-            Color.White.copy(alpha = if (overWallpaper) 0.42f else 0.65f)
+            Color.White.copy(alpha = if (overWallpaper) 0.58f else 0.65f)
+        }
+
+    /**
+     * Fill for floating controls (tab bar, FAB-like pills) that hover over
+     * sharp app content — not the blurred backdrop. Content behind them is
+     * in focus, so the fill must be dense enough to keep text readable.
+     */
+    fun tintFloating(isDark: Boolean, overWallpaper: Boolean): Color =
+        if (isDark) {
+            Color(0xFF12151F).copy(alpha = if (overWallpaper) 0.72f else 0.84f)
+        } else {
+            Color.White.copy(alpha = if (overWallpaper) 0.76f else 0.88f)
         }
 
     /** Light-bending rim: bright at top-left, a mid glint at bottom-right. */
@@ -74,17 +86,22 @@ fun Modifier.liquidGlass(
     shape: Shape,
     fill: Color,
     isDark: Boolean,
+    flat: Boolean = false,
 ): Modifier = this
     .clip(shape)
     .drawWithContent {
-        // 1. Base tint with a vertical falloff.
-        drawRect(
-            Brush.verticalGradient(
-                listOf(fill.copy(alpha = fill.alpha * 0.65f), fill),
-                startY = 0f,
-                endY = size.height,
-            ),
-        )
+        // 1. Base tint with a vertical falloff (uniform for floating bars).
+        if (flat) {
+            drawRect(fill)
+        } else {
+            drawRect(
+                Brush.verticalGradient(
+                    listOf(fill.copy(alpha = fill.alpha * 0.65f), fill),
+                    startY = 0f,
+                    endY = size.height,
+                ),
+            )
+        }
 
         // 2. Specular streak from the top-left — the main light source.
         drawRect(

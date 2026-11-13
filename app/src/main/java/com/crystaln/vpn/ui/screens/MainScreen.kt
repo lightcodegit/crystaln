@@ -220,6 +220,26 @@ fun MainScreen(
             }
         }
 
+        // Soft scrim behind the tab bar: content scrolling underneath fades
+        // out instead of ghosting through the glass.
+        val bg = MaterialTheme.colorScheme.background
+        Box(
+            Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .height(210.dp)
+                .background(
+                    Brush.verticalGradient(
+                        listOf(
+                            Color.Transparent,
+                            (if (overWallpaper) Color.Black else bg)
+                                .copy(alpha = if (overWallpaper) 0.55f else 0.85f),
+                            if (overWallpaper) Color.Black.copy(alpha = 0.96f) else bg,
+                        ),
+                    ),
+                ),
+        )
+
         // Floating liquid-glass tab bar, iOS-style.
         GlassTabBar(
             isDark = glassDark,

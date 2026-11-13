@@ -1,6 +1,7 @@
 package com.crystaln.vpn.ui.screens
 
 import android.os.Build
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -41,6 +42,8 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -214,6 +217,23 @@ fun SettingsScreen(
             Spacer(Modifier.height(24.dp))
         }
         }
+
+        // Soft scrim behind the tab bar so card text doesn't ghost through.
+        Box(
+            Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .height(210.dp)
+                .background(
+                    Brush.verticalGradient(
+                        listOf(
+                            Color.Transparent,
+                            MaterialTheme.colorScheme.background.copy(alpha = 0.85f),
+                            MaterialTheme.colorScheme.background,
+                        ),
+                    ),
+                ),
+        )
 
         // Floating liquid-glass tab bar, iOS-style.
         GlassTabBar(
