@@ -15,6 +15,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -77,10 +78,12 @@ import com.crystaln.vpn.service.VpnManager
 import com.crystaln.vpn.ui.glass.Glass
 import com.crystaln.vpn.ui.glass.GlassTab
 import com.crystaln.vpn.ui.glass.GlassTabBar
+import com.crystaln.vpn.ui.glass.TabBarBackdrop
 import com.crystaln.vpn.ui.glass.liquidGlass
 import com.crystaln.vpn.ui.glass.liquidSheen
 import com.crystaln.vpn.ui.glass.rememberBreath
 import com.crystaln.vpn.ui.rememberWallpaper
+import com.crystaln.vpn.ui.WallpaperLayer
 import com.crystaln.vpn.ui.theme.LocalCrystalPalette
 
 fun protocolColor(p: Protocol): Color = when (p) {
@@ -115,7 +118,7 @@ fun MainScreen(
     // light rim, light wallpaper gets frosted white glass.
     val glassDark = wallpaper?.isDark ?: isDark
 
-    Box(
+    BoxWithConstraints(
         Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background),
@@ -190,6 +193,16 @@ fun MainScreen(
             }
         }
 
+        // Real frosted backdrop behind the tab bar: an exact blurred copy
+        // of the wallpaper clipped to the bottom strip, so content sliding
+        // under the bar dissolves into the frost instead of ghosting.
+        // Drawn after the content, before the floating controls.
+        TabBarBackdrop(
+            wallpaper = wallpaper,
+            isDark = glassDark,
+            modifier = Modifier.matchParentSize(),
+        )
+
         // FABs hover above the glass tab bar.
         Row(
             Modifier
@@ -221,26 +234,6 @@ fun MainScreen(
             }
         }
 
-        // Soft scrim behind the tab bar: content scrolling underneath fades
-        // out instead of ghosting through the glass.
-        val bg = MaterialTheme.colorScheme.background
-        Box(
-            Modifier
-                .align(Alignment.BottomCenter)
-                .fillMaxWidth()
-                .height(210.dp)
-                .background(
-                    Brush.verticalGradient(
-                        listOf(
-                            Color.Transparent,
-                            (if (overWallpaper) Color.Black else bg)
-                                .copy(alpha = if (overWallpaper) 0.55f else 0.85f),
-                            if (overWallpaper) Color.Black.copy(alpha = 0.96f) else bg,
-                        ),
-                    ),
-                ),
-        )
-
         // Floating liquid-glass tab bar, iOS-style.
         GlassTabBar(
             isDark = glassDark,
@@ -258,50 +251,6 @@ fun MainScreen(
         )
             }
         }
-    }
-}
-
-/**
- * Full-screen photo backdrop. The image is heavily blurred — that blur is
- * what makes the glass surfaces above read as real frosted glass — and a
- * soft scrim keeps text readable over any photo.
- */
-@Composable
-private fun WallpaperLayer(bitmap: Bitmap, isDark: Boolean) {
-    Box(Modifier.fillMaxSize()) {
-        Image(
-            bitmap = bitmap.asImageBitmap(),
-            contentDescription = null,
-            contentScale = ContentScale.Crop,
-            modifier = Modifier
-                .fillMaxSize()
-                .clipToBounds()
-                // Scale up so the blur's transparent edge falloff stays
-                // outside the screen.
-                .graphicsLayer {
-                    scaleX = 1.25f
-                    scaleY = 1.25f
-                }
-                .then(
-                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
-                        Modifier.blur(48.dp)
-                    } else {
-                        Modifier
-                    },
-                ),
-        )
-        Box(
-            Modifier
-                .fillMaxSize()
-                .background(
-                    Brush.verticalGradient(
-                        listOf(
-                            Color.Black.copy(alpha = if (isDark) 0.40f else 0.18f),
-                            Color.Black.copy(alpha = if (isDark) 0.62f else 0.34f),
-                        ),
-                    ),
-                ),
-        )
     }
 }
 

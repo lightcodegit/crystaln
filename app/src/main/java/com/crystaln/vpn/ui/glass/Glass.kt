@@ -62,14 +62,15 @@ object Glass {
 
     /**
      * Fill for floating controls (tab bar, FAB-like pills) that hover over
-     * sharp app content — not the blurred backdrop. Content behind them is
-     * in focus, so the fill must be dense enough to keep text readable.
+     * sharp app content — not the blurred backdrop. Kept light: the blurred
+     * backdrop strip behind the bar does the frosting, the fill only adds
+     * a slight tint so the glass reads as transparent, not gray.
      */
     fun tintFloating(isDark: Boolean, overWallpaper: Boolean): Color =
         if (isDark) {
-            DarkGlassTint.copy(alpha = if (overWallpaper) 0.70f else 0.82f)
+            DarkGlassTint.copy(alpha = if (overWallpaper) 0.46f else 0.52f)
         } else {
-            Color.White.copy(alpha = if (overWallpaper) 0.76f else 0.88f)
+            Color.White.copy(alpha = if (overWallpaper) 0.58f else 0.68f)
         }
 
     /**

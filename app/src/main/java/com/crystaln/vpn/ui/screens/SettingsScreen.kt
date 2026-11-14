@@ -6,6 +6,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -31,6 +32,7 @@ import androidx.compose.material.icons.filled.FileOpen
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.PowerSettingsNew
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Wallpaper
 import androidx.compose.material3.Button
@@ -44,6 +46,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -52,15 +55,20 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.crystaln.vpn.BuildConfig
 import com.crystaln.vpn.data.SettingsStore
+import com.crystaln.vpn.ui.WallpaperLayer
 import com.crystaln.vpn.ui.glass.Glass
 import com.crystaln.vpn.ui.glass.GlassTab
 import com.crystaln.vpn.ui.glass.GlassTabBar
+import com.crystaln.vpn.ui.glass.TabBarBackdrop
 import com.crystaln.vpn.ui.glass.liquidGlass
+import com.crystaln.vpn.ui.rememberWallpaper
 import com.crystaln.vpn.ui.theme.CrystalPalettes
+import com.crystaln.vpn.ui.theme.LocalCrystalPalette
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -81,250 +89,313 @@ fun SettingsScreen(
     onExport: () -> Unit,
     onBack: () -> Unit,
 ) {
-    Box(Modifier.fillMaxSize()) {
-        Scaffold(
-            topBar = {
-                TopAppBar(
-                    title = { Text("Настройки", fontWeight = FontWeight.Bold) },
-                    navigationIcon = {
-                        IconButton(onClick = onBack) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                        }
-                    },
-                )
-            },
-        ) { pad ->
-            Column(
-                Modifier
-                    .fillMaxSize()
-                    .padding(pad)
-                    .systemBarsPadding()
-                    .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 20.dp)
-                    .padding(bottom = 120.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp),
-            ) {
-            SettingsCard(isDark = isDark, icon = Icons.Default.Palette, title = "Оформление") {
-                Text("Тема", style = MaterialTheme.typography.bodyMedium)
-                Spacer(Modifier.height(8.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FilterChip(
-                        selected = themeMode == SettingsStore.ThemeMode.SYSTEM,
-                        onClick = { onThemeChange(SettingsStore.ThemeMode.SYSTEM) },
-                        label = { Text("Системная") },
+    val wallpaper = rememberWallpaper(SettingsStore.wallpaper(LocalContext.current))
+    val glassDark = wallpaper?.isDark ?: isDark
+    // Content colors follow the glass, like on the main screen.
+    val contentScheme = if (wallpaper != null) {
+        LocalCrystalPalette.current.scheme(wallpaper.isDark)
+    } else {
+        MaterialTheme.colorScheme
+    }
+
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        if (wallpaper != null) {
+            WallpaperLayer(wallpaper.bitmap, wallpaper.isDark)
+        }
+
+        MaterialTheme(colorScheme = contentScheme) {
+            Scaffold(
+                containerColor = Color.Transparent,
+                topBar = {
+                    TopAppBar(
+                        colors = TopAppBarDefaults.topAppBarColors(
+                            containerColor = Color.Transparent,
+                        ),
+                        title = { Text("Настройки", fontWeight = FontWeight.Bold) },
+                        navigationIcon = {
+                            IconButton(onClick = onBack) {
+                                Icon(
+                                    Icons.AutoMirrored.Filled.ArrowBack,
+                                    contentDescription = "Back",
+                                )
+                            }
+                        },
                     )
-                    FilterChip(
-                        selected = themeMode == SettingsStore.ThemeMode.LIGHT,
-                        onClick = { onThemeChange(SettingsStore.ThemeMode.LIGHT) },
-                        label = { Text("Светлая") },
-                    )
-                    FilterChip(
-                        selected = themeMode == SettingsStore.ThemeMode.DARK,
-                        onClick = { onThemeChange(SettingsStore.ThemeMode.DARK) },
-                        label = { Text("Тёмная") },
-                    )
-                }
-                Spacer(Modifier.height(14.dp))
-                SwitchRow(
-                    title = "Цвета системы (Material You)",
-                    subtitle = "Палитра из обоев. Android 12+",
-                    checked = dynamicColor,
-                    enabled = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S,
-                    onChange = onDynamicColorChange,
-                )
-                Spacer(Modifier.height(14.dp))
-                Text("Палитра", style = MaterialTheme.typography.bodyMedium)
-                Spacer(Modifier.height(8.dp))
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                },
+            ) { pad ->
+                Column(
+                    Modifier
+                        .fillMaxSize()
+                        .padding(pad)
+                        .systemBarsPadding()
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = 20.dp)
+                        .padding(bottom = 120.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp),
                 ) {
-                    CrystalPalettes.forEach { palette ->
-                        val selected = palette.id == paletteId
-                        Row(
-                            Modifier
-                                .clip(RoundedCornerShape(999.dp))
-                                .background(
-                                    if (selected) {
-                                        MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)
-                                    } else {
-                                        Color.Transparent
-                                    },
-                                )
-                                .border(
-                                    1.dp,
-                                    if (selected) {
-                                        MaterialTheme.colorScheme.primary
-                                    } else {
-                                        MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
-                                    },
-                                    RoundedCornerShape(999.dp),
-                                )
-                                .clickable { onPaletteChange(palette.id) }
-                                .padding(horizontal = 10.dp, vertical = 6.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Box(
-                                Modifier
-                                    .size(18.dp)
-                                    .clip(CircleShape)
-                                    .background(
-                                        Brush.linearGradient(
-                                            listOf(palette.swatch, lerp(palette.swatch, palette.accent2, 0.7f)),
-                                        ),
-                                    ),
+                    SettingsCard(
+                        isDark = glassDark,
+                        overWallpaper = wallpaper != null,
+                        icon = Icons.Default.Palette,
+                        title = "Оформление",
+                    ) {
+                        Text("Тема", style = MaterialTheme.typography.bodyMedium)
+                        Spacer(Modifier.height(8.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            FilterChip(
+                                selected = themeMode == SettingsStore.ThemeMode.SYSTEM,
+                                onClick = { onThemeChange(SettingsStore.ThemeMode.SYSTEM) },
+                                label = { Text("Системная") },
                             )
-                            Spacer(Modifier.width(7.dp))
-                            Text(
-                                palette.name,
-                                style = MaterialTheme.typography.labelMedium,
-                                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
-                                color = if (selected) {
-                                    MaterialTheme.colorScheme.primary
-                                } else {
-                                    MaterialTheme.colorScheme.onSurfaceVariant
-                                },
+                            FilterChip(
+                                selected = themeMode == SettingsStore.ThemeMode.LIGHT,
+                                onClick = { onThemeChange(SettingsStore.ThemeMode.LIGHT) },
+                                label = { Text("Светлая") },
+                            )
+                            FilterChip(
+                                selected = themeMode == SettingsStore.ThemeMode.DARK,
+                                onClick = { onThemeChange(SettingsStore.ThemeMode.DARK) },
+                                label = { Text("Тёмная") },
                             )
                         }
+                        Spacer(Modifier.height(14.dp))
+                        SwitchRow(
+                            title = "Цвета системы (Material You)",
+                            subtitle = "Палитра из обоев. Android 12+",
+                            checked = dynamicColor,
+                            enabled = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S,
+                            onChange = onDynamicColorChange,
+                        )
+                        Spacer(Modifier.height(14.dp))
+                        Text("Палитра", style = MaterialTheme.typography.bodyMedium)
+                        Spacer(Modifier.height(8.dp))
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            CrystalPalettes.forEach { palette ->
+                                val selected = palette.id == paletteId
+                                Row(
+                                    Modifier
+                                        .clip(RoundedCornerShape(999.dp))
+                                        .background(
+                                            if (selected) {
+                                                MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)
+                                            } else {
+                                                Color.Transparent
+                                            },
+                                        )
+                                        .border(
+                                            1.dp,
+                                            if (selected) {
+                                                MaterialTheme.colorScheme.primary
+                                            } else {
+                                                MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
+                                            },
+                                            RoundedCornerShape(999.dp),
+                                        )
+                                        .clickable { onPaletteChange(palette.id) }
+                                        .padding(horizontal = 10.dp, vertical = 6.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Box(
+                                        Modifier
+                                            .size(18.dp)
+                                            .clip(CircleShape)
+                                            .background(
+                                                Brush.linearGradient(
+                                                    listOf(
+                                                        palette.swatch,
+                                                        lerp(palette.swatch, palette.accent2, 0.7f),
+                                                    ),
+                                                ),
+                                            ),
+                                    )
+                                    Spacer(Modifier.width(7.dp))
+                                    Text(
+                                        palette.name,
+                                        style = MaterialTheme.typography.labelMedium,
+                                        fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
+                                        color = if (selected) {
+                                            MaterialTheme.colorScheme.primary
+                                        } else {
+                                            MaterialTheme.colorScheme.onSurfaceVariant
+                                        },
+                                    )
+                                }
+                            }
+                        }
+                        Spacer(Modifier.height(14.dp))
+                        Text("Свои обои", style = MaterialTheme.typography.bodyMedium)
+                        Text(
+                            if (wallpaperSet) "Обои установлены" else "Обои не выбраны",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Button(
+                                onClick = onPickWallpaper,
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(14.dp),
+                            ) {
+                                Icon(
+                                    Icons.Default.Image,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp),
+                                )
+                                Spacer(Modifier.width(6.dp))
+                                Text("Выбрать")
+                            }
+                            Button(
+                                onClick = onClearWallpaper,
+                                enabled = wallpaperSet,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .border(
+                                        1.dp,
+                                        MaterialTheme.colorScheme.primary.copy(alpha = 0.35f),
+                                        RoundedCornerShape(14.dp),
+                                    ),
+                                shape = RoundedCornerShape(14.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                                    contentColor = MaterialTheme.colorScheme.primary,
+                                ),
+                            ) {
+                                Icon(
+                                    Icons.Default.Wallpaper,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp),
+                                )
+                                Spacer(Modifier.width(6.dp))
+                                Text("Сбросить")
+                            }
+                        }
                     }
+
+                    SettingsCard(
+                        isDark = glassDark,
+                        overWallpaper = wallpaper != null,
+                        icon = Icons.Default.Bolt,
+                        title = "Подключение",
+                    ) {
+                        SwitchRow(
+                            title = "Автоподключение при запуске",
+                            subtitle = "Соединять выбранный профиль при открытии приложения",
+                            checked = autoConnect,
+                            onChange = onAutoConnectChange,
+                        )
+                    }
+
+                    SettingsCard(
+                        isDark = glassDark,
+                        overWallpaper = wallpaper != null,
+                        icon = Icons.Default.FileOpen,
+                        title = "Профили",
+                    ) {
+                        Text(
+                            "Импорт: файл конфигурации (.conf / .txt / .json), ссылки " +
+                                "vless:// trojan:// ss:// vmess:// socks5:// или wg-quick конфиг.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Spacer(Modifier.height(12.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Button(
+                                onClick = onImport,
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(14.dp),
+                            ) {
+                                Icon(
+                                    Icons.Default.FileOpen,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp),
+                                )
+                                Spacer(Modifier.width(6.dp))
+                                Text("Импорт")
+                            }
+                            Button(
+                                onClick = onExport,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .border(
+                                        1.dp,
+                                        MaterialTheme.colorScheme.primary.copy(alpha = 0.35f),
+                                        RoundedCornerShape(14.dp),
+                                    ),
+                                shape = RoundedCornerShape(14.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                                    contentColor = MaterialTheme.colorScheme.primary,
+                                ),
+                            ) {
+                                Icon(
+                                    Icons.Default.FileDownload,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp),
+                                )
+                                Spacer(Modifier.width(6.dp))
+                                Text("Экспорт")
+                            }
+                        }
+                    }
+
+                    SettingsCard(
+                        isDark = glassDark,
+                        overWallpaper = wallpaper != null,
+                        icon = Icons.Default.Info,
+                        title = "О приложении",
+                    ) {
+                        Text(
+                            "CrystalN ${BuildConfig.VERSION_NAME}",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            "Ядра: Xray (VMess/VLESS/Trojan/Shadowsocks/SOCKS/HTTP), " +
+                                "WireGuard и AmneziaWG (amneziawg-go, junk-параметры " +
+                                "Jc/Jmin/Jmax/S1/S2/H1–H4).",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+
+                    Spacer(Modifier.height(24.dp))
                 }
-                Spacer(Modifier.height(14.dp))
-                Text("Свои обои", style = MaterialTheme.typography.bodyMedium)
-                Text(
-                    if (wallpaperSet) "Обои установлены" else "Обои не выбраны",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Spacer(Modifier.height(8.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Button(
-                        onClick = onPickWallpaper,
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(14.dp),
-                    ) {
-                        Icon(Icons.Default.Image, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.width(6.dp))
-                        Text("Выбрать")
-                    }
-                    Button(
-                        onClick = onClearWallpaper,
-                        enabled = wallpaperSet,
-                        modifier = Modifier
-                            .weight(1f)
-                            .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.35f), RoundedCornerShape(14.dp)),
-                        shape = RoundedCornerShape(14.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
-                            contentColor = MaterialTheme.colorScheme.primary,
-                        ),
-                    ) {
-                        Icon(Icons.Default.Wallpaper, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.width(6.dp))
-                        Text("Сбросить")
-                    }
-                }
             }
 
-            SettingsCard(isDark = isDark, icon = Icons.Default.Bolt, title = "Подключение") {
-                SwitchRow(
-                    title = "Автоподключение при запуске",
-                    subtitle = "Соединять выбранный профиль при открытии приложения",
-                    checked = autoConnect,
-                    onChange = onAutoConnectChange,
-                )
-            }
+            // Real frosted backdrop behind the tab bar.
+            TabBarBackdrop(
+                wallpaper = wallpaper,
+                isDark = glassDark,
+                modifier = Modifier.matchParentSize(),
+            )
 
-            SettingsCard(isDark = isDark, icon = Icons.Default.FileOpen, title = "Профили") {
-                Text(
-                    "Импорт: файл конфигурации (.conf / .txt / .json), ссылки vless:// trojan:// ss:// vmess:// socks5:// или wg-quick конфиг.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Spacer(Modifier.height(12.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Button(
-                        onClick = onImport,
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(14.dp),
-                    ) {
-                        Icon(Icons.Default.FileOpen, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.width(6.dp))
-                        Text("Импорт")
-                    }
-                    Button(
-                        onClick = onExport,
-                        modifier = Modifier
-                            .weight(1f)
-                            .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.35f), RoundedCornerShape(14.dp)),
-                        shape = RoundedCornerShape(14.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
-                            contentColor = MaterialTheme.colorScheme.primary,
-                        ),
-                    ) {
-                        Icon(Icons.Default.FileDownload, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.width(6.dp))
-                        Text("Экспорт")
-                    }
-                }
-            }
-
-            SettingsCard(isDark = isDark, icon = Icons.Default.Info, title = "О приложении") {
-                Text(
-                    "CrystalN ${BuildConfig.VERSION_NAME}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.SemiBold,
-                )
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    "Ядра: Xray (VMess/VLESS/Trojan/Shadowsocks/SOCKS/HTTP), " +
-                        "WireGuard и AmneziaWG (amneziawg-go, junk-параметры Jc/Jmin/Jmax/S1/S2/H1–H4).",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-
-            Spacer(Modifier.height(24.dp))
-        }
-        }
-
-        // Soft scrim behind the tab bar so card text doesn't ghost through.
-        Box(
-            Modifier
-                .align(Alignment.BottomCenter)
-                .fillMaxWidth()
-                .height(210.dp)
-                .background(
-                    Brush.verticalGradient(
-                        listOf(
-                            Color.Transparent,
-                            MaterialTheme.colorScheme.background.copy(alpha = 0.85f),
-                            MaterialTheme.colorScheme.background,
-                        ),
-                    ),
+            // Floating liquid-glass tab bar, iOS-style.
+            GlassTabBar(
+                isDark = glassDark,
+                overWallpaper = wallpaper != null,
+                tabs = listOf(
+                    GlassTab(Icons.Default.PowerSettingsNew, "Подключение"),
+                    GlassTab(Icons.Default.Settings, "Настройки"),
                 ),
-        )
-
-        // Floating liquid-glass tab bar, iOS-style.
-        GlassTabBar(
-            isDark = isDark,
-            tabs = listOf(
-                GlassTab(Icons.Default.Bolt, "Подключение"),
-                GlassTab(Icons.Default.Settings, "Настройки"),
-            ),
-            selected = 1,
-            onSelect = { index -> if (index == 0) onBack() },
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .navigationBarsPadding()
-                .padding(horizontal = 28.dp, vertical = 12.dp),
-        )
+                selected = 1,
+                onSelect = { index -> if (index == 0) onBack() },
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .navigationBarsPadding()
+                    .padding(horizontal = 28.dp, vertical = 12.dp),
+            )
+        }
     }
 }
 
 @Composable
 private fun SettingsCard(
     isDark: Boolean,
+    overWallpaper: Boolean,
     icon: ImageVector,
     title: String,
     content: @Composable () -> Unit,
@@ -332,7 +403,7 @@ private fun SettingsCard(
     Box(
         Modifier
             .fillMaxWidth()
-            .liquidGlass(RoundedCornerShape(24.dp), Glass.tint(isDark, false), isDark),
+            .liquidGlass(RoundedCornerShape(24.dp), Glass.tint(isDark, overWallpaper), isDark),
     ) {
         Column(Modifier.fillMaxWidth().padding(18.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
