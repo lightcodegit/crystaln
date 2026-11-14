@@ -89,6 +89,8 @@ object XrayConfigBuilder {
         Protocol.HTTP -> "http"
         Protocol.WIREGUARD, Protocol.AMNEZIAWG ->
             throw IllegalArgumentException("WireGuard-family is not routed through Xray")
+        Protocol.OPENVPN ->
+            throw IllegalArgumentException("OpenVPN is not routed through Xray")
     }
 
     private fun settingsFor(p: Profile): JSONObject = when (p.protocol) {
@@ -165,6 +167,9 @@ object XrayConfigBuilder {
 
         Protocol.WIREGUARD, Protocol.AMNEZIAWG ->
             throw IllegalArgumentException("WireGuard-family is not routed through Xray")
+
+        Protocol.OPENVPN ->
+            throw IllegalArgumentException("OpenVPN is not routed through Xray")
     }
 
     private fun server(p: Profile): JSONObject =

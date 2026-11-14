@@ -15,6 +15,7 @@
 | HTTP        | Xray                              | с авторизацией и без |
 | WireGuard   | amneziawg-go (официальное ядро Amnezia) | wg-quick конфиг, AllowedIPs, DNS |
 | AmneziaWG   | amneziawg-go                      | junk-параметры Jc/Jmin/Jmax/S1/S2/H1–H4 |
+| OpenVPN     | openvpn 2.6 (официальное ядро, TARGET_ANDROID) | .ovpn конфиг, UDP/TCP, TLS-инлайн-сертификаты, auth-user-pass |
 
 TLS и REALITY настраиваются для любого Xray-профиля (SNI, uTLS fingerprint,
 ALPN, publicKey/shortId/spiderX).
@@ -33,6 +34,28 @@ WireGuard, при нулевых junk-параметрах поведение и
 
 ```sh
 bash tools/build_awg_core.sh   # клонирует third_party/amneziawg-android и собирает AAR
+```
+
+## OpenVPN (официальное ядро)
+
+OpenVPN работает через официальный `openvpn 2.6`, собранный из исходников для
+Android (`TARGET_ANDROID`): tun-интерфейс создаёт приложение через
+`VpnService.establish()`, а openvpn получает его fd через management-интерфейс
+(SCM_RIGHTS) — официальный механизм из `doc/android.txt` ядра, тот же, что
+использует ics-openvpn. Обвязка — чистая Java (`LocalSocket`/`LocalServerSocket`
++ `setFileDescriptorsForSend`), без JNI.
+
+Кастомные директивы, неприменимые на Android (скрипты up/down, plugin,
+внешние helper-файлы, свои management/status), вырезаются из конфига;
+`auth-user-pass` заменяется на credentials-файл (логин/пароль из редактора
+профиля). Инлайн-сертификаты (`<ca>`, `<cert>`, `<key>`) и статические ключи
+работают как есть.
+
+Сборка ядра (нужен Android NDK; OpenSSL/LZO/LZ4 скачиваются и линкуются
+статически):
+
+```sh
+bash tools/build_openvpn_core.sh   # кладёт libovpnexec.so в app/src/main/jniLibs/<abi>/
 ```
 
 ## Сборка
@@ -58,6 +81,9 @@ tools/fetch_cores.sh          # windows: bash tools/fetch_cores.sh
   `socks5://`, `http(s)://`.
 - WireGuard: создайте профиль WireGuard и вставьте готовый wg-quick конфиг
   (PrivateKey/Address/DNS + [Peer] PublicKey/Endpoint/AllowedIPs).
+- OpenVPN: вставьте готовый `.ovpn` конфиг (сертификаты должны быть встроены
+  в текст: `<ca>`, `<cert>`, `<key>`) в редакторе профиля; либо просто
+  импортируйте текст конфига из буфера обмена.
 
 ## Архитектура
 
@@ -67,6 +93,8 @@ data/          Профили (JSON-файл в filesDir), парсер share-с
 service/       CrystalVpnService — VpnService для семейства Xray
 wg/            WireGuardTunnel — официальный GoBackend (свой VpnService)
 xray/          Генератор конфига Xray + обёртка над libv2ray
+openvpn/       OpenVpnService — официальное ядро openvpn (child process,
+               management-интерфейс, tun-fd через SCM_RIGHTS)
 ```
 
 Как это работает:
@@ -78,6 +106,11 @@ xray/          Генератор конфига Xray + обёртка над li
 - **WireGuard.** Официальный `com.wireguard.android:tunnel` (wireguard-go):
   бэкенд сам стартует свой VpnService (объявлен в манифесте как
   `GoBackend$VpnService`), конфиг парсится из wg-quick текста.
+- **OpenVPN.** Ядро `libovpnexec.so` запускается дочерним процессом
+  (`ProcessBuilder`, как в ics-openvpn); приложение слушает management-сокет,
+  отвечает на запросы `IFCONFIG`/`ROUTE`/`DNSSERVER`, создаёт TUN через
+  `establish()` и передаёт fd в ответе `needok 'OPENTUN' ok` через
+  SCM_RIGHTS. Статистика — `>BYTECOUNT:in,out` management-сообщения.
 - Статистика: Xray отдаёт счётчики через `queryAllOutboundTrafficStats()`,
   WireGuard — через `GoBackend.getStatistics()`.
 
@@ -85,8 +118,10 @@ xray/          Генератор конфига Xray + обёртка над li
 
 - Задержка/тест профилей: доступен через `measureOutboundDelay`, в UI пока не выведен.
 - Нет per-app прокси и kill-switch (planned).
-- OpenVPN не встроен: официального Android-AAR у ics-openvpn нет; план —
-  отдельный модуль с сборкой ядра.
+- OpenVPN: не поддерживаются конфиги с external-файлами (cert/key/ca в
+  отдельных файлах — только inline), `http-proxy` игнорируется, TAP не
+  поддерживается (Android умеет только TUN), авторизация — только
+  статический логин/пароль (стерео-токены/OTP не выводятся в UI).
 - Hysteria2/TUIC потребовали бы sing-box; архитектура движков это позволяет
   добавить третьим ядром.
 

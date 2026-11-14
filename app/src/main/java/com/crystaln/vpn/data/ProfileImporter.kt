@@ -9,6 +9,7 @@ import org.json.JSONObject
  * Handles, in order:
  * - JSON export format {"profiles":[...]} produced by CrystalN export;
  * - wg-quick / AmneziaWG config text ([Interface] / [Peer] / [AmneziaWG]);
+ * - OpenVPN .ovpn config text (remote + dev tun + inline CA);
  * - share-link lists (vless://, trojan://, ss://, vmess://, socks5://, http(s)://).
  */
 object ProfileImporter {
@@ -30,7 +31,47 @@ object ProfileImporter {
             parseWireGuardFamily(trimmed)?.let { return listOf(it) }
         }
 
+        // OpenVPN .ovpn config?
+        if (isOpenVpnConfig(trimmed)) {
+            parseOpenVpn(trimmed)?.let { return listOf(it) }
+        }
+
         return ShareLinkParser.parseAll(trimmed)
+    }
+
+    /**
+     * Heuristic .ovpn detection: needs a `remote` line plus at least one other
+     * OpenVPN-specific directive. Share links and wg configs never match this.
+     */
+    private fun isOpenVpnConfig(text: String): Boolean {
+        val lines = text.lines().map { it.trim().lowercase() }
+        val hasRemote = lines.any { it.startsWith("remote ") }
+        if (!hasRemote) return false
+        val markers = setOf("client", "tls-client", "dev tun", "proto ", "verb ", "cipher ", "<ca>", "-----begin cert")
+        return lines.any { line -> markers.any { line.contains(it) } }
+    }
+
+    private fun parseOpenVpn(config: String): Profile? {
+        return try {
+            val remote = config.lineSequence()
+                .map { it.trim() }
+                .firstOrNull { it.startsWith("remote ", ignoreCase = true) }
+                ?.split(Regex("\\s+"))
+                ?: return null
+            if (remote.size < 2) return null
+            val host = remote[1]
+            val port = remote.getOrNull(2)?.toIntOrNull() ?: 1194
+            Profile(
+                name = "OpenVPN $host:$port",
+                protocol = Protocol.OPENVPN,
+            ).apply {
+                address = host
+                this.port = port
+                ovpnConfig = config.trim()
+            }
+        } catch (_: Exception) {
+            null
+        }
     }
 
     private fun parseJsonExport(text: String): List<Profile> {

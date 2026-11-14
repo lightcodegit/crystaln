@@ -17,3 +17,7 @@ third_party/
 # OS
 .DS_Store
 Thumbs.db
+
+# OpenVPN core (built by tools/build_openvpn_core.sh)
+app/src/main/jniLibs/
+third_party/build/

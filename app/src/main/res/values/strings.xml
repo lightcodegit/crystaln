@@ -37,4 +37,10 @@
     <string name="delete_confirm">Delete profile “%1$s”?</string>
     <string name="vpn_permission_denied">VPN permission denied</string>
     <string name="start_failed">Failed to start tunnel</string>
+    <string name="ovpn_config_invalid">Некорректный конфиг OpenVPN-клиента</string>
+    <string name="ovpn_core_missing">Ядро OpenVPN не собрано — запустите tools/build_openvpn_core.sh</string>
+    <string name="ovpn_need_credentials">Для этого OpenVPN-профиля нужен логин и пароль (auth-user-pass)</string>
+    <string name="ovpn_auth_failed">OpenVPN: ошибка авторизации (неверный логин/пароль)</string>
+    <string name="ovpn_timeout">OpenVPN: истекло время ожидания подключения</string>
+    <string name="ovpn_exited">Процесс OpenVPN неожиданно завершился</string>
 </resources>

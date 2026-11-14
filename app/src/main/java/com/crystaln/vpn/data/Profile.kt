@@ -12,7 +12,8 @@ enum class Protocol(val displayName: String) {
     SOCKS("SOCKS5"),
     HTTP("HTTP"),
     WIREGUARD("WireGuard"),
-    AMNEZIAWG("AmneziaWG");
+    AMNEZIAWG("AmneziaWG"),
+    OPENVPN("OpenVPN");
 
     companion object {
         fun fromNameOrNull(name: String?): Protocol? =
@@ -26,6 +27,7 @@ enum class Protocol(val displayName: String) {
  * Xray-family profiles keep their protocol-specific options in [fields]
  * (id/password/method, transport settings, TLS/REALITY settings, ...).
  * WireGuard profiles carry a raw wg-quick style config in [wgConfig].
+ * OpenVPN profiles carry a raw .ovpn config in [ovpnConfig].
  */
 data class Profile(
     val id: String = UUID.randomUUID().toString(),
@@ -35,6 +37,7 @@ data class Profile(
     var port: Int = 0,
     var fields: MutableMap<String, String> = mutableMapOf(),
     var wgConfig: String = "",
+    var ovpnConfig: String = "",
 ) {
     val isWireGuard: Boolean get() = protocol == Protocol.WIREGUARD
 
@@ -42,12 +45,28 @@ data class Profile(
     val isWireGuardFamily: Boolean
         get() = protocol == Protocol.WIREGUARD || protocol == Protocol.AMNEZIAWG
 
+    /** OpenVPN runs in its own VpnService with the native openvpn core. */
+    val isOpenVpn: Boolean get() = protocol == Protocol.OPENVPN
+
     /** Short description line shown under the profile name in lists. */
     fun summary(): String = when (protocol) {
         Protocol.WIREGUARD, Protocol.AMNEZIAWG ->
             wgConfig.lineSequence().firstOrNull { it.startsWith("Endpoint") }
                 ?.substringAfter('=')?.trim()?.ifEmpty { null }
                 ?: protocol.displayName
+        Protocol.OPENVPN -> {
+            val remote = ovpnConfig.lineSequence()
+                .map { it.trim() }
+                .firstOrNull { it.startsWith("remote ", ignoreCase = true) }
+                ?.split(Regex("\\s+"))
+            if (remote != null && remote.size >= 3) {
+                val proto = remote.getOrNull(3)?.lowercase()?.removeSuffix("4")?.removeSuffix("6")
+                    ?.takeIf { it == "udp" || it == "tcp" }
+                "${remote[1]}:${remote[2]}" + (proto?.let { " · $it" } ?: "")
+            } else {
+                protocol.displayName
+            }
+        }
         else -> "$address:${if (port > 0) port else "?"} · ${transportLabel()}"
     }
 
@@ -69,6 +88,7 @@ data class Profile(
         put("port", port)
         put("fields", JSONObject(fields))
         put("wgConfig", wgConfig)
+        put("ovpnConfig", ovpnConfig)
     }
 
     companion object {
@@ -84,6 +104,7 @@ data class Profile(
                 }
             } ?: mutableMapOf(),
             wgConfig = o.optString("wgConfig"),
+            ovpnConfig = o.optString("ovpnConfig"),
         )
     }
 }

@@ -147,6 +147,8 @@ fun EditorScreen(
 
                     if (protocol == Protocol.WIREGUARD || protocol == Protocol.AMNEZIAWG) {
                         WireGuardFamilyFields(protocol, ::value, ::set, isDark)
+                    } else if (protocol == Protocol.OPENVPN) {
+                        OpenVpnFields(isDark, ::value, ::set)
                     } else {
                         XrayFields(protocol, isDark, ::value, ::set, tls, reality, insecure,
                             onTls = { tls = it }, onReality = { reality = it }, onInsecure = { insecure = it })
@@ -207,6 +209,7 @@ private fun prefill(map: MutableMap<String, String>, existing: Profile?, protoco
     map["address"] = existing.address
     map["port"] = if (existing.port > 0) existing.port.toString() else ""
     map["wgConfig"] = existing.wgConfig
+    map["ovpnConfig"] = existing.ovpnConfig
     if (existing.protocol == protocol) {
         existing.fields.forEach { (k, v) ->
             if (k !in setOf("network", "tls", "reality", "allowInsecure")) map[k] = v
@@ -236,6 +239,23 @@ private fun buildProfile(
                 v(k).takeIf { it.isNotEmpty() }?.let { p.fields[k] = it }
             }
         }
+        return p
+    }
+
+    if (protocol == Protocol.OPENVPN) {
+        p.ovpnConfig = v("ovpnConfig")
+        // Address/port are only informational (extracted from the first
+        // `remote` line) — the raw config drives the connection.
+        val remote = p.ovpnConfig.lineSequence()
+            .map { it.trim() }
+            .firstOrNull { it.startsWith("remote ", ignoreCase = true) }
+            ?.split(Regex("\\s+"))
+        p.address = remote?.getOrNull(1) ?: ""
+        p.port = remote?.getOrNull(2)?.toIntOrNull() ?: 0
+        p.wgConfig = ""
+        p.fields = mutableMapOf()
+        v("ovpnUser").takeIf { it.isNotEmpty() }?.let { p.fields["ovpnUser"] = it }
+        v("ovpnPass").takeIf { it.isNotEmpty() }?.let { p.fields["ovpnPass"] = it }
         return p
     }
 
@@ -304,7 +324,7 @@ private fun XrayFields(
                 TextFieldRow("username", "Логин (опционально)", value, set)
                 TextFieldRow("password", "Пароль (опционально)", value, set)
             }
-            Protocol.WIREGUARD, Protocol.AMNEZIAWG -> Unit
+            Protocol.WIREGUARD, Protocol.AMNEZIAWG, Protocol.OPENVPN -> Unit
         }
         TextFieldRow("name", "Название профиля", value, set)
     }
@@ -418,6 +438,42 @@ private fun transportLabel(key: String): String = when (key) {
     "headerType" -> "Header type (kcp/quic)"
     "kcpSeed" -> "KCP seed"
     else -> key
+}
+
+@Composable
+private fun OpenVpnFields(
+    isDark: Boolean,
+    value: (String) -> String,
+    set: (String, String) -> Unit,
+) {
+    SectionLabel("Конфигурация")
+    GlassPanel(isDark = isDark) {
+        TextFieldRow(
+            "ovpnConfig",
+            ".ovpn конфиг",
+            value,
+            set,
+            minLines = 10,
+            placeholder = "client\ndev tun\nproto udp\nremote host 1194\n<ca>\n...\n</ca>\nauth-user-pass",
+        )
+        Text(
+            "Сертификаты должны быть встроены в конфиг (<ca>, <cert>, <key>). " +
+                "Строки авторизации, скрипты и external-файлы не используются.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+
+    SectionLabel("Авторизация (если сервер запрашивает auth-user-pass)")
+    GlassPanel(isDark = isDark) {
+        TextFieldRow("ovpnUser", "Логин (опционально)", value, set)
+        TextFieldRow("ovpnPass", "Пароль (опционально)", value, set)
+    }
+
+    SectionLabel("Название")
+    GlassPanel(isDark = isDark) {
+        TextFieldRow("name", "Название профиля", value, set)
+    }
 }
 
 @OptIn(ExperimentalLayoutApi::class)

@@ -62,6 +62,25 @@
                 android:value="vpn" />
         </service>
 
+        <!-- OpenVPN profiles: official openvpn core executed as a child process -->
+        <service
+            android:name=".openvpn.OpenVpnService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="specialUse"
+            android:label="@string/app_name"
+            android:permission="android.permission.BIND_VPN_SERVICE"
+            tools:ignore="VpnServicePolicy">
+            <intent-filter>
+                <action android:name="android.net.VpnService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.net.VpnService.SUPPORTS_ALWAYS_ON"
+                android:value="true" />
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="vpn" />
+        </service>
 
         <!-- AmneziaWG userspace backend service (official amneziawg-go core) -->
         <service

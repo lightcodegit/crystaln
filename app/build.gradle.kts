@@ -45,6 +45,14 @@ android {
         compose = true
         buildConfig = true
     }
+
+    packaging {
+        jniLibs {
+            // libovpnexec.so (OpenVPN core) is executed as a child process and
+            // must be extracted to nativeLibraryDir, not loaded from the APK.
+            useLegacyPackaging = true
+        }
+    }
 }
 
 dependencies {

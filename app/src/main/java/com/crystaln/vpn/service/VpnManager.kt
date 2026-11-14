@@ -4,6 +4,8 @@ import android.content.Context
 import androidx.core.content.ContextCompat
 import com.crystaln.vpn.data.Profile
 import com.crystaln.vpn.data.Protocol
+import com.crystaln.vpn.openvpn.OpenVpnService
+import com.crystaln.vpn.openvpn.OpenVpnStats
 import com.crystaln.vpn.wg.AwgTunnel
 import com.crystaln.vpn.wg.WgErrorText
 import com.crystaln.vpn.wg.WireGuardTunnel
@@ -68,14 +70,23 @@ object VpnManager {
             _ui.value = UiState(State.STARTING, profile)
             generation.incrementAndGet()
         }
-        if (profile.isWireGuardFamily) {
-            if (profile.protocol == Protocol.WIREGUARD) {
+        when {
+            profile.isWireGuardFamily -> if (profile.protocol == Protocol.WIREGUARD) {
                 startWireGuard(context.applicationContext, profile, myGeneration)
             } else {
                 startAwg(context.applicationContext, profile, myGeneration)
             }
-        } else {
-            try {
+
+            profile.isOpenVpn -> try {
+                ContextCompat.startForegroundService(
+                    context,
+                    OpenVpnService.startIntent(context, profile),
+                )
+            } catch (t: Throwable) {
+                failGeneration(myGeneration, profile, WgErrorText.of(t))
+            }
+
+            else -> try {
                 ContextCompat.startForegroundService(
                     context,
                     CrystalVpnService.startIntent(context, profile),
@@ -97,14 +108,27 @@ object VpnManager {
         val st = _ui.value
         if (st.state == State.OFF || st.state == State.STOPPING) return
         _ui.value = st.copy(state = State.STOPPING)
-        if (st.profile?.isWireGuardFamily == true || wgTunnel != null || awgTunnel != null) {
-            stopWireGuardLocked()
-        } else {
-            try {
-                context.startService(CrystalVpnService.stopIntent(context))
-            } catch (_: Throwable) {
-                // The service may already be gone; treat it as stopped.
-                _ui.value = UiState(State.OFF, st.profile)
+        when {
+            st.profile?.isOpenVpn == true -> {
+                try {
+                    context.startService(OpenVpnService.stopIntent(context))
+                } catch (_: Throwable) {
+                    // The service may already be gone; treat it as stopped.
+                    _ui.value = UiState(State.OFF, st.profile)
+                }
+            }
+
+            st.profile?.isWireGuardFamily == true || wgTunnel != null || awgTunnel != null -> {
+                stopWireGuardLocked()
+            }
+
+            else -> {
+                try {
+                    context.startService(CrystalVpnService.stopIntent(context))
+                } catch (_: Throwable) {
+                    // The service may already be gone; treat it as stopped.
+                    _ui.value = UiState(State.OFF, st.profile)
+                }
             }
         }
     }
@@ -226,6 +250,7 @@ object VpnManager {
         wgTunnel?.let { t ->
             return t.traffic() ?: (0L to 0L)
         }
+        OpenVpnStats.traffic()?.let { return it }
         XrayEngineHolder.traffic()?.let { return it }
         return 0L to 0L
     }
