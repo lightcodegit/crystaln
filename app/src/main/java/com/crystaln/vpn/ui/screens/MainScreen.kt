@@ -1,15 +1,12 @@
 package com.crystaln.vpn.ui.screens
 
-import android.graphics.Bitmap
-import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Image
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -21,13 +18,13 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.offset
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -43,47 +40,39 @@ import androidx.compose.material.icons.filled.FileOpen
 import androidx.compose.material.icons.filled.Lan
 import androidx.compose.material.icons.filled.PowerSettingsNew
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.clipToBounds
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.crystaln.vpn.data.Profile
 import com.crystaln.vpn.data.Protocol
 import com.crystaln.vpn.service.VpnManager
+import com.crystaln.vpn.ui.LiquidBlobs
+import com.crystaln.vpn.ui.WallpaperLayer
+import com.crystaln.vpn.ui.glass.CircleGlassButton
+import com.crystaln.vpn.ui.glass.CountBadge
 import com.crystaln.vpn.ui.glass.Glass
 import com.crystaln.vpn.ui.glass.GlassTab
 import com.crystaln.vpn.ui.glass.GlassTabBar
+import com.crystaln.vpn.ui.glass.PillButton
 import com.crystaln.vpn.ui.glass.TabBarBackdrop
 import com.crystaln.vpn.ui.glass.liquidGlass
-import com.crystaln.vpn.ui.glass.liquidSheen
-import com.crystaln.vpn.ui.glass.rememberBreath
 import com.crystaln.vpn.ui.rememberWallpaper
-import com.crystaln.vpn.ui.WallpaperLayer
 import com.crystaln.vpn.ui.theme.LocalCrystalPalette
 
 fun protocolColor(p: Protocol): Color = when (p) {
@@ -132,62 +121,70 @@ fun MainScreen(
         // Content colors follow the glass, not the system theme: a dark
         // wallpaper gets a dark scheme with light text, a light one gets
         // frosted glass with dark text.
-        val contentScheme = if (overWallpaper) LocalCrystalPalette.current.scheme(glassDark) else MaterialTheme.colorScheme
+        val contentScheme = if (overWallpaper) {
+            LocalCrystalPalette.current.scheme(glassDark)
+        } else {
+            MaterialTheme.colorScheme
+        }
         MaterialTheme(colorScheme = contentScheme) {
-            CompositionLocalProvider(LocalContentColor provides contentScheme.onBackground) {
-                Column(
-                    Modifier
-                        .fillMaxSize()
-                        .systemBarsPadding()
-                        .padding(horizontal = 20.dp),
-                ) {
-                    Header(state = state)
-
-            Spacer(Modifier.height(12.dp))
-
-            ConnectCard(
-                isDark = glassDark,
-                overWallpaper = overWallpaper,
-                state = state,
-                selected = profiles.firstOrNull { it.id == (state.profile?.id ?: selectedId) },
-                onConnect = onConnect,
-            )
-
-            Spacer(Modifier.height(14.dp))
-
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    "Профили",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                )
-                Spacer(Modifier.weight(1f))
-                Text(
-                    "${profiles.size}",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            Spacer(Modifier.height(8.dp))
-
-            LazyColumn(
-                Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
-                contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 150.dp),
+            Column(
+                Modifier
+                    .fillMaxSize()
+                    .systemBarsPadding()
+                    .padding(horizontal = 24.dp),
             ) {
-                if (profiles.isEmpty()) {
-                    item { EmptyProfiles(glassDark, onImport = onImport, onAdd = onAdd) }
-                } else {
-                    items(profiles, key = { it.id }) { p ->
-                        ProfileCard(
-                            profile = p,
-                            selected = p.id == selectedId,
-                            isDark = glassDark,
-                            translucent = wallpaper != null,
-                            onSelect = { onSelect(p) },
-                            onEdit = { onEdit(p) },
-                            onDelete = { onDelete(p) },
-                        )
+                Spacer(Modifier.height(10.dp))
+
+                Header(state = state, dark = glassDark)
+
+                Spacer(Modifier.height(8.dp))
+
+                HeroStatus(
+                    state = state,
+                    selected = profiles.firstOrNull { it.id == (state.profile?.id ?: selectedId) },
+                    isDark = glassDark,
+                    overWallpaper = overWallpaper,
+                    onConnect = onConnect,
+                )
+
+                Spacer(Modifier.height(14.dp))
+
+                ProfilesHeader(
+                    count = profiles.size,
+                    isDark = glassDark,
+                    overWallpaper = overWallpaper,
+                    onImport = onImport,
+                    onAdd = onAdd,
+                )
+
+                Spacer(Modifier.height(10.dp))
+
+                LazyColumn(
+                    Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    contentPadding = PaddingValues(bottom = 215.dp),
+                ) {
+                    if (profiles.isEmpty()) {
+                        item {
+                            EmptyProfiles(
+                                isDark = glassDark,
+                                overWallpaper = overWallpaper,
+                                onImport = onImport,
+                                onAdd = onAdd,
+                            )
+                        }
+                    } else {
+                        items(profiles, key = { it.id }) { p ->
+                            ProfileCard(
+                                profile = p,
+                                selected = p.id == selectedId,
+                                isDark = glassDark,
+                                overWallpaper = overWallpaper,
+                                onSelect = { onSelect(p) },
+                                onEdit = { onEdit(p) },
+                                onDelete = { onDelete(p) },
+                            )
+                        }
                     }
                 }
             }
@@ -196,43 +193,11 @@ fun MainScreen(
         // Real frosted backdrop behind the tab bar: an exact blurred copy
         // of the wallpaper clipped to the bottom strip, so content sliding
         // under the bar dissolves into the frost instead of ghosting.
-        // Drawn after the content, before the floating controls.
         TabBarBackdrop(
             wallpaper = wallpaper,
             isDark = glassDark,
             modifier = Modifier.matchParentSize(),
         )
-
-        // FABs hover above the glass tab bar.
-        Row(
-            Modifier
-                .align(Alignment.BottomEnd)
-                .systemBarsPadding()
-                .padding(end = 20.dp, bottom = 112.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            // Ghost-accent FAB: translucent accent wash, accent icon.
-            FloatingActionButton(
-                onClick = onImport,
-                shape = CircleShape,
-                containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.18f),
-                contentColor = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.border(1.dp, Glass.rim(glassDark), CircleShape),
-            ) {
-                Icon(Icons.Default.FileOpen, contentDescription = "Import from file")
-            }
-            // Primary FAB carries the full accent.
-            FloatingActionButton(
-                onClick = onAdd,
-                shape = CircleShape,
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary,
-                modifier = Modifier.border(1.dp, Glass.rim(glassDark), CircleShape),
-            ) {
-                Icon(Icons.Default.Add, contentDescription = "Add profile")
-            }
-        }
 
         // Floating liquid-glass tab bar, iOS-style.
         GlassTabBar(
@@ -249,103 +214,50 @@ fun MainScreen(
                 .navigationBarsPadding()
                 .padding(horizontal = 28.dp, vertical = 12.dp),
         )
-            }
-        }
     }
 }
 
-/** Soft color blobs slowly drifting behind the content, like light in liquid. */
+/** App identity row: gradient logo mark, name, live status chip. */
 @Composable
-private fun LiquidBlobs(isDark: Boolean) {
-    val blob = MaterialTheme.colorScheme.primary.copy(alpha = if (isDark) 0.50f else 0.26f)
-    val blob2 = MaterialTheme.colorScheme.secondary.copy(alpha = if (isDark) 0.38f else 0.20f)
-    val blob3 = MaterialTheme.colorScheme.tertiary.copy(alpha = if (isDark) 0.34f else 0.18f)
-
-    val t = rememberInfiniteTransition(label = "blobs")
-    val drift1 by t.animateFloat(
-        -64f, 64f,
-        infiniteRepeatable(tween(9000, easing = FastOutSlowInEasing), RepeatMode.Reverse),
-        label = "drift1",
-    )
-    val drift2 by t.animateFloat(
-        48f, -48f,
-        infiniteRepeatable(tween(11500, easing = FastOutSlowInEasing), RepeatMode.Reverse),
-        label = "drift2",
-    )
-    val drift3 by t.animateFloat(
-        -40f, 40f,
-        infiniteRepeatable(tween(13500, easing = FastOutSlowInEasing), RepeatMode.Reverse),
-        label = "drift3",
-    )
-    val breathe = rememberBreath(4200)
-
-    Blob(blob, 460.dp, (-160 + drift1).dp, (-200 + drift1 * 0.6f).dp)
-    Blob(blob2, 400.dp, (260 + drift2).dp, (160 - drift2 * 0.8f).dp)
-    Blob(blob3, 340.dp, (-110 - drift3).dp, (620 + drift3).dp)
-    Blob(
-        blob.copy(alpha = blob.alpha * 0.75f),
-        (380 + breathe * 50).dp,
-        (70 + drift2 * 0.5f).dp,
-        (960 - drift1 * 0.4f).dp,
-    )
-}
-
-@Composable
-private fun Blob(color: Color, size: Dp, x: Dp, y: Dp) {
-    Box(
-        Modifier
-            .offset(x = x, y = y)
-            .size(size)
-            .clip(CircleShape)
-            .background(Brush.radialGradient(listOf(color, Color.Transparent)))
-            .then(
-                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
-                    Modifier.blur(32.dp)
-                } else {
-                    Modifier
-                },
-            ),
-    )
-}
-
-@Composable
-private fun Header(state: VpnManager.UiState) {
+private fun Header(state: VpnManager.UiState, dark: Boolean) {
     Row(
         Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(
             Modifier
-                .size(38.dp)
-                .clip(RoundedCornerShape(12.dp))
-                .background(Brush.linearGradient(LocalCrystalPalette.current.gradient(false))),
+                .size(42.dp)
+                .clip(RoundedCornerShape(14.dp))
+                .background(Brush.linearGradient(LocalCrystalPalette.current.gradient(dark))),
             contentAlignment = Alignment.Center,
         ) {
-            Text("C", color = Color.White, fontWeight = FontWeight.Black)
+            Text("C", color = Color.White, fontWeight = FontWeight.Black, style = MaterialTheme.typography.titleLarge)
         }
-        Spacer(Modifier.width(10.dp))
+        Spacer(Modifier.width(11.dp))
         Text(
             "CrystalN",
-            style = MaterialTheme.typography.headlineSmall,
+            style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.Black,
         )
         Spacer(Modifier.weight(1f))
-        StatusPill(state)
+        StatusChip(state)
     }
 }
 
+/** Compact status indicator in the header. */
 @Composable
-private fun StatusPill(state: VpnManager.UiState) {
+private fun StatusChip(state: VpnManager.UiState) {
     val (label, color) = when (state.state) {
         VpnManager.State.OFF -> "Выкл" to com.crystaln.vpn.ui.theme.StatusOff
-        VpnManager.State.STARTING -> "…" to com.crystaln.vpn.ui.theme.StatusConnecting
-        VpnManager.State.CONNECTED -> "VPN" to com.crystaln.vpn.ui.theme.StatusConnected
-        VpnManager.State.STOPPING -> "…" to com.crystaln.vpn.ui.theme.StatusConnecting
+        VpnManager.State.STARTING -> "Подкл…" to com.crystaln.vpn.ui.theme.StatusConnecting
+        VpnManager.State.CONNECTED -> "Защита" to com.crystaln.vpn.ui.theme.StatusConnected
+        VpnManager.State.STOPPING -> "Откл…" to com.crystaln.vpn.ui.theme.StatusConnecting
     }
     Row(
         Modifier
             .clip(RoundedCornerShape(999.dp))
             .background(color.copy(alpha = 0.14f))
+            .border(1.dp, color.copy(alpha = 0.30f), RoundedCornerShape(999.dp))
             .padding(horizontal = 10.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -360,151 +272,339 @@ private fun StatusPill(state: VpnManager.UiState) {
     }
 }
 
+/**
+ * The hero: a large status ring with the power button in the middle, the
+ * headline below it, the selected profile chip and live traffic stats.
+ */
 @Composable
-private fun ConnectCard(
-    isDark: Boolean,
-    overWallpaper: Boolean,
+private fun HeroStatus(
     state: VpnManager.UiState,
     selected: Profile?,
+    isDark: Boolean,
+    overWallpaper: Boolean,
     onConnect: () -> Unit,
 ) {
-    Box(
-        Modifier
-            .fillMaxWidth()
-            .liquidGlass(RoundedCornerShape(32.dp), Glass.tint(isDark, overWallpaper), isDark)
-            .padding(vertical = 14.dp, horizontal = 16.dp),
+    Column(
+        Modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Column(
-            Modifier.fillMaxWidth(),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            ConnectButton(isDark = isDark, state = state, onClick = onConnect)
+        ConnectRing(state = state, isDark = isDark, onConnect = onConnect)
 
-            Spacer(Modifier.height(10.dp))
+        Spacer(Modifier.height(12.dp))
 
-            val (label, color) = when (state.state) {
-                VpnManager.State.OFF -> "Отключено" to MaterialTheme.colorScheme.onSurface
-                VpnManager.State.STARTING -> "Подключение…" to MaterialTheme.colorScheme.primary
-                VpnManager.State.CONNECTED -> "Подключено" to com.crystaln.vpn.ui.theme.StatusConnected
-                VpnManager.State.STOPPING -> "Отключение…" to MaterialTheme.colorScheme.primary
-            }
-            Text(
-                label,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = color,
+        val (headline, sub, color) = when (state.state) {
+            VpnManager.State.OFF -> Triple(
+                "Защита выключена",
+                "Нажмите, чтобы подключиться",
+                MaterialTheme.colorScheme.onSurface,
             )
+            VpnManager.State.STARTING -> Triple(
+                "Подключение…",
+                "Устанавливаем защищённый туннель",
+                MaterialTheme.colorScheme.primary,
+            )
+            VpnManager.State.CONNECTED -> Triple(
+                "Соединение защищено",
+                "Ваш трафик идёт через туннель",
+                com.crystaln.vpn.ui.theme.StatusConnected,
+            )
+            VpnManager.State.STOPPING -> Triple(
+                "Отключение…",
+                "Закрываем туннель",
+                MaterialTheme.colorScheme.primary,
+            )
+        }
+        Text(
+            headline,
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold,
+            color = color,
+        )
+        Text(
+            sub,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
 
-            selected?.let { p ->
-                Spacer(Modifier.height(4.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.size(8.dp).clip(CircleShape).background(protocolColor(p.protocol)))
-                    Spacer(Modifier.width(6.dp))
-                    Text(
-                        "${p.name} · ${p.protocol.displayName}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
+        selected?.let { p ->
+            Spacer(Modifier.height(10.dp))
+            Row(
+                Modifier
+                    .clip(RoundedCornerShape(999.dp))
+                    .liquidGlass(
+                        RoundedCornerShape(999.dp),
+                        Glass.tintSoft(isDark, overWallpaper),
+                        isDark,
+                        flat = true,
                     )
-                }
-            }
-
-            if (state.state == VpnManager.State.CONNECTED && (state.rx > 0 || state.tx > 0)) {
-                Spacer(Modifier.height(10.dp))
-                TrafficRow(rx = state.rx, tx = state.tx)
-            }
-
-            state.error?.let { msg ->
-                Spacer(Modifier.height(8.dp))
+                    .padding(horizontal = 14.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(Modifier.size(8.dp).clip(CircleShape).background(protocolColor(p.protocol)))
+                Spacer(Modifier.width(7.dp))
                 Text(
-                    msg,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.error,
-                    textAlign = TextAlign.Center,
+                    p.name,
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    "· ${p.protocol.displayName}",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
                 )
             }
         }
-    }
-}
-@Composable
-private fun TrafficRow(rx: Long, tx: Long) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Icon(
-            Icons.Default.ArrowDownward,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.tertiary,
-            modifier = Modifier.size(14.dp),
-        )
-        Spacer(Modifier.width(4.dp))
-        Text(humanBytes(rx), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
-        Spacer(Modifier.width(14.dp))
-        Icon(
-            Icons.Default.ArrowUpward,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(14.dp),
-        )
-        Spacer(Modifier.width(4.dp))
-        Text(humanBytes(tx), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
+
+        if (state.state == VpnManager.State.CONNECTED && (state.rx > 0 || state.tx > 0)) {
+            Spacer(Modifier.height(12.dp))
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                StatCard(
+                    label = "Загрузка",
+                    value = humanBytes(state.rx),
+                    icon = Icons.Default.ArrowDownward,
+                    tint = MaterialTheme.colorScheme.tertiary,
+                    isDark = isDark,
+                    overWallpaper = overWallpaper,
+                    modifier = Modifier.weight(1f),
+                )
+                StatCard(
+                    label = "Отдача",
+                    value = humanBytes(state.tx),
+                    icon = Icons.Default.ArrowUpward,
+                    tint = MaterialTheme.colorScheme.primary,
+                    isDark = isDark,
+                    overWallpaper = overWallpaper,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        }
+
+        state.error?.let { msg ->
+            Spacer(Modifier.height(8.dp))
+            Text(
+                msg,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error,
+                textAlign = TextAlign.Center,
+            )
+        }
     }
 }
 
+/**
+ * Big circular gauge: a gradient arc fills as the tunnel comes up, spins
+ * while connecting, and a soft glow pulses while active. The center is a
+ * glass power button.
+ */
 @Composable
-private fun ConnectButton(isDark: Boolean, state: VpnManager.UiState, onClick: () -> Unit) {
-    val active = state.state != VpnManager.State.OFF
+private fun ConnectRing(
+    state: VpnManager.UiState,
+    isDark: Boolean,
+    onConnect: () -> Unit,
+) {
     val palette = LocalCrystalPalette.current
-    val gradient = Brush.verticalGradient(palette.gradient(isDark))
+    val active = state.state != VpnManager.State.OFF
     val busy = state.state == VpnManager.State.STARTING || state.state == VpnManager.State.STOPPING
+    val connected = state.state == VpnManager.State.CONNECTED
 
-    Box(contentAlignment = Alignment.Center) {
+    Box(contentAlignment = Alignment.Center, modifier = Modifier.size(216.dp)) {
         if (active) {
             val pulse = rememberInfiniteTransition(label = "pulse")
             val scale by pulse.animateFloat(
-                initialValue = 1f,
-                targetValue = 1.4f,
-                animationSpec = infiniteRepeatable(tween(1300), RepeatMode.Restart),
+                initialValue = 1.0f,
+                targetValue = 1.22f,
+                animationSpec = infiniteRepeatable(tween(1400, easing = androidx.compose.animation.core.FastOutSlowInEasing), RepeatMode.Reverse),
                 label = "scale",
             )
-            val alpha by pulse.animateFloat(
-                initialValue = 0.5f,
-                targetValue = 0f,
-                animationSpec = infiniteRepeatable(tween(1300), RepeatMode.Restart),
-                label = "alpha",
+            val glowAlpha by pulse.animateFloat(
+                initialValue = 0.30f,
+                targetValue = 0.0f,
+                animationSpec = infiniteRepeatable(tween(1400), RepeatMode.Reverse),
+                label = "glow",
             )
             Box(
                 Modifier
-                    .size(122.dp)
+                    .size(196.dp)
                     .graphicsLayer {
                         scaleX = scale
                         scaleY = scale
-                        this.alpha = alpha
+                        this.alpha = glowAlpha
                     }
                     .clip(CircleShape)
-                    .background(palette.accent2.copy(alpha = 0.85f)),
+                    .background(Brush.radialGradient(listOf(palette.accent2, Color.Transparent))),
             )
         }
+
+        // The gauge arc.
+        if (busy) {
+            val spin = rememberInfiniteTransition(label = "spin")
+            val angle by spin.animateFloat(
+                initialValue = 0f,
+                targetValue = 360f,
+                animationSpec = infiniteRepeatable(tween(900, easing = LinearEasing)),
+                label = "angle",
+            )
+            RingCanvas(track = isDark, arcBrush = Brush.sweepGradient(listOf(palette.accent, palette.accent2, palette.accent)), start = angle, sweep = 110f)
+        } else if (connected) {
+            RingCanvas(track = isDark, arcBrush = Brush.sweepGradient(listOf(palette.accent, palette.accent2, palette.accent)), start = -90f, sweep = 360f)
+        } else {
+            RingCanvas(track = isDark, arcBrush = null, start = 0f, sweep = 0f)
+        }
+
+        // Center power button.
         Box(
             Modifier
-                .size(112.dp)
+                .size(140.dp)
                 .clip(CircleShape)
-                .background(gradient)
-                .liquidGlass(CircleShape, Color.White.copy(alpha = 0.28f), isDark)
-                .liquidSheen(isDark)
-                .clickable(onClick = onClick),
+                .then(
+                    if (active) {
+                        Modifier.background(Brush.linearGradient(palette.gradient(isDark)))
+                    } else {
+                        Modifier
+                            .background(Glass.tintSoft(isDark, false))
+                            .border(1.dp, Glass.rim(isDark), CircleShape)
+                    },
+                )
+                .clickable(onClick = onConnect),
             contentAlignment = Alignment.Center,
         ) {
             if (busy) {
-                CircularProgressIndicator(color = Color.White, modifier = Modifier.size(46.dp), strokeWidth = 4.dp)
+                CircularProgressIndicator(color = Color.White, modifier = Modifier.size(44.dp), strokeWidth = 4.dp)
             } else {
                 Icon(
                     Icons.Default.PowerSettingsNew,
-                    contentDescription = "Connect",
+                    contentDescription = if (active) "Disconnect" else "Connect",
                     tint = Color.White,
-                    modifier = Modifier.size(44.dp),
+                    modifier = Modifier.size(46.dp),
                 )
             }
         }
+    }
+}
+
+/** Track ring + optional gradient arc, both with rounded caps. */
+@Composable
+private fun RingCanvas(
+    track: Boolean,
+    arcBrush: Brush?,
+    start: Float,
+    sweep: Float,
+) {
+    val trackColor = if (track) Color.White.copy(alpha = 0.10f) else Color.Black.copy(alpha = 0.08f)
+    Canvas(Modifier.size(216.dp)) {
+        val stroke = 9.dp.toPx()
+        val inset = stroke / 2
+        val arcSize = androidx.compose.ui.geometry.Size(size.width - stroke, size.height - stroke)
+        val topLeft = androidx.compose.ui.geometry.Offset(inset, inset)
+        drawArc(
+            color = trackColor,
+            startAngle = 0f,
+            sweepAngle = 360f,
+            useCenter = false,
+            topLeft = topLeft,
+            size = arcSize,
+            style = Stroke(stroke, cap = StrokeCap.Round),
+        )
+        if (arcBrush != null && sweep > 0f) {
+            drawArc(
+                brush = arcBrush,
+                startAngle = start,
+                sweepAngle = sweep,
+                useCenter = false,
+                topLeft = topLeft,
+                size = arcSize,
+                style = Stroke(stroke, cap = StrokeCap.Round),
+            )
+        }
+    }
+}
+
+@Composable
+private fun StatCard(
+    label: String,
+    value: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    tint: Color,
+    isDark: Boolean,
+    overWallpaper: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier
+            .liquidGlass(RoundedCornerShape(18.dp), Glass.tint(isDark, overWallpaper), isDark)
+            .padding(horizontal = 14.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            Modifier
+                .size(30.dp)
+                .clip(CircleShape)
+                .background(tint.copy(alpha = 0.16f)),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(15.dp))
+        }
+        Spacer(Modifier.width(9.dp))
+        Column {
+            Text(
+                label,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                value,
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Bold,
+            )
+        }
+    }
+}
+
+/** Section header with the count badge and the add / import buttons. */
+@Composable
+private fun ProfilesHeader(
+    count: Int,
+    isDark: Boolean,
+    overWallpaper: Boolean,
+    onImport: () -> Unit,
+    onAdd: () -> Unit,
+) {
+    Row(
+        Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            "Профили",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+        )
+        Spacer(Modifier.width(8.dp))
+        CountBadge(count)
+        Spacer(Modifier.weight(1f))
+        CircleGlassButton(
+            icon = Icons.Default.FileOpen,
+            contentDescription = "Import from file",
+            isDark = isDark,
+            overWallpaper = overWallpaper,
+            onClick = onImport,
+            size = 40.dp,
+        )
+        Spacer(Modifier.width(8.dp))
+        CircleGlassButton(
+            icon = Icons.Default.Add,
+            contentDescription = "Add profile",
+            isDark = isDark,
+            accent = true,
+            onClick = onAdd,
+            size = 40.dp,
+        )
     }
 }
 
@@ -513,26 +613,24 @@ private fun ProfileCard(
     profile: Profile,
     selected: Boolean,
     isDark: Boolean,
-    translucent: Boolean,
+    overWallpaper: Boolean,
     onSelect: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
 ) {
+    val pc = protocolColor(profile.protocol)
+    val shape = RoundedCornerShape(22.dp)
     Box(
         Modifier
             .fillMaxWidth()
             .liquidGlass(
-                RoundedCornerShape(20.dp),
-                if (selected) {
-                    MaterialTheme.colorScheme.primary.copy(alpha = 0.22f)
-                } else {
-                    Glass.tint(isDark, translucent)
-                },
+                shape,
+                if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.20f) else Glass.tint(isDark, overWallpaper),
                 isDark,
             )
             .then(
                 if (selected) {
-                    Modifier.border(1.5.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(20.dp))
+                    Modifier.border(1.5.dp, MaterialTheme.colorScheme.primary, shape)
                 } else {
                     Modifier
                 },
@@ -542,21 +640,25 @@ private fun ProfileCard(
         Row(
             Modifier
                 .fillMaxWidth()
-                .padding(start = 14.dp, top = 12.dp, bottom = 12.dp, end = 4.dp),
+                .padding(start = 12.dp, top = 10.dp, bottom = 10.dp, end = 2.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Box(
                 Modifier
-                    .size(40.dp)
-                    .clip(RoundedCornerShape(14.dp))
-                    .background(protocolColor(profile.protocol).copy(alpha = 0.16f)),
+                    .size(44.dp)
+                    .clip(RoundedCornerShape(15.dp))
+                    .background(
+                        Brush.linearGradient(
+                            listOf(pc.copy(alpha = 0.30f), pc.copy(alpha = 0.12f)),
+                        ),
+                    ),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
                     Icons.Default.Lan,
                     contentDescription = null,
-                    tint = protocolColor(profile.protocol),
-                    modifier = Modifier.size(20.dp),
+                    tint = pc,
+                    modifier = Modifier.size(21.dp),
                 )
             }
             Spacer(Modifier.width(12.dp))
@@ -580,9 +682,10 @@ private fun ProfileCard(
             if (selected) {
                 Box(
                     Modifier
+                        .size(22.dp)
                         .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primary)
-                        .padding(2.dp),
+                        .background(MaterialTheme.colorScheme.primary),
+                    contentAlignment = Alignment.Center,
                 ) {
                     Icon(
                         Icons.Default.Check,
@@ -592,16 +695,33 @@ private fun ProfileCard(
                     )
                 }
             } else {
-                BadgeChip(profile)
+                Box(
+                    Modifier
+                        .clip(RoundedCornerShape(999.dp))
+                        .background(pc.copy(alpha = 0.16f))
+                        .padding(horizontal = 9.dp, vertical = 4.dp),
+                ) {
+                    Text(
+                        profile.protocol.displayName,
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = pc,
+                    )
+                }
             }
             IconButton(onClick = onEdit) {
-                Icon(Icons.Default.Edit, contentDescription = "Edit", modifier = Modifier.size(18.dp))
+                Icon(
+                    Icons.Default.Edit,
+                    contentDescription = "Edit",
+                    modifier = Modifier.size(17.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
             IconButton(onClick = onDelete) {
                 Icon(
                     Icons.Default.Delete,
                     contentDescription = "Delete",
-                    modifier = Modifier.size(18.dp),
+                    modifier = Modifier.size(17.dp),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
@@ -610,60 +730,64 @@ private fun ProfileCard(
 }
 
 @Composable
-private fun EmptyProfiles(isDark: Boolean, onImport: () -> Unit, onAdd: () -> Unit) {
-    Box(
+private fun EmptyProfiles(
+    isDark: Boolean,
+    overWallpaper: Boolean,
+    onImport: () -> Unit,
+    onAdd: () -> Unit,
+) {
+    Column(
         Modifier
             .fillMaxWidth()
-            .liquidGlass(RoundedCornerShape(20.dp), Glass.tint(isDark, false), isDark),
+            .liquidGlass(RoundedCornerShape(22.dp), Glass.tint(isDark, overWallpaper), isDark)
+            .padding(24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Column(
+        Box(
             Modifier
-                .fillMaxWidth()
-                .padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
+                .size(54.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)),
+            contentAlignment = Alignment.Center,
         ) {
             Icon(
                 Icons.Default.Lan,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(36.dp),
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(26.dp),
             )
-            Spacer(Modifier.height(10.dp))
-            Text(
-                "Нет профилей",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-            )
-            Spacer(Modifier.height(4.dp))
-            Text(
-                "Импортируйте конфиг из файла или буфера обмена либо создайте вручную",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-            )
-            Spacer(Modifier.height(12.dp))
-            Row {
-                TextButton(onClick = onImport) { Text("Импорт") }
-                TextButton(onClick = onAdd) { Text("Создать") }
-            }
         }
-    }
-}
-
-@Composable
-fun BadgeChip(profile: Profile) {
-    Box(
-        Modifier
-            .clip(RoundedCornerShape(999.dp))
-            .background(protocolColor(profile.protocol).copy(alpha = 0.16f))
-            .padding(horizontal = 10.dp, vertical = 4.dp),
-    ) {
+        Spacer(Modifier.height(12.dp))
         Text(
-            profile.protocol.displayName,
-            style = MaterialTheme.typography.labelSmall,
+            "Нет профилей",
+            style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold,
-            color = protocolColor(profile.protocol),
         )
+        Spacer(Modifier.height(4.dp))
+        Text(
+            "Импортируйте конфиг из файла или буфера обмена либо создайте вручную",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+        )
+        Spacer(Modifier.height(14.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            PillButton(
+                text = "Импорт",
+                icon = Icons.Default.FileOpen,
+                accent = false,
+                isDark = isDark,
+                overWallpaper = overWallpaper,
+                onClick = onImport,
+            )
+            PillButton(
+                text = "Создать",
+                icon = Icons.Default.Add,
+                accent = true,
+                isDark = isDark,
+                onClick = onAdd,
+            )
+        }
     }
 }
 
