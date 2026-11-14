@@ -31,10 +31,12 @@ import androidx.compose.material.icons.filled.PowerSettingsNew
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Wallpaper
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -57,11 +59,12 @@ import com.crystaln.vpn.ui.glass.GlassTab
 import com.crystaln.vpn.ui.glass.GlassTabBar
 import com.crystaln.vpn.ui.glass.PillButton
 import com.crystaln.vpn.ui.glass.SectionLabel
-import com.crystaln.vpn.ui.glass.TabBarBackdrop
 import com.crystaln.vpn.ui.glass.liquidGlass
 import com.crystaln.vpn.ui.rememberWallpaper
 import com.crystaln.vpn.ui.theme.CrystalPalettes
 import com.crystaln.vpn.ui.theme.LocalCrystalPalette
+import dev.chrisbanes.haze.hazeSource
+import dev.chrisbanes.haze.rememberHazeState
 
 @Composable
 fun SettingsScreen(
@@ -83,12 +86,6 @@ fun SettingsScreen(
 ) {
     val wallpaper = rememberWallpaper(SettingsStore.wallpaper(LocalContext.current))
     val glassDark = wallpaper?.isDark ?: isDark
-    // Content colors follow the glass, like on the main screen.
-    val contentScheme = if (wallpaper != null) {
-        LocalCrystalPalette.current.scheme(wallpaper.isDark)
-    } else {
-        MaterialTheme.colorScheme
-    }
     val overWallpaper = wallpaper != null
 
     BoxWithConstraints(
@@ -96,19 +93,24 @@ fun SettingsScreen(
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background),
     ) {
-        if (wallpaper != null) {
-            WallpaperLayer(wallpaper.bitmap, wallpaper.isDark)
-        } else {
-            LiquidBlobs(isDark)
-        }
+        val hazeState = rememberHazeState()
 
-        MaterialTheme(colorScheme = contentScheme) {
-            Column(
-                Modifier
-                    .fillMaxSize()
-                    .systemBarsPadding()
-                    .padding(horizontal = 24.dp),
-            ) {
+        // Everything drawn here can be blurred by floating glass above.
+        Box(Modifier.matchParentSize().hazeSource(hazeState)) {
+            if (wallpaper != null) {
+                WallpaperLayer(wallpaper.bitmap, wallpaper.isDark, themeDark = isDark)
+            } else {
+                LiquidBlobs(isDark)
+            }
+
+            // Content colors follow the user's chosen theme (not the photo).
+            CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onBackground) {
+                Column(
+                    Modifier
+                        .fillMaxSize()
+                        .systemBarsPadding()
+                        .padding(horizontal = 24.dp),
+                ) {
                 Spacer(Modifier.height(10.dp))
 
                 // Header: glass back button + big title.
@@ -287,22 +289,18 @@ fun SettingsScreen(
                         )
                     }
 
-                    // Generous clearance so nothing hides behind the
-                    // floating tab bar and its frosted strip (230dp).
-                    Spacer(Modifier.height(265.dp))
+                    // Clearance so the last rows sit above the tab bar;
+                    // content under the bar is genuinely frosted by Haze.
+                    Spacer(Modifier.height(170.dp))
+                }
                 }
             }
         }
 
-        // Real frosted backdrop behind the tab bar.
-        TabBarBackdrop(
-            wallpaper = wallpaper,
-            isDark = glassDark,
-            modifier = Modifier.matchParentSize(),
-        )
-
-        // Floating liquid-glass tab bar, iOS-style.
+        // Floating liquid-glass tab bar, iOS-style — blurs the real
+        // content behind it via Haze.
         GlassTabBar(
+            hazeState = hazeState,
             isDark = glassDark,
             overWallpaper = overWallpaper,
             tabs = listOf(

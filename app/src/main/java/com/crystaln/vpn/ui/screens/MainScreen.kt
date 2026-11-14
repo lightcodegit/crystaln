@@ -43,9 +43,11 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -70,8 +72,9 @@ import com.crystaln.vpn.ui.glass.Glass
 import com.crystaln.vpn.ui.glass.GlassTab
 import com.crystaln.vpn.ui.glass.GlassTabBar
 import com.crystaln.vpn.ui.glass.PillButton
-import com.crystaln.vpn.ui.glass.TabBarBackdrop
 import com.crystaln.vpn.ui.glass.liquidGlass
+import dev.chrisbanes.haze.hazeSource
+import dev.chrisbanes.haze.rememberHazeState
 import com.crystaln.vpn.ui.rememberWallpaper
 import com.crystaln.vpn.ui.theme.LocalCrystalPalette
 
@@ -112,27 +115,26 @@ fun MainScreen(
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background),
     ) {
-        if (wallpaper != null) {
-            WallpaperLayer(wallpaper.bitmap, wallpaper.isDark)
-        } else {
-            LiquidBlobs(isDark)
-        }
+        val hazeState = rememberHazeState()
 
-        // Content colors follow the glass, not the system theme: a dark
-        // wallpaper gets a dark scheme with light text, a light one gets
-        // frosted glass with dark text.
-        val contentScheme = if (overWallpaper) {
-            LocalCrystalPalette.current.scheme(glassDark)
-        } else {
-            MaterialTheme.colorScheme
-        }
-        MaterialTheme(colorScheme = contentScheme) {
-            Column(
-                Modifier
-                    .fillMaxSize()
-                    .systemBarsPadding()
-                    .padding(horizontal = 24.dp),
-            ) {
+        // Everything drawn here can be blurred by floating glass above.
+        Box(Modifier.matchParentSize().hazeSource(hazeState)) {
+            if (wallpaper != null) {
+                WallpaperLayer(wallpaper.bitmap, wallpaper.isDark, themeDark = isDark)
+            } else {
+                LiquidBlobs(isDark)
+            }
+
+            // Content colors follow the user's chosen theme (not the photo): a
+            // dark theme gets light text, a light one dark text. Glass itself
+            // still adapts to the wallpaper via glassDark.
+            CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onBackground) {
+                Column(
+                    Modifier
+                        .fillMaxSize()
+                        .systemBarsPadding()
+                        .padding(horizontal = 24.dp),
+                ) {
                 Spacer(Modifier.height(10.dp))
 
                 Header(state = state, dark = glassDark)
@@ -162,7 +164,7 @@ fun MainScreen(
                 LazyColumn(
                     Modifier.weight(1f),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
-                    contentPadding = PaddingValues(bottom = 215.dp),
+                    contentPadding = PaddingValues(bottom = 170.dp),
                 ) {
                     if (profiles.isEmpty()) {
                         item {
@@ -188,19 +190,13 @@ fun MainScreen(
                     }
                 }
             }
+            }
         }
 
-        // Real frosted backdrop behind the tab bar: an exact blurred copy
-        // of the wallpaper clipped to the bottom strip, so content sliding
-        // under the bar dissolves into the frost instead of ghosting.
-        TabBarBackdrop(
-            wallpaper = wallpaper,
-            isDark = glassDark,
-            modifier = Modifier.matchParentSize(),
-        )
-
-        // Floating liquid-glass tab bar, iOS-style.
+        // Floating liquid-glass tab bar, iOS-style — blurs the real
+        // content behind it via Haze.
         GlassTabBar(
+            hazeState = hazeState,
             isDark = glassDark,
             overWallpaper = overWallpaper,
             tabs = listOf(
@@ -250,7 +246,7 @@ private fun StatusChip(state: VpnManager.UiState) {
     val (label, color) = when (state.state) {
         VpnManager.State.OFF -> "Выкл" to com.crystaln.vpn.ui.theme.StatusOff
         VpnManager.State.STARTING -> "Подкл…" to com.crystaln.vpn.ui.theme.StatusConnecting
-        VpnManager.State.CONNECTED -> "Защита" to com.crystaln.vpn.ui.theme.StatusConnected
+        VpnManager.State.CONNECTED -> "VPN" to com.crystaln.vpn.ui.theme.StatusConnected
         VpnManager.State.STOPPING -> "Откл…" to com.crystaln.vpn.ui.theme.StatusConnecting
     }
     Row(
@@ -294,7 +290,7 @@ private fun HeroStatus(
 
         val (headline, sub, color) = when (state.state) {
             VpnManager.State.OFF -> Triple(
-                "Защита выключена",
+                "Отключено",
                 "Нажмите, чтобы подключиться",
                 MaterialTheme.colorScheme.onSurface,
             )
@@ -304,8 +300,8 @@ private fun HeroStatus(
                 MaterialTheme.colorScheme.primary,
             )
             VpnManager.State.CONNECTED -> Triple(
-                "Соединение защищено",
-                "Ваш трафик идёт через туннель",
+                "Подключено",
+                "Трафик идёт через защищённый туннель",
                 com.crystaln.vpn.ui.theme.StatusConnected,
             )
             VpnManager.State.STOPPING -> Triple(

@@ -19,11 +19,12 @@ import androidx.compose.ui.unit.dp
 /**
  * Full-screen photo backdrop. The image is heavily blurred — that blur is
  * what makes the glass surfaces above read as real frosted glass — and a
- * soft scrim keeps text readable over any photo. Also drawn as an exact
- * replica behind the floating tab bar (see TabBarBackdrop).
+ * soft scrim keeps text readable over any photo. The scrim follows the
+ * chosen theme: a dark theme darkens the photo, a light one frosts it
+ * white so dark text stays readable over dark photos.
  */
 @Composable
-fun WallpaperLayer(bitmap: Bitmap, isDark: Boolean) {
+fun WallpaperLayer(bitmap: Bitmap, isDark: Boolean, themeDark: Boolean = isDark) {
     Box(Modifier.fillMaxSize()) {
         Image(
             bitmap = bitmap.asImageBitmap(),
@@ -50,12 +51,23 @@ fun WallpaperLayer(bitmap: Bitmap, isDark: Boolean) {
             Modifier
                 .fillMaxSize()
                 .background(
-                    Brush.verticalGradient(
-                        listOf(
-                            Color.Black.copy(alpha = if (isDark) 0.40f else 0.18f),
-                            Color.Black.copy(alpha = if (isDark) 0.62f else 0.34f),
-                        ),
-                    ),
+                    if (themeDark) {
+                        // Dark theme: darken the photo for light text.
+                        Brush.verticalGradient(
+                            listOf(
+                                Color.Black.copy(alpha = if (isDark) 0.40f else 0.18f),
+                                Color.Black.copy(alpha = if (isDark) 0.62f else 0.34f),
+                            ),
+                        )
+                    } else {
+                        // Light theme: frost the photo white for dark text.
+                        Brush.verticalGradient(
+                            listOf(
+                                Color.White.copy(alpha = 0.62f),
+                                Color.White.copy(alpha = 0.80f),
+                            ),
+                        )
+                    },
                 ),
         )
     }
