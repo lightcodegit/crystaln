@@ -83,9 +83,6 @@ data class CrystalPalette(
         }
 }
 
-/** Accent-tinted dark glass so panels never read as dead gray. */
-val DarkGlassTint = Color(0xFF0B1122)
-
 val LocalCrystalPalette = staticCompositionLocalOf { IndigoPalette }
 
 val IndigoPalette = CrystalPalette(
