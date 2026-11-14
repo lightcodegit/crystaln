@@ -4,6 +4,12 @@
     <string name="notif_channel">CrystalN tunnel</string>
     <string name="notif_connected">Connected: %1$s</string>
     <string name="notif_connecting">Connecting…</string>
+    <string name="notif_vpn_connected">VPN подключён</string>
+    <string name="notif_speed_format">↓ %1$s · ↑ %2$s</string>
+    <string name="speed_bps_fmt">%1$d Б/с</string>
+    <string name="speed_kbps_fmt">%1$.1f КБ/с</string>
+    <string name="speed_mbps_fmt">%1$.1f МБ/с</string>
+    <string name="speed_gbps_fmt">%1$.2f ГБ/с</string>
     <string name="action_stop">Disconnect</string>
     <string name="connect">Connect</string>
     <string name="disconnect">Disconnect</string>

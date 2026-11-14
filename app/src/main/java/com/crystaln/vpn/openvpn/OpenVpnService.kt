@@ -17,6 +17,7 @@ import com.crystaln.vpn.R
 import com.crystaln.vpn.data.Profile
 import com.crystaln.vpn.data.ProfileStore
 import com.crystaln.vpn.service.VpnManager
+import com.crystaln.vpn.service.VpnStatusNotification
 import com.crystaln.vpn.ui.MainActivity
 import java.io.BufferedWriter
 import java.io.File
@@ -538,7 +539,15 @@ class OpenVpnService : VpnService() {
             if (!notifiedConnected && connected) {
                 notifiedConnected = true
                 VpnManager.notifyState(VpnManager.State.CONNECTED, profile)
-                startForegroundNotification(getString(R.string.notif_connected, profile.name))
+                // Hands the foreground notification over to the status ticker
+                // (live "VPN подключён" + speed on NOTIF_ID).
+                val stopIntent = PendingIntent.getService(
+                    this,
+                    3,
+                    Intent(this, OpenVpnService::class.java).setAction(ACTION_STOP),
+                    PendingIntent.FLAG_IMMUTABLE,
+                )
+                VpnStatusNotification.startForeground(this, NOTIF_ID, CHANNEL_ID, profile.name, stopIntent)
             }
             if (authFailed) {
                 fail(getString(R.string.ovpn_auth_failed))

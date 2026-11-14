@@ -70,6 +70,9 @@ object VpnManager {
             _ui.value = UiState(State.STARTING, profile)
             generation.incrementAndGet()
         }
+        // A superseded async shutdown may never publish OFF, so drop the old
+        // status notification here as well (stop() is idempotent).
+        VpnStatusNotification.stop()
         when {
             profile.isWireGuardFamily -> if (profile.protocol == Protocol.WIREGUARD) {
                 startWireGuard(context.applicationContext, profile, myGeneration)
@@ -138,16 +141,21 @@ object VpnManager {
             try {
                 val tunnel = WireGuardTunnel(context, profile)
                 tunnel.up()
-                publishIfCurrent(myGeneration) {
+                val published = publishIfCurrent(myGeneration) {
                     wgTunnel = tunnel
                     UiState(State.CONNECTED, profile)
-                } ?: run {
+                }
+                if (published == null) {
                     // A newer connect()/stop() superseded this one.
                     try {
                         tunnel.down()
                     } catch (_: Throwable) {
                     }
+                    return@launch
                 }
+                // No app-owned service for WireGuard: post the status
+                // notification ("VPN подключён" + speed) from the app side.
+                VpnStatusNotification.startApp(context, profile.name)
             } catch (t: Throwable) {
                 wgTunnel = null
                 failGeneration(myGeneration, profile, WgErrorText.of(t))
@@ -160,15 +168,18 @@ object VpnManager {
             try {
                 val tunnel = AwgTunnel(context, profile)
                 tunnel.up()
-                publishIfCurrent(myGeneration) {
+                val published = publishIfCurrent(myGeneration) {
                     awgTunnel = tunnel
                     UiState(State.CONNECTED, profile)
-                } ?: run {
+                }
+                if (published == null) {
                     try {
                         tunnel.down()
                     } catch (_: Throwable) {
                     }
+                    return@launch
                 }
+                VpnStatusNotification.startApp(context, profile.name)
             } catch (t: Throwable) {
                 awgTunnel = null
                 failGeneration(myGeneration, profile, WgErrorText.of(t))
@@ -193,6 +204,7 @@ object VpnManager {
             if (generation.get() != myGeneration) return
             _ui.value = UiState(State.OFF, profile, error = message)
         }
+        VpnStatusNotification.stop()
     }
 
     /** Caller must hold [lifecycleLock]. */
@@ -214,6 +226,7 @@ object VpnManager {
             synchronized(lifecycleLock) {
                 if (generation.get() == myGeneration) {
                     _ui.value = UiState(State.OFF, _ui.value.profile)
+                    VpnStatusNotification.stop()
                 }
             }
         }
@@ -229,6 +242,8 @@ object VpnManager {
                 error = if (state == State.CONNECTED) null else _ui.value.error,
             )
         }
+        // The status row ("VPN подключён" + speed) must not outlive the tunnel.
+        if (state == State.OFF) VpnStatusNotification.stop()
     }
 
     /** Publishes polled byte counters for the UI. */
@@ -240,6 +255,7 @@ object VpnManager {
         synchronized(lifecycleLock) {
             _ui.value = _ui.value.copy(state = State.OFF, error = message)
         }
+        VpnStatusNotification.stop()
     }
 
     /** Polls the active engine for byte counters. Safe to call from any thread. */

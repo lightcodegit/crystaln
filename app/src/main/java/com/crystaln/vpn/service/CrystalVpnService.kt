@@ -122,9 +122,17 @@ class CrystalVpnService : VpnService() {
 
     private fun notifyConnecting(name: String) = notify(buildNotification(name, getString(R.string.notif_connecting)))
 
-    private fun notifyConnected(name: String) = notify(
-        buildNotification(name, getString(R.string.notif_connected, name)),
-    )
+    private fun notifyConnected(name: String) {
+        val stopIntent = PendingIntent.getService(
+            this,
+            1,
+            Intent(this, CrystalVpnService::class.java).setAction(ACTION_STOP),
+            PendingIntent.FLAG_IMMUTABLE,
+        )
+        // Hands the foreground notification over to the status ticker: it
+        // keeps posting on NOTIF_ID with live speed, replacing this row.
+        VpnStatusNotification.startForeground(this, NOTIF_ID, CHANNEL_ID, name, stopIntent)
+    }
 
     private fun buildNotification(name: String, text: String): Notification {
         val stopIntent = PendingIntent.getService(
