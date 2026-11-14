@@ -81,9 +81,7 @@ import com.crystaln.vpn.ui.glass.liquidGlass
 import com.crystaln.vpn.ui.glass.liquidSheen
 import com.crystaln.vpn.ui.glass.rememberBreath
 import com.crystaln.vpn.ui.rememberWallpaper
-import com.crystaln.vpn.ui.theme.CrystalGradient
-import com.crystaln.vpn.ui.theme.CrystalGradientDark
-import com.crystaln.vpn.ui.theme.crystalScheme
+import com.crystaln.vpn.ui.theme.LocalCrystalPalette
 
 fun protocolColor(p: Protocol): Color = when (p) {
     Protocol.VMESS -> Color(0xFF4F6AF6)
@@ -131,7 +129,7 @@ fun MainScreen(
         // Content colors follow the glass, not the system theme: a dark
         // wallpaper gets a dark scheme with light text, a light one gets
         // frosted glass with dark text.
-        val contentScheme = if (overWallpaper) crystalScheme(glassDark) else MaterialTheme.colorScheme
+        val contentScheme = if (overWallpaper) LocalCrystalPalette.current.scheme(glassDark) else MaterialTheme.colorScheme
         MaterialTheme(colorScheme = contentScheme) {
             CompositionLocalProvider(LocalContentColor provides contentScheme.onBackground) {
                 Column(
@@ -368,7 +366,7 @@ private fun Header(state: VpnManager.UiState) {
             Modifier
                 .size(38.dp)
                 .clip(RoundedCornerShape(12.dp))
-                .background(Brush.linearGradient(CrystalGradient)),
+                .background(Brush.linearGradient(LocalCrystalPalette.current.gradient(false))),
             contentAlignment = Alignment.Center,
         ) {
             Text("C", color = Color.White, fontWeight = FontWeight.Black)
@@ -503,7 +501,8 @@ private fun TrafficRow(rx: Long, tx: Long) {
 @Composable
 private fun ConnectButton(isDark: Boolean, state: VpnManager.UiState, onClick: () -> Unit) {
     val active = state.state != VpnManager.State.OFF
-    val gradient = Brush.verticalGradient(if (isDark) CrystalGradientDark else CrystalGradient)
+    val palette = LocalCrystalPalette.current
+    val gradient = Brush.verticalGradient(palette.gradient(isDark))
     val busy = state.state == VpnManager.State.STARTING || state.state == VpnManager.State.STOPPING
 
     Box(contentAlignment = Alignment.Center) {
@@ -530,7 +529,7 @@ private fun ConnectButton(isDark: Boolean, state: VpnManager.UiState, onClick: (
                         this.alpha = alpha
                     }
                     .clip(CircleShape)
-                    .background(if (isDark) Color(0xFF5B2CA8) else Color(0xFF7C4FF6)),
+                    .background(palette.accent2.copy(alpha = 0.85f)),
             )
         }
         Box(

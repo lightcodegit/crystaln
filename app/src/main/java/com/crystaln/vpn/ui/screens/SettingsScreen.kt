@@ -2,9 +2,13 @@ package com.crystaln.vpn.ui.screens
 
 import android.os.Build
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -16,6 +20,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -42,8 +47,10 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -53,8 +60,9 @@ import com.crystaln.vpn.ui.glass.Glass
 import com.crystaln.vpn.ui.glass.GlassTab
 import com.crystaln.vpn.ui.glass.GlassTabBar
 import com.crystaln.vpn.ui.glass.liquidGlass
+import com.crystaln.vpn.ui.theme.CrystalPalettes
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun SettingsScreen(
     isDark: Boolean,
@@ -62,6 +70,8 @@ fun SettingsScreen(
     onThemeChange: (SettingsStore.ThemeMode) -> Unit,
     dynamicColor: Boolean,
     onDynamicColorChange: (Boolean) -> Unit,
+    paletteId: String,
+    onPaletteChange: (String) -> Unit,
     autoConnect: Boolean,
     onAutoConnectChange: (Boolean) -> Unit,
     wallpaperSet: Boolean,
@@ -122,6 +132,62 @@ fun SettingsScreen(
                     enabled = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S,
                     onChange = onDynamicColorChange,
                 )
+                Spacer(Modifier.height(14.dp))
+                Text("Палитра", style = MaterialTheme.typography.bodyMedium)
+                Spacer(Modifier.height(8.dp))
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    CrystalPalettes.forEach { palette ->
+                        val selected = palette.id == paletteId
+                        Row(
+                            Modifier
+                                .clip(RoundedCornerShape(999.dp))
+                                .background(
+                                    if (selected) {
+                                        MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)
+                                    } else {
+                                        Color.Transparent
+                                    },
+                                )
+                                .border(
+                                    1.dp,
+                                    if (selected) {
+                                        MaterialTheme.colorScheme.primary
+                                    } else {
+                                        MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
+                                    },
+                                    RoundedCornerShape(999.dp),
+                                )
+                                .clickable { onPaletteChange(palette.id) }
+                                .padding(horizontal = 10.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Box(
+                                Modifier
+                                    .size(18.dp)
+                                    .clip(CircleShape)
+                                    .background(
+                                        Brush.linearGradient(
+                                            listOf(palette.swatch, lerp(palette.swatch, palette.accent2, 0.7f)),
+                                        ),
+                                    ),
+                            )
+                            Spacer(Modifier.width(7.dp))
+                            Text(
+                                palette.name,
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
+                                color = if (selected) {
+                                    MaterialTheme.colorScheme.primary
+                                } else {
+                                    MaterialTheme.colorScheme.onSurfaceVariant
+                                },
+                            )
+                        }
+                    }
+                }
                 Spacer(Modifier.height(14.dp))
                 Text("Свои обои", style = MaterialTheme.typography.bodyMedium)
                 Text(

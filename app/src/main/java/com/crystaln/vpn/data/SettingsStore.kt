@@ -9,8 +9,19 @@ object SettingsStore {
     private const val PREFS = "crystaln"
     private const val KEY_THEME = "theme_mode"
     private const val KEY_DYNAMIC = "dynamic_color"
+    private const val KEY_PALETTE = "palette"
     private const val KEY_AUTOCONNECT = "auto_connect"
     private const val KEY_WALLPAPER = "wallpaper"
+
+    /** Named accent palette id (see ui.theme.CrystalPalettes). */
+    fun paletteId(context: Context): String =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getString(KEY_PALETTE, null) ?: "indigo"
+
+    fun setPaletteId(context: Context, id: String) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit().putString(KEY_PALETTE, id).apply()
+    }
 
     fun themeMode(context: Context): ThemeMode {
         val raw = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)

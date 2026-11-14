@@ -75,6 +75,7 @@ class MainActivity : ComponentActivity() {
     private val editing = mutableStateOf<Profile?>(null)
     private val themeMode = mutableStateOf(SettingsStore.ThemeMode.SYSTEM)
     private val dynamicColor = mutableStateOf(false)
+    private val paletteId = mutableStateOf("indigo")
     private val autoConnect = mutableStateOf(false)
     private val importMenu = mutableStateOf(false)
     private val wallpaperPath = mutableStateOf<String?>(null)
@@ -158,6 +159,7 @@ class MainActivity : ComponentActivity() {
         freshLaunch = savedInstanceState == null
         themeMode.value = SettingsStore.themeMode(this)
         dynamicColor.value = SettingsStore.dynamicColor(this)
+        paletteId.value = SettingsStore.paletteId(this)
         autoConnect.value = SettingsStore.autoConnect(this)
         refreshProfiles()
         refreshWallpaper()
@@ -170,7 +172,11 @@ class MainActivity : ComponentActivity() {
                 SettingsStore.ThemeMode.LIGHT -> false
                 SettingsStore.ThemeMode.DARK -> true
             }
-            CrystalNTheme(darkTheme = dark, dynamicColor = dynamicColor.value) {
+            CrystalNTheme(
+                darkTheme = dark,
+                dynamicColor = dynamicColor.value,
+                paletteId = paletteId.value,
+            ) {
                 val uiState by VpnManager.ui.collectAsStateWithLifecycle()
 
                 LaunchedEffect(Unit) {
@@ -257,6 +263,11 @@ class MainActivity : ComponentActivity() {
                         onDynamicColorChange = { on ->
                             dynamicColor.value = on
                             SettingsStore.setDynamicColor(this, on)
+                        },
+                        paletteId = paletteId.value,
+                        onPaletteChange = { id ->
+                            paletteId.value = id
+                            SettingsStore.setPaletteId(this, id)
                         },
                         autoConnect = autoConnect.value,
                         onAutoConnectChange = { on ->
