@@ -17,15 +17,20 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 
 /**
- * Full-screen photo backdrop. The image is heavily blurred — that blur is
- * what makes the glass surfaces above read as real frosted glass — and a
- * soft scrim keeps text readable over any photo. The scrim follows the
- * chosen theme: a dark theme darkens the photo, a light one frosts it
- * white so dark text stays readable over dark photos.
+ * Full-screen photo backdrop. The photo itself is drawn FIT — the whole image
+ * is visible, never zoomed or cropped (a cover-fill used to enlarge landscape
+ * photos several times over on tall screens). Behind it a heavily blurred
+ * cover-filled copy of the same photo pads any leftover bands and is what
+ * makes the glass surfaces above read as real frosted glass. A soft scrim
+ * keeps text readable over any photo. The scrim follows the chosen theme: a
+ * dark theme darkens the photo, a light one frosts it white so dark text
+ * stays readable over dark photos.
  */
 @Composable
 fun WallpaperLayer(bitmap: Bitmap, isDark: Boolean, themeDark: Boolean = isDark) {
     Box(Modifier.fillMaxSize()) {
+        // Decorative blurred backdrop: cover-fills the screen so there are no
+        // letterbox bands, and provides the blurred source for the glass.
         Image(
             bitmap = bitmap.asImageBitmap(),
             contentDescription = null,
@@ -46,6 +51,15 @@ fun WallpaperLayer(bitmap: Bitmap, isDark: Boolean, themeDark: Boolean = isDark)
                         Modifier
                     },
                 ),
+        )
+        // The photo itself: whole image, fitted, never zoomed in.
+        Image(
+            bitmap = bitmap.asImageBitmap(),
+            contentDescription = null,
+            contentScale = ContentScale.Fit,
+            modifier = Modifier
+                .fillMaxSize()
+                .clipToBounds(),
         )
         Box(
             Modifier
