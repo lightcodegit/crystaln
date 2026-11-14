@@ -29,11 +29,15 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.HazeTint
+import dev.chrisbanes.haze.hazeEffect
 
 /** One destination in the floating glass tab bar. */
 data class GlassTab(val icon: ImageVector, val label: String)
@@ -42,6 +46,9 @@ data class GlassTab(val icon: ImageVector, val label: String)
  * Floating liquid-glass tab bar, iOS-style: a full pill floating above the
  * content, with the selected destination marked by a raised lighter glass
  * "droplet" that flows between tabs with a soft spring animation.
+ *
+ * When [hazeState] is provided, the bar blurs the real content behind it
+ * (Haze) — cards scrolling underneath dissolve into genuine frost.
  */
 @Composable
 fun GlassTabBar(
@@ -51,14 +58,33 @@ fun GlassTabBar(
     onSelect: (Int) -> Unit,
     modifier: Modifier = Modifier,
     overWallpaper: Boolean = false,
+    hazeState: HazeState? = null,
 ) {
     Box(
         modifier
             .fillMaxWidth()
             .height(76.dp)
+            .clip(RoundedCornerShape(999.dp))
+            .then(
+                if (hazeState != null) {
+                    Modifier.hazeEffect(state = hazeState) {
+                        blurRadius = 42.dp
+                        noiseFactor = 0.05f
+                        tints = listOf(HazeTint(Glass.tintFloating(isDark, overWallpaper)))
+                    }
+                } else {
+                    Modifier
+                },
+            )
             .liquidGlass(
                 RoundedCornerShape(999.dp),
-                Glass.tintFloating(isDark, overWallpaper),
+                if (hazeState != null) {
+                    // The Haze tint already provides contrast; keep the
+                    // glass fill minimal so the blur shows through.
+                    if (isDark) DarkGlassTint.copy(alpha = 0.10f) else Color.White.copy(alpha = 0.14f)
+                } else {
+                    Glass.tintFloating(isDark, overWallpaper)
+                },
                 isDark,
                 flat = true,
             ),

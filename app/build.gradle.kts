@@ -61,6 +61,10 @@ dependencies {
     implementation("androidx.compose.material:material-icons-extended")
     implementation("androidx.compose.ui:ui-tooling-preview")
 
+    // Haze — real hardware-accelerated backdrop blur / liquid glass
+    // (frosted surfaces that blur the content behind them).
+    implementation("dev.chrisbanes.haze:haze:1.6.4")
+    implementation("dev.chrisbanes.haze:haze-materials:1.6.4")
 
     // Xray core bindings (VMess, VLESS, Trojan, Shadowsocks, SOCKS, HTTP, ...).
     implementation(files("libs/libv2ray.aar"))
