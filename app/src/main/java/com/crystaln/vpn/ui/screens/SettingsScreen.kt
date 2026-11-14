@@ -8,8 +8,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -26,51 +24,45 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.FileOpen
-import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Image
-import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.PowerSettingsNew
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Wallpaper
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.crystaln.vpn.BuildConfig
 import com.crystaln.vpn.data.SettingsStore
+import com.crystaln.vpn.ui.LiquidBlobs
 import com.crystaln.vpn.ui.WallpaperLayer
+import com.crystaln.vpn.ui.glass.CircleGlassButton
 import com.crystaln.vpn.ui.glass.Glass
+import com.crystaln.vpn.ui.glass.GlassDivider
+import com.crystaln.vpn.ui.glass.GlassSegmented
 import com.crystaln.vpn.ui.glass.GlassTab
 import com.crystaln.vpn.ui.glass.GlassTabBar
+import com.crystaln.vpn.ui.glass.PillButton
+import com.crystaln.vpn.ui.glass.SectionLabel
 import com.crystaln.vpn.ui.glass.TabBarBackdrop
 import com.crystaln.vpn.ui.glass.liquidGlass
 import com.crystaln.vpn.ui.rememberWallpaper
 import com.crystaln.vpn.ui.theme.CrystalPalettes
 import com.crystaln.vpn.ui.theme.LocalCrystalPalette
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun SettingsScreen(
     isDark: Boolean,
@@ -97,203 +89,149 @@ fun SettingsScreen(
     } else {
         MaterialTheme.colorScheme
     }
+    val overWallpaper = wallpaper != null
 
-    BoxWithConstraints(Modifier.fillMaxSize()) {
+    BoxWithConstraints(
+        Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background),
+    ) {
         if (wallpaper != null) {
             WallpaperLayer(wallpaper.bitmap, wallpaper.isDark)
+        } else {
+            LiquidBlobs(isDark)
         }
 
         MaterialTheme(colorScheme = contentScheme) {
-            Scaffold(
-                containerColor = Color.Transparent,
-                topBar = {
-                    TopAppBar(
-                        colors = TopAppBarDefaults.topAppBarColors(
-                            containerColor = Color.Transparent,
-                        ),
-                        title = { Text("Настройки", fontWeight = FontWeight.Bold) },
-                        navigationIcon = {
-                            IconButton(onClick = onBack) {
-                                Icon(
-                                    Icons.AutoMirrored.Filled.ArrowBack,
-                                    contentDescription = "Back",
-                                )
-                            }
-                        },
+            Column(
+                Modifier
+                    .fillMaxSize()
+                    .systemBarsPadding()
+                    .padding(horizontal = 24.dp),
+            ) {
+                Spacer(Modifier.height(10.dp))
+
+                // Header: glass back button + big title.
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    CircleGlassButton(
+                        icon = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Back",
+                        isDark = glassDark,
+                        overWallpaper = overWallpaper,
+                        onClick = onBack,
                     )
-                },
-            ) { pad ->
+                    Spacer(Modifier.width(12.dp))
+                    Text(
+                        "Настройки",
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Black,
+                    )
+                }
+
+                Spacer(Modifier.height(16.dp))
+
                 Column(
                     Modifier
-                        .fillMaxSize()
-                        .padding(pad)
-                        .systemBarsPadding()
-                        .verticalScroll(rememberScrollState())
-                        .padding(horizontal = 20.dp)
-                        .padding(bottom = 120.dp),
-                    verticalArrangement = Arrangement.spacedBy(14.dp),
+                        .weight(1f)
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
-                    SettingsCard(
-                        isDark = glassDark,
-                        overWallpaper = wallpaper != null,
-                        icon = Icons.Default.Palette,
-                        title = "Оформление",
-                    ) {
-                        Text("Тема", style = MaterialTheme.typography.bodyMedium)
-                        Spacer(Modifier.height(8.dp))
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            FilterChip(
-                                selected = themeMode == SettingsStore.ThemeMode.SYSTEM,
-                                onClick = { onThemeChange(SettingsStore.ThemeMode.SYSTEM) },
-                                label = { Text("Системная") },
-                            )
-                            FilterChip(
-                                selected = themeMode == SettingsStore.ThemeMode.LIGHT,
-                                onClick = { onThemeChange(SettingsStore.ThemeMode.LIGHT) },
-                                label = { Text("Светлая") },
-                            )
-                            FilterChip(
-                                selected = themeMode == SettingsStore.ThemeMode.DARK,
-                                onClick = { onThemeChange(SettingsStore.ThemeMode.DARK) },
-                                label = { Text("Тёмная") },
-                            )
-                        }
-                        Spacer(Modifier.height(14.dp))
+                    // ── Appearance ─────────────────────────────────────
+                    SectionLabel("Внешний вид")
+                    SettingsPanel(isDark = glassDark, overWallpaper = overWallpaper) {
+                        Text(
+                            "Тема",
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        Spacer(Modifier.height(10.dp))
+                        GlassSegmented(
+                            options = listOf("Системная", "Светлая", "Тёмная"),
+                            selected = when (themeMode) {
+                                SettingsStore.ThemeMode.SYSTEM -> 0
+                                SettingsStore.ThemeMode.LIGHT -> 1
+                                SettingsStore.ThemeMode.DARK -> 2
+                            },
+                            onSelect = { i ->
+                                onThemeChange(
+                                    when (i) {
+                                        0 -> SettingsStore.ThemeMode.SYSTEM
+                                        1 -> SettingsStore.ThemeMode.LIGHT
+                                        else -> SettingsStore.ThemeMode.DARK
+                                    },
+                                )
+                            },
+                            isDark = glassDark,
+                            overWallpaper = overWallpaper,
+                        )
+                        GlassDivider(Modifier.padding(vertical = 14.dp))
                         SwitchRow(
-                            title = "Цвета системы (Material You)",
-                            subtitle = "Палитра из обоев. Android 12+",
+                            title = "Цвета системы",
+                            subtitle = "Material You — палитра из обоев. Android 12+",
                             checked = dynamicColor,
                             enabled = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S,
                             onChange = onDynamicColorChange,
                         )
-                        Spacer(Modifier.height(14.dp))
-                        Text("Палитра", style = MaterialTheme.typography.bodyMedium)
-                        Spacer(Modifier.height(8.dp))
-                        FlowRow(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            CrystalPalettes.forEach { palette ->
-                                val selected = palette.id == paletteId
-                                Row(
-                                    Modifier
-                                        .clip(RoundedCornerShape(999.dp))
-                                        .background(
-                                            if (selected) {
-                                                MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)
-                                            } else {
-                                                Color.Transparent
-                                            },
-                                        )
-                                        .border(
-                                            1.dp,
-                                            if (selected) {
-                                                MaterialTheme.colorScheme.primary
-                                            } else {
-                                                MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
-                                            },
-                                            RoundedCornerShape(999.dp),
-                                        )
-                                        .clickable { onPaletteChange(palette.id) }
-                                        .padding(horizontal = 10.dp, vertical = 6.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                ) {
-                                    Box(
-                                        Modifier
-                                            .size(18.dp)
-                                            .clip(CircleShape)
-                                            .background(
-                                                Brush.linearGradient(
-                                                    listOf(
-                                                        palette.swatch,
-                                                        lerp(palette.swatch, palette.accent2, 0.7f),
-                                                    ),
-                                                ),
-                                            ),
-                                    )
-                                    Spacer(Modifier.width(7.dp))
-                                    Text(
-                                        palette.name,
-                                        style = MaterialTheme.typography.labelMedium,
-                                        fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
-                                        color = if (selected) {
-                                            MaterialTheme.colorScheme.primary
-                                        } else {
-                                            MaterialTheme.colorScheme.onSurfaceVariant
-                                        },
-                                    )
-                                }
-                            }
-                        }
-                        Spacer(Modifier.height(14.dp))
-                        Text("Свои обои", style = MaterialTheme.typography.bodyMedium)
+                        GlassDivider(Modifier.padding(vertical = 14.dp))
                         Text(
-                            if (wallpaperSet) "Обои установлены" else "Обои не выбраны",
+                            "Палитра",
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        Spacer(Modifier.height(10.dp))
+                        PalettePicker(
+                            paletteId = paletteId,
+                            onPaletteChange = onPaletteChange,
+                        )
+                        GlassDivider(Modifier.padding(vertical = 14.dp))
+                        Text(
+                            "Свои обои",
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        Spacer(Modifier.height(2.dp))
+                        Text(
+                            if (wallpaperSet) "Обои установлены — размытая копия служит фоном стекла" else "Обои не выбраны — фон собирается из палитры",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
-                        Spacer(Modifier.height(8.dp))
+                        Spacer(Modifier.height(10.dp))
                         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                            Button(
+                            PillButton(
+                                text = "Выбрать",
+                                icon = Icons.Default.Image,
+                                accent = true,
+                                isDark = glassDark,
                                 onClick = onPickWallpaper,
                                 modifier = Modifier.weight(1f),
-                                shape = RoundedCornerShape(14.dp),
-                            ) {
-                                Icon(
-                                    Icons.Default.Image,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(18.dp),
-                                )
-                                Spacer(Modifier.width(6.dp))
-                                Text("Выбрать")
-                            }
-                            Button(
-                                onClick = onClearWallpaper,
+                            )
+                            PillButton(
+                                text = "Сбросить",
+                                icon = Icons.Default.Wallpaper,
+                                accent = false,
+                                isDark = glassDark,
+                                overWallpaper = overWallpaper,
                                 enabled = wallpaperSet,
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .border(
-                                        1.dp,
-                                        MaterialTheme.colorScheme.primary.copy(alpha = 0.35f),
-                                        RoundedCornerShape(14.dp),
-                                    ),
-                                shape = RoundedCornerShape(14.dp),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
-                                    contentColor = MaterialTheme.colorScheme.primary,
-                                ),
-                            ) {
-                                Icon(
-                                    Icons.Default.Wallpaper,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(18.dp),
-                                )
-                                Spacer(Modifier.width(6.dp))
-                                Text("Сбросить")
-                            }
+                                onClick = onClearWallpaper,
+                                modifier = Modifier.weight(1f),
+                            )
                         }
                     }
 
-                    SettingsCard(
-                        isDark = glassDark,
-                        overWallpaper = wallpaper != null,
-                        icon = Icons.Default.Bolt,
-                        title = "Подключение",
-                    ) {
+                    // ── Connection ─────────────────────────────────────
+                    SectionLabel("Подключение")
+                    SettingsPanel(isDark = glassDark, overWallpaper = overWallpaper) {
                         SwitchRow(
-                            title = "Автоподключение при запуске",
-                            subtitle = "Соединять выбранный профиль при открытии приложения",
+                            title = "Автоподключение",
+                            subtitle = "Соединять выбранный профиль при запуске приложения",
                             checked = autoConnect,
                             onChange = onAutoConnectChange,
                         )
                     }
 
-                    SettingsCard(
-                        isDark = glassDark,
-                        overWallpaper = wallpaper != null,
-                        icon = Icons.Default.FileOpen,
-                        title = "Профили",
-                    ) {
+                    // ── Data ───────────────────────────────────────────
+                    SectionLabel("Профили и данные")
+                    SettingsPanel(isDark = glassDark, overWallpaper = overWallpaper) {
                         Text(
                             "Импорт: файл конфигурации (.conf / .txt / .json), ссылки " +
                                 "vless:// trojan:// ss:// vmess:// socks5:// или wg-quick конфиг.",
@@ -302,56 +240,43 @@ fun SettingsScreen(
                         )
                         Spacer(Modifier.height(12.dp))
                         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                            Button(
+                            PillButton(
+                                text = "Импорт",
+                                icon = Icons.Default.FileOpen,
+                                accent = true,
+                                isDark = glassDark,
                                 onClick = onImport,
                                 modifier = Modifier.weight(1f),
-                                shape = RoundedCornerShape(14.dp),
-                            ) {
-                                Icon(
-                                    Icons.Default.FileOpen,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(18.dp),
-                                )
-                                Spacer(Modifier.width(6.dp))
-                                Text("Импорт")
-                            }
-                            Button(
+                            )
+                            PillButton(
+                                text = "Экспорт",
+                                icon = Icons.Default.FileDownload,
+                                accent = false,
+                                isDark = glassDark,
+                                overWallpaper = overWallpaper,
                                 onClick = onExport,
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .border(
-                                        1.dp,
-                                        MaterialTheme.colorScheme.primary.copy(alpha = 0.35f),
-                                        RoundedCornerShape(14.dp),
-                                    ),
-                                shape = RoundedCornerShape(14.dp),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
-                                    contentColor = MaterialTheme.colorScheme.primary,
-                                ),
-                            ) {
-                                Icon(
-                                    Icons.Default.FileDownload,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(18.dp),
-                                )
-                                Spacer(Modifier.width(6.dp))
-                                Text("Экспорт")
-                            }
+                                modifier = Modifier.weight(1f),
+                            )
                         }
                     }
 
-                    SettingsCard(
-                        isDark = glassDark,
-                        overWallpaper = wallpaper != null,
-                        icon = Icons.Default.Info,
-                        title = "О приложении",
-                    ) {
-                        Text(
-                            "CrystalN ${BuildConfig.VERSION_NAME}",
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.SemiBold,
-                        )
+                    // ── About ──────────────────────────────────────────
+                    SectionLabel("О приложении")
+                    SettingsPanel(isDark = glassDark, overWallpaper = overWallpaper) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                "CrystalN",
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = FontWeight.Bold,
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                BuildConfig.VERSION_NAME,
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                        }
                         Spacer(Modifier.height(4.dp))
                         Text(
                             "Ядра: Xray (VMess/VLESS/Trojan/Shadowsocks/SOCKS/HTTP), " +
@@ -362,64 +287,98 @@ fun SettingsScreen(
                         )
                     }
 
-                    Spacer(Modifier.height(24.dp))
+                    // Generous clearance so nothing hides behind the
+                    // floating tab bar and its frosted strip (230dp).
+                    Spacer(Modifier.height(265.dp))
                 }
             }
-
-            // Real frosted backdrop behind the tab bar.
-            TabBarBackdrop(
-                wallpaper = wallpaper,
-                isDark = glassDark,
-                modifier = Modifier.matchParentSize(),
-            )
-
-            // Floating liquid-glass tab bar, iOS-style.
-            GlassTabBar(
-                isDark = glassDark,
-                overWallpaper = wallpaper != null,
-                tabs = listOf(
-                    GlassTab(Icons.Default.PowerSettingsNew, "Подключение"),
-                    GlassTab(Icons.Default.Settings, "Настройки"),
-                ),
-                selected = 1,
-                onSelect = { index -> if (index == 0) onBack() },
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .navigationBarsPadding()
-                    .padding(horizontal = 28.dp, vertical = 12.dp),
-            )
         }
+
+        // Real frosted backdrop behind the tab bar.
+        TabBarBackdrop(
+            wallpaper = wallpaper,
+            isDark = glassDark,
+            modifier = Modifier.matchParentSize(),
+        )
+
+        // Floating liquid-glass tab bar, iOS-style.
+        GlassTabBar(
+            isDark = glassDark,
+            overWallpaper = overWallpaper,
+            tabs = listOf(
+                GlassTab(Icons.Default.PowerSettingsNew, "Подключение"),
+                GlassTab(Icons.Default.Settings, "Настройки"),
+            ),
+            selected = 1,
+            onSelect = { index -> if (index == 0) onBack() },
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .navigationBarsPadding()
+                .padding(horizontal = 28.dp, vertical = 12.dp),
+        )
     }
 }
 
+/** A rounded glass panel holding the rows of one settings section. */
 @Composable
-private fun SettingsCard(
+private fun SettingsPanel(
     isDark: Boolean,
     overWallpaper: Boolean,
-    icon: ImageVector,
-    title: String,
     content: @Composable () -> Unit,
 ) {
-    Box(
+    Column(
         Modifier
             .fillMaxWidth()
-            .liquidGlass(RoundedCornerShape(24.dp), Glass.tint(isDark, overWallpaper), isDark),
+            .liquidGlass(RoundedCornerShape(26.dp), Glass.tint(isDark, overWallpaper), isDark)
+            .padding(18.dp),
     ) {
-        Column(Modifier.fillMaxWidth().padding(18.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    icon,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(22.dp),
+        content()
+    }
+}
+
+/** Horizontal row of round gradient swatches with a selection ring. */
+@Composable
+private fun PalettePicker(
+    paletteId: String,
+    onPaletteChange: (String) -> Unit,
+) {
+    val selected = CrystalPalettes.firstOrNull { it.id == paletteId } ?: CrystalPalettes.first()
+    Row(horizontalArrangement = Arrangement.SpaceEvenly, modifier = Modifier.fillMaxWidth()) {
+        CrystalPalettes.forEach { palette ->
+            val isSel = palette.id == selected.id
+            Box(
+                Modifier
+                    .size(46.dp)
+                    .clip(CircleShape)
+                    .then(
+                        if (isSel) {
+                            Modifier.border(2.dp, MaterialTheme.colorScheme.primary, CircleShape)
+                        } else {
+                            Modifier
+                        },
+                    )
+                    .clickable { onPaletteChange(palette.id) },
+                contentAlignment = Alignment.Center,
+            ) {
+                Box(
+                    Modifier
+                        .size(if (isSel) 34.dp else 38.dp)
+                        .clip(CircleShape)
+                        .background(
+                            Brush.linearGradient(
+                                listOf(palette.swatch, lerp(palette.swatch, palette.accent2, 0.7f)),
+                            ),
+                        ),
                 )
-                Spacer(Modifier.width(10.dp))
-                Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             }
-            Spacer(Modifier.height(14.dp))
-            content()
         }
     }
+    Spacer(Modifier.height(6.dp))
+    Text(
+        "Выбрано: ${selected.name}",
+        style = MaterialTheme.typography.labelMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
 }
 
 @Composable
@@ -438,6 +397,7 @@ private fun SwitchRow(
             Text(
                 title,
                 style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.Medium,
                 color = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
             )
             if (subtitle != null) {
@@ -449,6 +409,11 @@ private fun SwitchRow(
             }
         }
         Spacer(Modifier.width(12.dp))
-        Switch(checked = checked, onCheckedChange = onChange, enabled = enabled)
+        Switch(
+            checked = checked,
+            onCheckedChange = onChange,
+            enabled = enabled,
+            modifier = Modifier.alpha(if (enabled) 1f else 0.5f),
+        )
     }
 }
