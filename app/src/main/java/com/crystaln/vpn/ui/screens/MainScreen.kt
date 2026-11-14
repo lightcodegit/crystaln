@@ -199,18 +199,21 @@ fun MainScreen(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            // Ghost-accent FAB: translucent accent wash, accent icon.
             FloatingActionButton(
                 onClick = onImport,
                 shape = CircleShape,
-                containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.85f),
-                contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.18f),
+                contentColor = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.border(1.dp, Glass.rim(glassDark), CircleShape),
             ) {
                 Icon(Icons.Default.FileOpen, contentDescription = "Import from file")
             }
+            // Primary FAB carries the full accent.
             FloatingActionButton(
                 onClick = onAdd,
                 shape = CircleShape,
-                containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.92f),
+                containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary,
                 modifier = Modifier.border(1.dp, Glass.rim(glassDark), CircleShape),
             ) {
