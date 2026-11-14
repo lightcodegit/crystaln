@@ -23,6 +23,14 @@ import androidx.compose.ui.graphics.drawOutline
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.dp
 
+/** Cool-tinted highlight: dark glass glints blue, not gray. */
+private val CoolHighlight = Color(0xFFBFD2FF)
+
+/**
+ * Deep navy glass base for the dark theme: blue-black rather than gray.
+ */
+val DarkGlassTint = Color(0xFF0B1122)
+
 /**
  * Liquid Glass, the Apple-style recipe:
  *
@@ -39,7 +47,7 @@ object Glass {
     /** Base translucent fill. Deliberately light — blur does the frosting. */
     fun tint(isDark: Boolean, overWallpaper: Boolean): Color =
         if (isDark) {
-            Color(0xFF10131F).copy(alpha = if (overWallpaper) 0.48f else 0.55f)
+            DarkGlassTint.copy(alpha = if (overWallpaper) 0.42f else 0.50f)
         } else {
             Color.White.copy(alpha = if (overWallpaper) 0.50f else 0.55f)
         }
@@ -47,7 +55,7 @@ object Glass {
     /** Slightly stronger fill for small elements (pills, chips). */
     fun tintSoft(isDark: Boolean, overWallpaper: Boolean): Color =
         if (isDark) {
-            Color(0xFF161A2B).copy(alpha = if (overWallpaper) 0.55f else 0.65f)
+            DarkGlassTint.copy(alpha = if (overWallpaper) 0.50f else 0.60f)
         } else {
             Color.White.copy(alpha = if (overWallpaper) 0.58f else 0.65f)
         }
@@ -59,17 +67,23 @@ object Glass {
      */
     fun tintFloating(isDark: Boolean, overWallpaper: Boolean): Color =
         if (isDark) {
-            Color(0xFF12151F).copy(alpha = if (overWallpaper) 0.72f else 0.84f)
+            DarkGlassTint.copy(alpha = if (overWallpaper) 0.70f else 0.82f)
         } else {
             Color.White.copy(alpha = if (overWallpaper) 0.76f else 0.88f)
         }
 
-    /** Light-bending rim: bright at top-left, a mid glint at bottom-right. */
+    /**
+     * Light-bending rim: bright at top-left, a mid glint at bottom-right.
+     * Highlights are cool-tinted (not pure white) so dark glass reads as
+     * deep blue crystal instead of frosted gray.
+     */
     fun rim(dark: Boolean): Brush = Brush.linearGradient(
         listOf(
-            Color.White.copy(alpha = if (dark) 0.55f else 0.95f),
-            Color.White.copy(alpha = 0.08f),
-            Color.White.copy(alpha = if (dark) 0.30f else 0.50f),
+            (if (dark) CoolHighlight else Color.White)
+                .copy(alpha = if (dark) 0.34f else 0.95f),
+            Color.White.copy(alpha = if (dark) 0.04f else 0.08f),
+            (if (dark) CoolHighlight else Color.White)
+                .copy(alpha = if (dark) 0.16f else 0.50f),
         ),
     )
 
@@ -107,7 +121,8 @@ fun Modifier.liquidGlass(
         drawRect(
             Brush.radialGradient(
                 listOf(
-                    Color.White.copy(alpha = if (isDark) 0.20f else 0.38f),
+                    (if (isDark) CoolHighlight else Color.White)
+                        .copy(alpha = if (isDark) 0.13f else 0.38f),
                     Color.Transparent,
                 ),
                 center = Offset(size.width * 0.10f, size.height * -0.05f),
@@ -119,7 +134,8 @@ fun Modifier.liquidGlass(
         drawRect(
             Brush.radialGradient(
                 listOf(
-                    Color.White.copy(alpha = if (isDark) 0.09f else 0.16f),
+                    (if (isDark) CoolHighlight else Color.White)
+                        .copy(alpha = if (isDark) 0.06f else 0.16f),
                     Color.Transparent,
                 ),
                 center = Offset(size.width * 1.05f, size.height * 1.08f),
@@ -131,7 +147,8 @@ fun Modifier.liquidGlass(
         drawRect(
             Brush.verticalGradient(
                 listOf(
-                    Color.White.copy(alpha = if (isDark) 0.13f else 0.28f),
+                    (if (isDark) CoolHighlight else Color.White)
+                        .copy(alpha = if (isDark) 0.09f else 0.28f),
                     Color.Transparent,
                 ),
                 startY = 0f,
@@ -144,13 +161,14 @@ fun Modifier.liquidGlass(
         //    centered on the outline. The clip keeps only the inner halves,
         //    which reads as light refracting through the edge.
         val outline = shape.createOutline(size, layoutDirection, this)
+        val hi = if (isDark) CoolHighlight else Color.White
         drawOutline(
             outline = outline,
             brush = Brush.verticalGradient(
                 listOf(
-                    Color.White.copy(alpha = if (isDark) 0.30f else 0.60f),
+                    hi.copy(alpha = if (isDark) 0.16f else 0.60f),
                     Color.Transparent,
-                    Color.White.copy(alpha = if (isDark) 0.20f else 0.40f),
+                    hi.copy(alpha = if (isDark) 0.10f else 0.40f),
                 ),
                 startY = 0f,
                 endY = size.height,
@@ -161,9 +179,9 @@ fun Modifier.liquidGlass(
             outline = outline,
             brush = Brush.verticalGradient(
                 listOf(
-                    Color.White.copy(alpha = if (isDark) 0.45f else 0.85f),
+                    hi.copy(alpha = if (isDark) 0.28f else 0.85f),
                     Color.Transparent,
-                    Color.White.copy(alpha = if (isDark) 0.30f else 0.55f),
+                    hi.copy(alpha = if (isDark) 0.16f else 0.55f),
                 ),
                 startY = 0f,
                 endY = size.height,
@@ -202,7 +220,7 @@ fun Modifier.liquidSheen(
             brush = Brush.linearGradient(
                 listOf(
                     Color.Transparent,
-                    Color.White.copy(alpha = if (isDark) 0.10f else 0.22f),
+                    Color.White.copy(alpha = if (isDark) 0.07f else 0.22f),
                     Color.Transparent,
                 ),
                 start = Offset(x, 0f),
