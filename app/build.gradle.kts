@@ -78,4 +78,11 @@ dependencies {
     implementation(files("libs/libv2ray.aar"))
     // AmneziaWG core (amneziawg-go), built from third_party/amneziawg-android.
     implementation(files("libs/amneziawg.aar"))
+
+    // Camera + bundled QR scanner for the "import from QR code" flow
+    // (bundled ML Kit works fully offline).
+    implementation("androidx.camera:camera-camera2:1.4.2")
+    implementation("androidx.camera:camera-lifecycle:1.4.2")
+    implementation("androidx.camera:camera-view:1.4.2")
+    implementation("com.google.mlkit:barcode-scanning:17.3.0")
 }

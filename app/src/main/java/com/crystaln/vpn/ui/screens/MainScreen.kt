@@ -38,6 +38,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FileOpen
 import androidx.compose.material.icons.filled.Lan
+import androidx.compose.material.icons.filled.NetworkCheck
 import androidx.compose.material.icons.filled.PowerSettingsNew
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.CircularProgressIndicator
@@ -49,6 +50,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -61,6 +63,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.crystaln.vpn.R
 import com.crystaln.vpn.data.Profile
 import com.crystaln.vpn.data.Protocol
 import com.crystaln.vpn.service.VpnManager
@@ -104,6 +107,9 @@ fun MainScreen(
     onImport: () -> Unit,
     onConnect: () -> Unit,
     onSettings: () -> Unit,
+    /** Measured TCP ping per profile id (ms), -1 = unreachable, absent = not measured. */
+    pingResults: Map<String, Long> = emptyMap(),
+    onPing: (Profile) -> Unit = {},
 ) {
     val wallpaper = rememberWallpaper(wallpaperPath)
     val overWallpaper = wallpaper != null
@@ -183,6 +189,9 @@ fun MainScreen(
                                 selected = p.id == selectedId,
                                 isDark = glassDark,
                                 overWallpaper = overWallpaper,
+                                ping = pingResults[p.id],
+                                pingable = isPingable(p),
+                                onPing = { onPing(p) },
                                 onSelect = { onSelect(p) },
                                 onEdit = { onEdit(p) },
                                 onDelete = { onDelete(p) },
@@ -201,8 +210,8 @@ fun MainScreen(
             isDark = glassDark,
             overWallpaper = overWallpaper,
             tabs = listOf(
-                GlassTab(Icons.Default.PowerSettingsNew, "Подключение"),
-                GlassTab(Icons.Default.Settings, "Настройки"),
+                GlassTab(Icons.Default.PowerSettingsNew, stringResource(R.string.tab_connect)),
+                GlassTab(Icons.Default.Settings, stringResource(R.string.tab_settings)),
             ),
             selected = 0,
             onSelect = { index -> if (index == 1) onSettings() },
@@ -245,10 +254,10 @@ private fun Header(state: VpnManager.UiState, dark: Boolean) {
 @Composable
 private fun StatusChip(state: VpnManager.UiState) {
     val (label, color) = when (state.state) {
-        VpnManager.State.OFF -> "Выкл" to com.crystaln.vpn.ui.theme.StatusOff
-        VpnManager.State.STARTING -> "Подкл…" to com.crystaln.vpn.ui.theme.StatusConnecting
+        VpnManager.State.OFF -> stringResource(R.string.state_short_off) to com.crystaln.vpn.ui.theme.StatusOff
+        VpnManager.State.STARTING -> stringResource(R.string.state_short_starting) to com.crystaln.vpn.ui.theme.StatusConnecting
         VpnManager.State.CONNECTED -> "VPN" to com.crystaln.vpn.ui.theme.StatusConnected
-        VpnManager.State.STOPPING -> "Откл…" to com.crystaln.vpn.ui.theme.StatusConnecting
+        VpnManager.State.STOPPING -> stringResource(R.string.state_short_stopping) to com.crystaln.vpn.ui.theme.StatusConnecting
     }
     Row(
         Modifier
@@ -291,23 +300,23 @@ private fun HeroStatus(
 
         val (headline, sub, color) = when (state.state) {
             VpnManager.State.OFF -> Triple(
-                "Отключено",
-                "Нажмите, чтобы подключиться",
+                stringResource(R.string.state_off),
+                stringResource(R.string.hero_tap_connect),
                 MaterialTheme.colorScheme.onSurface,
             )
             VpnManager.State.STARTING -> Triple(
-                "Подключение…",
-                "Устанавливаем защищённый туннель",
+                stringResource(R.string.state_starting),
+                if (state.checking) stringResource(R.string.hero_checking_sub) else stringResource(R.string.hero_starting_sub),
                 MaterialTheme.colorScheme.primary,
             )
             VpnManager.State.CONNECTED -> Triple(
-                "Подключено",
-                "Трафик идёт через защищённый туннель",
+                stringResource(R.string.state_connected),
+                stringResource(R.string.hero_connected_sub),
                 com.crystaln.vpn.ui.theme.StatusConnected,
             )
             VpnManager.State.STOPPING -> Triple(
-                "Отключение…",
-                "Закрываем туннель",
+                stringResource(R.string.state_stopping),
+                stringResource(R.string.hero_stopping_sub),
                 MaterialTheme.colorScheme.primary,
             )
         }
@@ -363,7 +372,7 @@ private fun HeroStatus(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 StatCard(
-                    label = "Загрузка",
+                    label = stringResource(R.string.stat_download),
                     value = humanBytes(state.rx),
                     icon = Icons.Default.ArrowDownward,
                     tint = MaterialTheme.colorScheme.tertiary,
@@ -372,7 +381,7 @@ private fun HeroStatus(
                     modifier = Modifier.weight(1f),
                 )
                 StatCard(
-                    label = "Отдача",
+                    label = stringResource(R.string.stat_upload),
                     value = humanBytes(state.tx),
                     icon = Icons.Default.ArrowUpward,
                     tint = MaterialTheme.colorScheme.primary,
@@ -578,7 +587,7 @@ private fun ProfilesHeader(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
-            "Профили",
+            stringResource(R.string.profiles_title),
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold,
         )
@@ -611,6 +620,9 @@ private fun ProfileCard(
     selected: Boolean,
     isDark: Boolean,
     overWallpaper: Boolean,
+    ping: Long?,
+    pingable: Boolean,
+    onPing: () -> Unit,
     onSelect: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
@@ -676,6 +688,10 @@ private fun ProfileCard(
                 )
             }
             Spacer(Modifier.width(8.dp))
+            if (pingable) {
+                PingChip(ping = ping, tint = pc, onPing = onPing)
+                Spacer(Modifier.width(4.dp))
+            }
             if (selected) {
                 Box(
                     Modifier
@@ -726,6 +742,57 @@ private fun ProfileCard(
     }
 }
 
+/**
+ * Small chip showing the measured server ping for a profile: a "measure"
+ * icon before the first attempt, "—" in error color when unreachable,
+ * "N мс" otherwise. Tap (re)measures.
+ */
+@Composable
+private fun PingChip(
+    ping: Long?,
+    tint: Color,
+    onPing: () -> Unit,
+) {
+    Box(
+        Modifier
+            .clip(RoundedCornerShape(999.dp))
+            .background(tint.copy(alpha = 0.16f))
+            .clickable(onClick = onPing)
+            .padding(horizontal = 9.dp, vertical = 4.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        when {
+            ping == null -> Icon(
+                Icons.Default.NetworkCheck,
+                contentDescription = "Ping",
+                tint = tint,
+                modifier = Modifier.size(15.dp),
+            )
+
+            ping < 0 -> Text(
+                "—",
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.error,
+            )
+
+            else -> Text(
+                stringResource(R.string.ping_ms, ping),
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Bold,
+                color = tint,
+            )
+        }
+    }
+}
+
+/** TCP-connect ping is only meaningful for Xray-family TCP transports. */
+private fun isPingable(p: Profile): Boolean {
+    if (p.isWireGuardFamily || p.isOpenVpn) return false
+    if (p.address.isEmpty() || p.port <= 0) return false
+    return (p.fields["network"] ?: "tcp") !in setOf("quic", "kcp", "udp")
+}
+
 @Composable
 private fun EmptyProfiles(
     isDark: Boolean,
@@ -756,13 +823,13 @@ private fun EmptyProfiles(
         }
         Spacer(Modifier.height(12.dp))
         Text(
-            "Нет профилей",
+            stringResource(R.string.empty_profiles),
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold,
         )
         Spacer(Modifier.height(4.dp))
         Text(
-            "Импортируйте конфиг из файла или буфера обмена либо создайте вручную",
+            stringResource(R.string.empty_profiles_hint),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
@@ -770,7 +837,7 @@ private fun EmptyProfiles(
         Spacer(Modifier.height(14.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             PillButton(
-                text = "Импорт",
+                text = stringResource(R.string.action_import),
                 icon = Icons.Default.FileOpen,
                 accent = false,
                 isDark = isDark,
@@ -778,7 +845,7 @@ private fun EmptyProfiles(
                 onClick = onImport,
             )
             PillButton(
-                text = "Создать",
+                text = stringResource(R.string.action_create),
                 icon = Icons.Default.Add,
                 accent = true,
                 isDark = isDark,

@@ -37,6 +37,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -48,6 +49,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.crystaln.vpn.BuildConfig
+import com.crystaln.vpn.R
 import com.crystaln.vpn.data.SettingsStore
 import com.crystaln.vpn.ui.LiquidBlobs
 import com.crystaln.vpn.ui.WallpaperLayer
@@ -124,7 +126,7 @@ fun SettingsScreen(
                     )
                     Spacer(Modifier.width(12.dp))
                     Text(
-                        "Настройки",
+                        stringResource(R.string.tab_settings),
                         style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.Black,
                     )
@@ -139,16 +141,20 @@ fun SettingsScreen(
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
                     // ── Appearance ─────────────────────────────────────
-                    SectionLabel("Внешний вид")
+                    SectionLabel(stringResource(R.string.section_appearance))
                     SettingsPanel(isDark = glassDark, overWallpaper = overWallpaper) {
                         Text(
-                            "Тема",
+                            stringResource(R.string.theme_label),
                             style = MaterialTheme.typography.bodyLarge,
                             fontWeight = FontWeight.SemiBold,
                         )
                         Spacer(Modifier.height(10.dp))
                         GlassSegmented(
-                            options = listOf("Системная", "Светлая", "Тёмная"),
+                            options = listOf(
+                            stringResource(R.string.theme_system),
+                            stringResource(R.string.theme_light),
+                            stringResource(R.string.theme_dark),
+                        ),
                             selected = when (themeMode) {
                                 SettingsStore.ThemeMode.SYSTEM -> 0
                                 SettingsStore.ThemeMode.LIGHT -> 1
@@ -168,15 +174,15 @@ fun SettingsScreen(
                         )
                         GlassDivider(Modifier.padding(vertical = 14.dp))
                         SwitchRow(
-                            title = "Цвета системы",
-                            subtitle = "Material You — палитра из обоев. Android 12+",
+                            title = stringResource(R.string.dynamic_color_title),
+                            subtitle = stringResource(R.string.dynamic_color_sub),
                             checked = dynamicColor,
                             enabled = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S,
                             onChange = onDynamicColorChange,
                         )
                         GlassDivider(Modifier.padding(vertical = 14.dp))
                         Text(
-                            "Палитра",
+                            stringResource(R.string.palette_label),
                             style = MaterialTheme.typography.bodyLarge,
                             fontWeight = FontWeight.SemiBold,
                         )
@@ -187,20 +193,20 @@ fun SettingsScreen(
                         )
                         GlassDivider(Modifier.padding(vertical = 14.dp))
                         Text(
-                            "Свои обои",
+                            stringResource(R.string.wallpaper_title),
                             style = MaterialTheme.typography.bodyLarge,
                             fontWeight = FontWeight.SemiBold,
                         )
                         Spacer(Modifier.height(2.dp))
                         Text(
-                            if (wallpaperSet) "Обои установлены — размытая копия служит фоном стекла" else "Обои не выбраны — фон собирается из палитры",
+                            if (wallpaperSet) stringResource(R.string.wallpaper_set) else stringResource(R.string.wallpaper_unset),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                         Spacer(Modifier.height(10.dp))
                         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                             PillButton(
-                                text = "Выбрать",
+                                text = stringResource(R.string.wallpaper_pick),
                                 icon = Icons.Default.Image,
                                 accent = true,
                                 isDark = glassDark,
@@ -208,7 +214,7 @@ fun SettingsScreen(
                                 modifier = Modifier.weight(1f),
                             )
                             PillButton(
-                                text = "Сбросить",
+                                text = stringResource(R.string.wallpaper_reset),
                                 icon = Icons.Default.Wallpaper,
                                 accent = false,
                                 isDark = glassDark,
@@ -221,29 +227,28 @@ fun SettingsScreen(
                     }
 
                     // ── Connection ─────────────────────────────────────
-                    SectionLabel("Подключение")
+                    SectionLabel(stringResource(R.string.tab_connect))
                     SettingsPanel(isDark = glassDark, overWallpaper = overWallpaper) {
                         SwitchRow(
-                            title = "Автоподключение",
-                            subtitle = "Соединять выбранный профиль при запуске приложения",
+                            title = stringResource(R.string.autoconnect_title),
+                            subtitle = stringResource(R.string.autoconnect_sub),
                             checked = autoConnect,
                             onChange = onAutoConnectChange,
                         )
                     }
 
                     // ── Data ───────────────────────────────────────────
-                    SectionLabel("Профили и данные")
+                    SectionLabel(stringResource(R.string.section_data))
                     SettingsPanel(isDark = glassDark, overWallpaper = overWallpaper) {
                         Text(
-                            "Импорт: файл конфигурации (.conf / .txt / .json), ссылки " +
-                                "vless:// trojan:// ss:// vmess:// socks5:// или wg-quick конфиг.",
+                            stringResource(R.string.data_info),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                         Spacer(Modifier.height(12.dp))
                         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                             PillButton(
-                                text = "Импорт",
+                                text = stringResource(R.string.action_import),
                                 icon = Icons.Default.FileOpen,
                                 accent = true,
                                 isDark = glassDark,
@@ -251,7 +256,7 @@ fun SettingsScreen(
                                 modifier = Modifier.weight(1f),
                             )
                             PillButton(
-                                text = "Экспорт",
+                                text = stringResource(R.string.action_export),
                                 icon = Icons.Default.FileDownload,
                                 accent = false,
                                 isDark = glassDark,
@@ -263,7 +268,7 @@ fun SettingsScreen(
                     }
 
                     // ── About ──────────────────────────────────────────
-                    SectionLabel("О приложении")
+                    SectionLabel(stringResource(R.string.section_about))
                     SettingsPanel(isDark = glassDark, overWallpaper = overWallpaper) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
@@ -281,9 +286,7 @@ fun SettingsScreen(
                         }
                         Spacer(Modifier.height(4.dp))
                         Text(
-                            "Ядра: Xray (VMess/VLESS/Trojan/Shadowsocks/SOCKS/HTTP), " +
-                                "WireGuard и AmneziaWG (amneziawg-go, junk-параметры " +
-                                "Jc/Jmin/Jmax/S1/S2/H1–H4).",
+                            stringResource(R.string.about_cores),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -304,8 +307,8 @@ fun SettingsScreen(
             isDark = glassDark,
             overWallpaper = overWallpaper,
             tabs = listOf(
-                GlassTab(Icons.Default.PowerSettingsNew, "Подключение"),
-                GlassTab(Icons.Default.Settings, "Настройки"),
+                GlassTab(Icons.Default.PowerSettingsNew, stringResource(R.string.tab_connect)),
+                GlassTab(Icons.Default.Settings, stringResource(R.string.tab_settings)),
             ),
             selected = 1,
             onSelect = { index -> if (index == 0) onBack() },
@@ -373,7 +376,7 @@ private fun PalettePicker(
     }
     Spacer(Modifier.height(6.dp))
     Text(
-        "Выбрано: ${selected.name}",
+        stringResource(R.string.import_selected, selected.name),
         style = MaterialTheme.typography.labelMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )

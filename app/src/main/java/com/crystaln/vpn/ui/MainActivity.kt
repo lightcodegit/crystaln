@@ -35,22 +35,29 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.FileOpen
 import androidx.compose.material.icons.filled.FileDownload
+import androidx.compose.material.icons.filled.Link
+import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.lifecycleScope
 import com.crystaln.vpn.R
 import com.crystaln.vpn.data.Profile
 import com.crystaln.vpn.data.ProfileImporter
@@ -66,6 +73,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class MainActivity : ComponentActivity() {
 
@@ -87,10 +95,16 @@ class MainActivity : ComponentActivity() {
     private val paletteId = mutableStateOf("indigo")
     private val autoConnect = mutableStateOf(false)
     private val importMenu = mutableStateOf(false)
+    private val urlDialog = mutableStateOf(false)
     private val wallpaperPath = mutableStateOf<String?>(null)
     // Live profile list + selection, refreshed after every import/edit/delete.
     private val profiles = mutableStateOf<List<Profile>>(emptyList())
     private val selectedId = mutableStateOf<String?>(null)
+
+    /** Measured TCP ping per profile id (ms), -1 = unreachable. */
+    private val pingResults = mutableStateMapOf<String, Long>()
+    private val pinging: MutableSet<String> =
+        java.util.Collections.newSetFromMap(java.util.concurrent.ConcurrentHashMap())
 
     /** Auto-connect must only trigger on a cold start, not on a rotation. */
     private var freshLaunch: Boolean = true
@@ -117,6 +131,11 @@ class MainActivity : ComponentActivity() {
 
     private val notifPermission =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
+
+    private val qrScan =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            result.data?.getStringExtra(ScannerActivity.EXTRA_TEXT)?.let { importText(it) }
+        }
 
     private val fileImport =
         registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -200,17 +219,7 @@ class MainActivity : ComponentActivity() {
                 }
 
                 // Live traffic counters while connected.
-                LaunchedEffect(Unit) {
-                    launch(Dispatchers.IO) {
-                        while (isActive) {
-                            if (VpnManager.current().state == VpnManager.State.CONNECTED) {
-                                val (rx, tx) = VpnManager.pollTraffic()
-                                VpnManager.notifyTraffic(rx, tx)
-                            }
-                            delay(1000)
-                        }
-                    }
-                }
+                // (The 1 Hz poller lives in VpnManager now.)
 
                 // Auto-connect the selected profile on cold launch, if enabled.
                 if (freshLaunch) {
@@ -279,6 +288,8 @@ class MainActivity : ComponentActivity() {
                         onImport = { importMenu.value = true },
                         onConnect = { onConnectClicked() },
                         onSettings = { nav.value = Nav.SETTINGS },
+                        pingResults = pingResults,
+                        onPing = { p -> pingProfile(p) },
                     )
 
                     Nav.SETTINGS -> SettingsScreen(
@@ -353,6 +364,24 @@ class MainActivity : ComponentActivity() {
                             importMenu.value = false
                             fileExport.launch("crystaln_profiles.json")
                         },
+                        onQr = {
+                            importMenu.value = false
+                            qrScan.launch(Intent(this, ScannerActivity::class.java))
+                        },
+                        onUrl = {
+                            importMenu.value = false
+                            urlDialog.value = true
+                        },
+                    )
+                }
+
+                if (urlDialog.value) {
+                    UrlImportDialog(
+                        onDismiss = { urlDialog.value = false },
+                        onOk = { url ->
+                            urlDialog.value = false
+                            importFromUrl(url)
+                        },
                     )
                 }
             }
@@ -410,10 +439,64 @@ class MainActivity : ComponentActivity() {
         VpnManager.connect(this@MainActivity, profile)
     }
 
+    /** Measures the profile's server reachability on demand (TCP connect). */
+    private fun pingProfile(profile: Profile) {
+        if (!pinging.add(profile.id)) return
+        lifecycleScope.launch(Dispatchers.IO) {
+            val ms = tcpPing(profile.address, profile.port)
+            pingResults[profile.id] = ms
+            pinging.remove(profile.id)
+        }
+    }
+
+    private fun tcpPing(host: String, port: Int): Long = try {
+        val started = System.nanoTime()
+        java.net.Socket().use { s ->
+            s.connect(java.net.InetSocketAddress(host, port), 5000)
+        }
+        (System.nanoTime() - started) / 1_000_000
+    } catch (_: Throwable) {
+        -1L
+    }
+
     private fun importClipboard() {
         val cm = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
         val text = cm.primaryClip?.getItemAt(0)?.text?.toString() ?: return
         importText(text)
+    }
+
+    /** Downloads a config from a URL (subscriptions are plain text too). */
+    private fun importFromUrl(url: String) {
+        lifecycleScope.launch(Dispatchers.IO) {
+            val text = try {
+                downloadText(url)
+            } catch (_: Throwable) {
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(this@MainActivity, R.string.import_url_failed, Toast.LENGTH_LONG).show()
+                }
+                return@launch
+            }
+            withContext(Dispatchers.Main) { importText(text) }
+        }
+    }
+
+    private fun downloadText(url: String): String {
+        val conn = (java.net.URL(url).openConnection() as java.net.HttpURLConnection).apply {
+            connectTimeout = 10_000
+            readTimeout = 10_000
+            instanceFollowRedirects = true
+        }
+        try {
+            conn.inputStream.use { input ->
+                val bytes = input.readLimited(maxImportBytes)
+                if (bytes.size > maxImportBytes) {
+                    throw java.io.IOException(getString(R.string.import_too_large))
+                }
+                return String(bytes, Charsets.UTF_8)
+            }
+        } finally {
+            conn.disconnect()
+        }
     }
 
     private fun importText(text: String) {
@@ -484,18 +567,54 @@ private fun ImportDialog(
     onClipboard: () -> Unit,
     onFile: () -> Unit,
     onExport: () -> Unit,
+    onQr: () -> Unit,
+    onUrl: () -> Unit,
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = {},
         dismissButton = {},
-        title = { Text("Профили") },
+        title = { Text(stringResource(R.string.profiles_title)) },
         text = {
             Column {
-                ImportAction(Icons.Default.FileOpen, "Установить конфиг из файла", onFile)
-                ImportAction(Icons.Default.ContentPaste, "Импорт из буфера", onClipboard)
-                ImportAction(Icons.Default.FileDownload, "Экспорт в файл", onExport)
+                ImportAction(Icons.Default.FileOpen, stringResource(R.string.import_file_action), onFile)
+                ImportAction(Icons.Default.ContentPaste, stringResource(R.string.import_clipboard), onClipboard)
+                ImportAction(Icons.Default.QrCodeScanner, stringResource(R.string.import_qr), onQr)
+                ImportAction(Icons.Default.Link, stringResource(R.string.import_url), onUrl)
+                ImportAction(Icons.Default.FileDownload, stringResource(R.string.export_action), onExport)
             }
+        },
+    )
+}
+
+@Composable
+private fun UrlImportDialog(
+    onDismiss: () -> Unit,
+    onOk: (String) -> Unit,
+) {
+    var url by remember { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.import_url)) },
+        text = {
+            OutlinedTextField(
+                value = url,
+                onValueChange = { url = it },
+                singleLine = true,
+                placeholder = { Text(stringResource(R.string.import_url_hint)) },
+                modifier = Modifier.fillMaxWidth(),
+            )
+        },
+        confirmButton = {
+            TextButton(
+                enabled = url.trim().startsWith("http://") || url.trim().startsWith("https://"),
+                onClick = { onOk(url.trim()) },
+            ) {
+                Text(stringResource(R.string.ok))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) }
         },
     )
 }

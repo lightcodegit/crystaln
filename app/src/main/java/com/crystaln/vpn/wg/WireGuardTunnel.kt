@@ -61,4 +61,11 @@ class WireGuardTunnel(context: Context, private val profile: Profile) : Tunnel {
         val stats = backend.getStatistics(this) ?: return false
         return (stats.peer(key)?.latestHandshakeEpochMillis ?: 0L) > 0L
     }
+
+    /** Epoch millis of the peer's last handshake, or 0 if there was none yet. */
+    fun lastHandshakeAt(): Long {
+        val key = peerKey ?: return 0L
+        val stats = backend.getStatistics(this) ?: return 0L
+        return stats.peer(key)?.latestHandshakeEpochMillis ?: 0L
+    }
 }

@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">CrystalN</string>
+
+    <!-- Notifications -->
+    <string name="notif_channel">CrystalN tunnel</string>
+    <string name="notif_connected">Connected: %1$s</string>
+    <string name="notif_connecting">Connecting…</string>
+    <string name="notif_vpn_connected">VPN connected</string>
+    <string name="notif_speed_format">↓ %1$s · ↑ %2$s</string>
+    <string name="speed_bps_fmt">%1$d B/s</string>
+    <string name="speed_kbps_fmt">%1$.1f KB/s</string>
+    <string name="speed_mbps_fmt">%1$.1f MB/s</string>
+    <string name="speed_gbps_fmt">%1$.2f GB/s</string>
+
+    <!-- Generic actions -->
+    <string name="action_stop">Disconnect</string>
+    <string name="connect">Connect</string>
+    <string name="disconnect">Disconnect</string>
+    <string name="save">Save</string>
+    <string name="cancel">Cancel</string>
+    <string name="ok">OK</string>
+
+    <!-- Connection states (main screen) -->
+    <string name="state_off">Disconnected</string>
+    <string name="state_starting">Connecting…</string>
+    <string name="state_connected">Connected</string>
+    <string name="state_stopping">Disconnecting…</string>
+    <string name="state_error">Error: %1$s</string>
+    <string name="state_short_off">Off</string>
+    <string name="state_short_starting">Conn…</string>
+    <string name="state_short_stopping">Disc…</string>
+    <string name="hero_tap_connect">Tap to connect</string>
+    <string name="hero_starting_sub">Setting up a secure tunnel</string>
+    <string name="hero_checking_sub">Checking server availability</string>
+    <string name="hero_connected_sub">Traffic goes through a secure tunnel</string>
+    <string name="hero_stopping_sub">Closing the tunnel</string>
+    <string name="stat_download">Download</string>
+    <string name="stat_upload">Upload</string>
+    <string name="tab_connect">Connect</string>
+    <string name="tab_settings">Settings</string>
+    <string name="server_unreachable">Server unreachable</string>
+
+    <!-- Profiles -->
+    <string name="profiles_title">Profiles</string>
+    <string name="no_profile">No profile selected</string>
+    <string name="add_profile">Add profile</string>
+    <string name="edit_profile">Edit profile</string>
+    <string name="delete_profile">Delete</string>
+    <string name="delete_confirm">Delete profile “%1$s”?</string>
+    <string name="empty_profiles">No profiles</string>
+    <string name="empty_profiles_hint">Import a config from a file or the clipboard, or create one manually</string>
+    <string name="action_import">Import</string>
+    <string name="action_create">Create</string>
+    <string name="action_export">Export</string>
+    <string name="ping_ms">%1$d ms</string>
+    <string name="traffic_format">%1$s ↓ / %2$s ↑</string>
+
+    <!-- Import / export -->
+    <string name="import_clipboard">Import from clipboard</string>
+    <string name="import_file">Import from file</string>
+    <string name="import_file_action">Install config from file</string>
+    <string name="export_action">Export to file</string>
+    <string name="import_qr">Scan QR code</string>
+    <string name="import_url">Import from link</string>
+    <string name="import_url_hint">Paste a config link</string>
+    <string name="import_url_failed">Failed to download the config</string>
+    <string name="scan_hint">Point the camera at the config QR code</string>
+    <string name="import_result">Imported: %1$d, failed: %2$d</string>
+    <string name="import_result_ok">Imported: %1$d</string>
+    <string name="import_nothing">Nothing to import</string>
+    <string name="import_too_large">File is too large for a config</string>
+    <string name="import_selected">Selected: %1$s</string>
+    <string name="export_file">Export profiles to file</string>
+    <string name="profiles_io">Profiles: import / export</string>
+    <string name="export_done">Profiles exported</string>
+    <string name="wallpaper_too_large">Image is too large</string>
+
+    <!-- Editor -->
+    <string name="editor_new_title">New profile</string>
+    <string name="editor_edit_title">Edit profile</string>
+    <string name="editor_protocol_locked">The protocol of an existing profile cannot be changed — create a new one.</string>
+    <string name="section_protocol">Protocol</string>
+    <string name="section_server">Server</string>
+    <string name="section_transport">Transport</string>
+    <string name="section_security">Security</string>
+    <string name="section_config">Configuration</string>
+    <string name="section_name">Name</string>
+    <string name="field_address">Address (host or IP)</string>
+    <string name="field_port">Port</string>
+    <string name="field_password">Password</string>
+    <string name="field_password_opt">Password (optional)</string>
+    <string name="field_username_opt">Username (optional)</string>
+    <string name="field_profile_name">Profile name</string>
+    <string name="field_flow">flow (xtls-rprx-vision / empty)</string>
+    <string name="field_ss_method">Method (aes-256-gcm, chacha20-ietf-poly1305…)</string>
+    <string name="toggle_allow_insecure">Allow insecure TLS</string>
+    <string name="ovpn_config_label">.ovpn config</string>
+    <string name="ovpn_config_hint">Certificates must be inline in the config (&lt;ca&gt;, &lt;cert&gt;, &lt;key&gt;). Auth lines, scripts and external files are not used.</string>
+    <string name="ovpn_auth_section">Authentication (if the server asks for auth-user-pass)</string>
+    <string name="wg_config_label">wg-quick config</string>
+    <string name="wg_config_label_awg">wg-quick config (+ AmneziaWG)</string>
+    <string name="awg_obfuscation">Obfuscation parameters (AmneziaWG)</string>
+    <string name="awg_obfuscation_hint">Non-zero parameters require an AmneziaWG server. Empty = plain WireGuard.</string>
+    <string name="save_profile">Save profile</string>
+
+    <!-- Settings -->
+    <string name="section_appearance">Appearance</string>
+    <string name="theme_label">Theme</string>
+    <string name="theme_system">System</string>
+    <string name="theme_light">Light</string>
+    <string name="theme_dark">Dark</string>
+    <string name="dynamic_color_title">System colors</string>
+    <string name="dynamic_color_sub">Material You — palette from the wallpaper. Android 12+</string>
+    <string name="palette_label">Palette</string>
+    <string name="wallpaper_title">Custom wallpaper</string>
+    <string name="wallpaper_set">Wallpaper set — a blurred copy backs the glass</string>
+    <string name="wallpaper_unset">No wallpaper — the background is built from the palette</string>
+    <string name="wallpaper_pick">Choose</string>
+    <string name="wallpaper_reset">Reset</string>
+    <string name="section_connection">Connection</string>
+    <string name="autoconnect_title">Auto-connect</string>
+    <string name="autoconnect_sub">Connect the selected profile when the app starts</string>
+    <string name="section_data">Profiles and data</string>
+    <string name="data_info">Import: a config file (.conf / .txt / .json), vless:// trojan:// ss:// vmess:// socks5:// links or a wg-quick config.</string>
+    <string name="section_about">About</string>
+    <string name="about_cores">Cores: Xray (VMess/VLESS/Trojan/Shadowsocks/SOCKS/HTTP), WireGuard and AmneziaWG (amneziawg-go, junk parameters Jc/Jmin/Jmax/S1/S2/H1–H4).</string>
+
+    <!-- Errors -->
+    <string name="vpn_permission_denied">VPN permission denied</string>
+    <string name="start_failed">Failed to start tunnel</string>
+    <string name="ovpn_config_invalid">Invalid OpenVPN client config</string>
+    <string name="ovpn_core_missing">OpenVPN core is not built — run tools/build_openvpn_core.sh</string>
+    <string name="ovpn_need_credentials">This OpenVPN profile needs a username and password (auth-user-pass)</string>
+    <string name="ovpn_auth_failed">OpenVPN: authentication failed (wrong username/password)</string>
+    <string name="ovpn_timeout">OpenVPN: connection timed out</string>
+    <string name="ovpn_exited">OpenVPN process exited unexpectedly</string>
+</resources>

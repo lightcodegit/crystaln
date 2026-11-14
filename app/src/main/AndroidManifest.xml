@@ -9,6 +9,8 @@
         android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE"
         android:minSdkVersion="34" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.CAMERA" />
 
     <application
         android:name=".App"
@@ -41,6 +43,11 @@
                 <data android:mimeType="text/x-wireguard-config" />
             </intent-filter>
         </activity>
+
+        <!-- QR scanner for config import -->
+        <activity
+            android:name=".ui.ScannerActivity"
+            android:exported="false" />
 
         <!-- Xray-family protocols: VMess, VLESS, Trojan, Shadowsocks, SOCKS, HTTP -->
         <service
@@ -96,5 +103,20 @@
                 android:name="android.net.VpnService.SUPPORTS_ALWAYS_ON"
                 android:value="true" />
         </service>
+
+        <!-- "Отключить" action of the app-level status notification (WG/AWG) -->
+        <receiver
+            android:name=".service.VpnDisconnectReceiver"
+            android:exported="false" />
+
+        <!-- Auto-connect the selected profile after boot (settings-gated) -->
+        <receiver
+            android:name=".service.BootReceiver"
+            android:enabled="true"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
     </application>
 </manifest>

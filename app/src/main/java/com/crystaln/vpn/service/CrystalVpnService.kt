@@ -79,10 +79,12 @@ class CrystalVpnService : VpnService() {
                 // claiming CONNECTED.
                 val configJson = XrayConfigBuilder.build(profile)
                 XrayCore.start(configJson, fd.fd)
+                VpnManager.notifyChecking(true)
                 if (!awaitProxyResponse(PROBE_TIMEOUT_MS)) {
                     fail(getString(R.string.server_unreachable))
                     return@launch
                 }
+                VpnManager.notifyChecking(false)
                 VpnManager.notifyState(VpnManager.State.CONNECTED, profile)
                 notifyConnected(profile.name)
             } catch (t: Throwable) {
@@ -177,7 +179,7 @@ class CrystalVpnService : VpnService() {
             PendingIntent.FLAG_IMMUTABLE,
         )
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_launcher)
+            .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(getString(R.string.app_name))
             .setContentText(text)
             .setSubText(name)

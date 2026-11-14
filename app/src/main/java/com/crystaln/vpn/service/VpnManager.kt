@@ -1,6 +1,8 @@
 package com.crystaln.vpn.service
 
 import android.content.Context
+import android.content.Intent
+import android.app.PendingIntent
 import androidx.core.content.ContextCompat
 import com.crystaln.vpn.R
 import com.crystaln.vpn.data.Profile
@@ -13,10 +15,12 @@ import com.crystaln.vpn.wg.WireGuardTunnel
 import java.util.concurrent.atomic.AtomicLong
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 /**
@@ -33,6 +37,16 @@ object VpnManager {
     /** Max wait for the first WireGuard handshake before declaring failure. */
     private const val HANDSHAKE_TIMEOUT_MS = 20_000L
 
+    /**
+     * A healthy WireGuard session rekeys at least every ~2 minutes; a longer
+     * silence means the network path or the server died and the tunnel must
+     * be restarted.
+     */
+    private const val HANDSHAKE_STALE_MS = 180_000L
+
+    /** Rate limit for automatic reconnects. */
+    private const val RECONNECT_MIN_INTERVAL_MS = 60_000L
+
     enum class State { OFF, STARTING, CONNECTED, STOPPING }
 
     data class UiState(
@@ -41,6 +55,8 @@ object VpnManager {
         val error: String? = null,
         val rx: Long = 0,
         val tx: Long = 0,
+        /** True while the tunnel is up but the server has not answered yet. */
+        val checking: Boolean = false,
     )
 
     private val _ui = MutableStateFlow(UiState())
@@ -49,6 +65,18 @@ object VpnManager {
     // GoBackend.setState blocks: service start + handshake must run off the
     // main thread or the VpnService onCreate future deadlocks.
     private val engineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    /** Single 1 Hz poller for traffic counters and handshake staleness. */
+    private val pollScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val pollLock = Any()
+    private var pollJob: Job? = null
+
+    /** Application context of the last connect(); used by auto-reconnect. */
+    @Volatile
+    private var appContext: Context? = null
+
+    @Volatile
+    private var lastReconnectAt = 0L
 
     /** Serializes connect/stop decisions and the generation check. */
     private val lifecycleLock = Any()
@@ -68,6 +96,7 @@ object VpnManager {
         _ui.value.state == State.CONNECTED
 
     fun connect(context: Context, profile: Profile) {
+        appContext = context.applicationContext
         val myGeneration = synchronized(lifecycleLock) {
             stopLocked(context)
             // Fresh state also clears any stale error from previous attempts
@@ -78,6 +107,7 @@ object VpnManager {
         // A superseded async shutdown may never publish OFF, so drop the old
         // status notification here as well (stop() is idempotent).
         VpnStatusNotification.stop()
+        ensurePoller()
         when {
             profile.isWireGuardFamily -> if (profile.protocol == Protocol.WIREGUARD) {
                 startWireGuard(context.applicationContext, profile, myGeneration)
@@ -148,6 +178,7 @@ object VpnManager {
                 val t = WireGuardTunnel(context, profile)
                 tunnel = t
                 t.up()
+                notifyChecking(true)
                 when (awaitHandshake({ t.handshakeHappened() }, myGeneration)) {
                     null -> {
                         // A newer connect()/stop() superseded this attempt.
@@ -182,8 +213,9 @@ object VpnManager {
                             return@launch
                         }
                         // No app-owned service for WireGuard: post the status
-                        // notification ("VPN подключён" + speed) from the app side.
-                        VpnStatusNotification.startApp(context, profile.name)
+                        // notification ("VPN подключён" + speed) from the app side,
+                        // with a "Отключить" action backed by a broadcast receiver.
+                        VpnStatusNotification.startApp(context, profile.name, wgStopIntent(context))
                     }
                 }
             } catch (t: Throwable) {
@@ -201,6 +233,7 @@ object VpnManager {
                 val t = AwgTunnel(context, profile)
                 tunnel = t
                 t.up()
+                notifyChecking(true)
                 when (awaitHandshake({ t.handshakeHappened() }, myGeneration)) {
                     null -> {
                         try {
@@ -231,7 +264,7 @@ object VpnManager {
                             }
                             return@launch
                         }
-                        VpnStatusNotification.startApp(context, profile.name)
+                        VpnStatusNotification.startApp(context, profile.name, wgStopIntent(context))
                     }
                 }
             } catch (t: Throwable) {
@@ -241,6 +274,14 @@ object VpnManager {
             }
         }
     }
+
+    /** "Отключить" action target for the app-level status notification. */
+    private fun wgStopIntent(context: Context): PendingIntent = PendingIntent.getBroadcast(
+        context,
+        2001,
+        Intent(context, VpnDisconnectReceiver::class.java),
+        PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+    )
 
     /**
      * Waits for the first peer handshake — the only real proof that the
@@ -302,6 +343,11 @@ object VpnManager {
         }
     }
 
+    /** Marks the "server is being verified" phase while a tunnel comes up. */
+    fun notifyChecking(checking: Boolean) {
+        _ui.value = _ui.value.copy(checking = checking)
+    }
+
     /** Called by services/state owners to publish transitions. */
     fun notifyState(state: State, profile: Profile?) {
         synchronized(lifecycleLock) {
@@ -310,6 +356,8 @@ object VpnManager {
                 profile = profile ?: _ui.value.profile,
                 // A successful connect clears stale error text.
                 error = if (state == State.CONNECTED) null else _ui.value.error,
+                // The check phase only exists within STARTING.
+                checking = if (state == State.STARTING) _ui.value.checking else false,
             )
         }
         // The status row ("VPN подключён" + speed) must not outlive the tunnel.
@@ -323,7 +371,7 @@ object VpnManager {
 
     fun notifyError(message: String) {
         synchronized(lifecycleLock) {
-            _ui.value = _ui.value.copy(state = State.OFF, error = message)
+            _ui.value = _ui.value.copy(state = State.OFF, error = message, checking = false)
         }
         VpnStatusNotification.stop()
     }
@@ -339,6 +387,53 @@ object VpnManager {
         OpenVpnStats.traffic()?.let { return it }
         XrayEngineHolder.traffic()?.let { return it }
         return 0L to 0L
+    }
+
+    /**
+     * Single 1 Hz loop feeding the UI (and the status notification, which
+     * reads the published counters) and watching the WireGuard session:
+     * a silent peer for minutes means the network path died — restart the
+     * tunnel instead of showing "Подключено" forever.
+     */
+    private fun ensurePoller() {
+        synchronized(pollLock) {
+            if (pollJob?.isActive == true) return
+            pollJob = pollScope.launch {
+                while (isActive) {
+                    delay(1000)
+                    val st = _ui.value
+                    if (st.state != State.CONNECTED) {
+                        // Nothing to sample while connecting/stopping; the
+                        // poller quits once idle so connect() restarts it.
+                        if (st.state == State.OFF) break
+                        continue
+                    }
+                    val (rx, tx) = pollTraffic()
+                    _ui.value = _ui.value.copy(rx = rx, tx = tx)
+                    reconnectIfWireGuardStale(st)
+                }
+            }
+        }
+    }
+
+    /**
+     * Restarts the tunnel when the WireGuard handshake has been silent for
+     * [HANDSHAKE_STALE_MS] — typically after the device changed networks
+     * (Wi-Fi ↔ mobile) or the server went away.
+     */    private fun reconnectIfWireGuardStale(st: UiState) {
+        val p = st.profile ?: return
+        if (!p.isWireGuardFamily) return
+        val handshake = awgTunnel?.lastHandshakeAt()
+            ?: wgTunnel?.lastHandshakeAt()
+            ?: return
+        if (handshake <= 0L) return
+        val now = System.currentTimeMillis()
+        if (now - handshake < HANDSHAKE_STALE_MS) return
+        if (now - lastReconnectAt < RECONNECT_MIN_INTERVAL_MS) return
+        lastReconnectAt = now
+        val ctx = appContext ?: return
+        // Full fresh attempt: stop + up + handshake gate.
+        connect(ctx, p)
     }
 }
 

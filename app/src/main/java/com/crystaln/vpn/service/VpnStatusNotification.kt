@@ -91,14 +91,14 @@ object VpnStatusNotification {
     }
 
     /** App-level notification for engines without an app-owned service (WireGuard). */
-    fun startApp(context: Context, profileName: String) {
+    fun startApp(context: Context, profileName: String, stopIntent: PendingIntent? = null) {
         begin(
             Target(
                 appContext = context.applicationContext,
                 id = APP_NOTIFICATION_ID,
                 channelId = APP_CHANNEL_ID,
                 profileName = profileName,
-                stopIntent = null,
+                stopIntent = stopIntent,
                 openIntent = openIntent(context, 0),
             ) { NotificationManagerCompat.from(context).notify(APP_NOTIFICATION_ID, it) },
         )
@@ -137,7 +137,10 @@ object VpnStatusNotification {
             var primed = false
             while (isActive) {
                 delay(SAMPLE_INTERVAL_MS)
-                val (rx, tx) = VpnManager.pollTraffic()
+                // Counters come from the single VpnManager poller; the ticker
+                // only turns the published cumulative values into a rate.
+                val rx = VpnManager.current().rx
+                val tx = VpnManager.current().tx
                 val rxRate: Long
                 val txRate: Long
                 if (primed) {
@@ -159,7 +162,7 @@ object VpnStatusNotification {
 
     private fun build(t: Target, rxRate: Long, txRate: Long): Notification {
         val b = NotificationCompat.Builder(t.appContext, t.channelId)
-            .setSmallIcon(R.drawable.ic_launcher)
+            .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(t.appContext.getString(R.string.notif_vpn_connected))
             .setContentText(
                 t.appContext.getString(

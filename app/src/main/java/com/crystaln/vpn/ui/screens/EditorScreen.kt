@@ -39,6 +39,7 @@ import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -46,6 +47,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import com.crystaln.vpn.R
 import com.crystaln.vpn.data.Profile
 import com.crystaln.vpn.data.Protocol
 import com.crystaln.vpn.ui.LiquidBlobs
@@ -106,7 +108,7 @@ fun EditorScreen(
                     )
                     Spacer(Modifier.width(12.dp))
                     Text(
-                        if (existing == null) "Новый профиль" else "Редактор профиля",
+                        if (existing == null) stringResource(R.string.editor_new_title) else stringResource(R.string.editor_edit_title),
                         style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.Black,
                     )
@@ -121,7 +123,7 @@ fun EditorScreen(
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
                     // ── Protocol picker ────────────────────────────────
-                    SectionLabel("Протокол")
+                    SectionLabel(stringResource(R.string.section_protocol))
                     GlassPanel(isDark = isDark) {
                         FlowRow(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -138,7 +140,7 @@ fun EditorScreen(
                         }
                         if (existing != null) {
                             Text(
-                                "Протокол существующего профиля изменить нельзя — создайте новый.",
+                                stringResource(R.string.editor_protocol_locked),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
@@ -298,11 +300,11 @@ private fun XrayFields(
     onReality: (Boolean) -> Unit,
     onInsecure: (Boolean) -> Unit,
 ) {
-    SectionLabel("Сервер")
+    SectionLabel(stringResource(R.string.section_server))
     GlassPanel(isDark = isDark) {
         if (protocol != Protocol.SHADOWSOCKS) {
-            TextFieldRow("address", "Адрес (host или IP)", value, set)
-            TextFieldRow("port", "Порт", value, set, numeric = true)
+            TextFieldRow("address", stringResource(R.string.field_address), value, set)
+            TextFieldRow("port", stringResource(R.string.field_port), value, set, numeric = true)
         }
         when (protocol) {
             Protocol.VMESS -> {
@@ -311,32 +313,32 @@ private fun XrayFields(
             }
             Protocol.VLESS -> {
                 TextFieldRow("uuid", "UUID", value, set)
-                TextFieldRow("flow", "flow (xtls-rprx-vision / пусто)", value, set)
+                TextFieldRow("flow", stringResource(R.string.field_flow), value, set)
             }
-            Protocol.TROJAN -> TextFieldRow("password", "Пароль", value, set)
+            Protocol.TROJAN -> TextFieldRow("password", stringResource(R.string.field_password), value, set)
             Protocol.SHADOWSOCKS -> {
-                TextFieldRow("method", "Метод (aes-256-gcm, chacha20-ietf-poly1305…)", value, set)
-                TextFieldRow("password", "Пароль", value, set)
-                TextFieldRow("address", "Адрес (host или IP)", value, set)
-                TextFieldRow("port", "Порт", value, set, numeric = true)
+                TextFieldRow("method", stringResource(R.string.field_ss_method), value, set)
+                TextFieldRow("password", stringResource(R.string.field_password), value, set)
+                TextFieldRow("address", stringResource(R.string.field_address), value, set)
+                TextFieldRow("port", stringResource(R.string.field_port), value, set, numeric = true)
             }
             Protocol.SOCKS, Protocol.HTTP -> {
-                TextFieldRow("username", "Логин (опционально)", value, set)
-                TextFieldRow("password", "Пароль (опционально)", value, set)
+                TextFieldRow("username", stringResource(R.string.field_username_opt), value, set)
+                TextFieldRow("password", stringResource(R.string.field_password_opt), value, set)
             }
             Protocol.WIREGUARD, Protocol.AMNEZIAWG, Protocol.OPENVPN -> Unit
         }
-        TextFieldRow("name", "Название профиля", value, set)
+        TextFieldRow("name", stringResource(R.string.field_profile_name), value, set)
     }
 
     if (protocol in setOf(Protocol.VMESS, Protocol.VLESS, Protocol.TROJAN, Protocol.SHADOWSOCKS)) {
-        SectionLabel("Транспорт")
+        SectionLabel(stringResource(R.string.section_transport))
         GlassPanel(isDark = isDark) {
             TransportChips(value, set)
         }
     }
 
-    SectionLabel("Безопасность")
+    SectionLabel(stringResource(R.string.section_security))
     GlassPanel(isDark = isDark) {
         ToggleRow("TLS", tls, onTls)
         ToggleRow("REALITY", reality, onReality)
@@ -352,7 +354,7 @@ private fun XrayFields(
                 }
             }
             if (!reality) {
-                ToggleRow("Разрешить небезопасный TLS", insecure, onInsecure)
+                ToggleRow(stringResource(R.string.toggle_allow_insecure), insecure, onInsecure)
             }
         }
     }
@@ -446,33 +448,32 @@ private fun OpenVpnFields(
     value: (String) -> String,
     set: (String, String) -> Unit,
 ) {
-    SectionLabel("Конфигурация")
+    SectionLabel(stringResource(R.string.section_config))
     GlassPanel(isDark = isDark) {
         TextFieldRow(
             "ovpnConfig",
-            ".ovpn конфиг",
+            stringResource(R.string.ovpn_config_label),
             value,
             set,
             minLines = 10,
             placeholder = "client\ndev tun\nproto udp\nremote host 1194\n<ca>\n...\n</ca>\nauth-user-pass",
         )
         Text(
-            "Сертификаты должны быть встроены в конфиг (<ca>, <cert>, <key>). " +
-                "Строки авторизации, скрипты и external-файлы не используются.",
+            stringResource(R.string.ovpn_config_hint),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
 
-    SectionLabel("Авторизация (если сервер запрашивает auth-user-pass)")
+    SectionLabel(stringResource(R.string.ovpn_auth_section))
     GlassPanel(isDark = isDark) {
-        TextFieldRow("ovpnUser", "Логин (опционально)", value, set)
-        TextFieldRow("ovpnPass", "Пароль (опционально)", value, set)
+        TextFieldRow("ovpnUser", stringResource(R.string.field_username_opt), value, set)
+        TextFieldRow("ovpnPass", stringResource(R.string.field_password_opt), value, set)
     }
 
-    SectionLabel("Название")
+    SectionLabel(stringResource(R.string.section_name))
     GlassPanel(isDark = isDark) {
-        TextFieldRow("name", "Название профиля", value, set)
+        TextFieldRow("name", stringResource(R.string.field_profile_name), value, set)
     }
 }
 
@@ -484,11 +485,11 @@ private fun WireGuardFamilyFields(
     set: (String, String) -> Unit,
     isDark: Boolean,
 ) {
-    SectionLabel("Конфигурация")
+    SectionLabel(stringResource(R.string.section_config))
     GlassPanel(isDark = isDark) {
         TextFieldRow(
             "wgConfig",
-            if (protocol == Protocol.AMNEZIAWG) "wg-quick конфиг (+ AmneziaWG)" else "wg-quick конфиг",
+            stringResource(if (protocol == Protocol.AMNEZIAWG) R.string.wg_config_label_awg else R.string.wg_config_label),
             value,
             set,
             minLines = 8,
@@ -496,7 +497,7 @@ private fun WireGuardFamilyFields(
         )
     }
     if (protocol == Protocol.AMNEZIAWG) {
-        SectionLabel("Параметры обфускации (AmneziaWG)")
+        SectionLabel(stringResource(R.string.awg_obfuscation))
         GlassPanel(isDark = isDark) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -511,7 +512,7 @@ private fun WireGuardFamilyFields(
                 }
             }
             Text(
-                "Ненулевые параметры требуют AmneziaWG-сервера. Пусто = обычный WireGuard.",
+                stringResource(R.string.awg_obfuscation_hint),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -593,7 +594,7 @@ private fun SaveButton(onClick: () -> Unit) {
             )
             Spacer(Modifier.width(8.dp))
             Text(
-                "Сохранить профиль",
+                stringResource(R.string.save_profile),
                 style = MaterialTheme.typography.labelLarge,
                 fontWeight = FontWeight.Bold,
                 color = androidx.compose.ui.graphics.Color.White,
