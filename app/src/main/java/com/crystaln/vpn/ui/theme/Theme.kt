@@ -76,6 +76,7 @@ fun CrystalNTheme(
     }
     MaterialTheme(
         colorScheme = colorScheme,
+        typography = CrystalTypography,
         content = content,
     )
 }
