@@ -15,6 +15,15 @@ import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.ComponentActivity
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.ExperimentalAnimationApi
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -100,7 +109,7 @@ class MainActivity : ComponentActivity() {
             val id = pendingProfileId
             pendingProfileId = null
             if (result.resultCode == Activity.RESULT_OK && id != null) {
-                ProfileStore.load(this).firstOrNull { it.id == id }?.let { launchConnect(it) }
+                ProfileStore.load(this@MainActivity).firstOrNull { it.id == id }?.let { launchConnect(it) }
             } else {
                 Toast.makeText(this, R.string.vpn_permission_denied, Toast.LENGTH_SHORT).show()
             }
@@ -120,7 +129,7 @@ class MainActivity : ComponentActivity() {
             if (uri == null) return@registerForActivityResult
             try {
                 val json = ProfileImporter.exportJson(
-                    ProfileStore.load(this).toList(), ProfileStore.selectedId,
+                    ProfileStore.load(this@MainActivity).toList(), ProfileStore.selectedId,
                 )
                 contentResolver.openOutputStream(uri)?.use { it.write(json.toByteArray()) }
                 Toast.makeText(this, R.string.export_done, Toast.LENGTH_SHORT).show()
@@ -144,7 +153,7 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                 } ?: return@registerForActivityResult
-                SettingsStore.setWallpaper(this, WALLPAPER_FILE)
+                SettingsStore.setWallpaper(this@MainActivity, WALLPAPER_FILE)
                 refreshWallpaper()
             } catch (t: Throwable) {
                 Toast.makeText(this, t.message ?: t.javaClass.simpleName, Toast.LENGTH_LONG).show()
@@ -220,7 +229,27 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
-                when (nav.value) {
+                AnimatedContent(
+                    targetState = nav.value,
+                    transitionSpec = {
+                        // Directional slide: screens ordered MAIN →
+                        // SETTINGS → EDITOR; going "forward" slides left.
+                        val forward = targetState.ordinal > initialState.ordinal
+                        (
+                            slideInHorizontally(
+                                animationSpec = tween(340, easing = FastOutSlowInEasing),
+                            ) { full -> if (forward) full / 3 else -full / 3 } +
+                                fadeIn(tween(300))
+                            ) togetherWith (
+                            slideOutHorizontally(
+                                animationSpec = tween(300, easing = FastOutSlowInEasing),
+                            ) { full -> if (forward) -full / 3 else full / 3 } +
+                                fadeOut(tween(220))
+                            )
+                    },
+                    label = "nav",
+                ) { screen ->
+                    when (screen) {
                     Nav.MAIN -> MainScreen(
                         isDark = dark,
                         state = uiState,
@@ -228,7 +257,7 @@ class MainActivity : ComponentActivity() {
                         selectedId = selectedId.value,
                         wallpaperPath = wallpaperPath.value,
                         onSelect = { p ->
-                            ProfileStore.select(this, p.id)
+                            ProfileStore.select(this@MainActivity, p.id)
                             refreshProfiles()
                         },
                         onEdit = { p ->
@@ -238,9 +267,9 @@ class MainActivity : ComponentActivity() {
                         onDelete = { p ->
                             // Stop the tunnel first if this profile is live.
                             if (VpnManager.current().profile?.id == p.id) {
-                                VpnManager.stop(this)
+                                VpnManager.stop(this@MainActivity)
                             }
-                            ProfileStore.remove(this, p.id)
+                            ProfileStore.remove(this@MainActivity, p.id)
                             refreshProfiles()
                         },
                         onAdd = {
@@ -257,22 +286,22 @@ class MainActivity : ComponentActivity() {
                         themeMode = themeMode.value,
                         onThemeChange = { mode ->
                             themeMode.value = mode
-                            SettingsStore.setThemeMode(this, mode)
+                            SettingsStore.setThemeMode(this@MainActivity, mode)
                         },
                         dynamicColor = dynamicColor.value,
                         onDynamicColorChange = { on ->
                             dynamicColor.value = on
-                            SettingsStore.setDynamicColor(this, on)
+                            SettingsStore.setDynamicColor(this@MainActivity, on)
                         },
                         paletteId = paletteId.value,
                         onPaletteChange = { id ->
                             paletteId.value = id
-                            SettingsStore.setPaletteId(this, id)
+                            SettingsStore.setPaletteId(this@MainActivity, id)
                         },
                         autoConnect = autoConnect.value,
                         onAutoConnectChange = { on ->
                             autoConnect.value = on
-                            SettingsStore.setAutoConnect(this, on)
+                            SettingsStore.setAutoConnect(this@MainActivity, on)
                         },
                         wallpaperSet = wallpaperPath.value != null,
                         onPickWallpaper = {
@@ -282,7 +311,7 @@ class MainActivity : ComponentActivity() {
                         },
                         onClearWallpaper = {
                             File(filesDir, WALLPAPER_FILE).delete()
-                            SettingsStore.setWallpaper(this, null)
+                            SettingsStore.setWallpaper(this@MainActivity, null)
                             refreshWallpaper()
                         },
                         onImport = {
@@ -298,13 +327,15 @@ class MainActivity : ComponentActivity() {
 
                     Nav.EDITOR -> EditorScreen(
                         existing = editing.value,
+                        isDark = dark,
                         onSave = { p ->
-                            ProfileStore.upsert(this, p)
+                            ProfileStore.upsert(this@MainActivity, p)
                             refreshProfiles()
                             nav.value = Nav.MAIN
                         },
                         onBack = { nav.value = Nav.MAIN },
                     )
+                    }
                 }
 
                 if (importMenu.value) {
@@ -376,7 +407,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun launchConnect(profile: Profile) {
-        VpnManager.connect(this, profile)
+        VpnManager.connect(this@MainActivity, profile)
     }
 
     private fun importClipboard() {
@@ -397,7 +428,7 @@ class MainActivity : ComponentActivity() {
         }
         parsed.forEach { ProfileStore.upsert(this, it) }
         // Install-and-select: the first imported profile becomes active at once.
-        ProfileStore.select(this, parsed.first().id)
+        ProfileStore.select(this@MainActivity, parsed.first().id)
         refreshProfiles()
         Toast.makeText(
             this,
