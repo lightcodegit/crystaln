@@ -20,6 +20,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
@@ -33,6 +34,9 @@ class CrystalVpnService : VpnService() {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var tun: ParcelFileDescriptor? = null
+
+    @Volatile
+    private var running = false
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
@@ -49,6 +53,7 @@ class CrystalVpnService : VpnService() {
                     stopSelf()
                     return START_NOT_STICKY
                 }
+                running = true
                 startTunnel(profile)
             }
         }
@@ -67,7 +72,17 @@ class CrystalVpnService : VpnService() {
                     return@launch
                 }
                 tun = fd
-                XrayCore.start(XrayConfigBuilder.build(profile), fd.fd)
+                // A started core says nothing about the server: it binds the
+                // TUN happily even with the server off. Wait for the first
+                // bytes received through the proxy outbound (system network
+                // validation probes the new VPN within seconds) before
+                // claiming CONNECTED.
+                val configJson = XrayConfigBuilder.build(profile)
+                XrayCore.start(configJson, fd.fd)
+                if (!awaitProxyResponse(PROBE_TIMEOUT_MS)) {
+                    fail(getString(R.string.server_unreachable))
+                    return@launch
+                }
                 VpnManager.notifyState(VpnManager.State.CONNECTED, profile)
                 notifyConnected(profile.name)
             } catch (t: Throwable) {
@@ -92,13 +107,27 @@ class CrystalVpnService : VpnService() {
         return builder.establish()
     }
 
+    /** Waits until the proxy outbound reports received bytes from the server. */
+    private suspend fun awaitProxyResponse(timeoutMs: Long): Boolean {
+        val deadline = System.currentTimeMillis() + timeoutMs
+        while (System.currentTimeMillis() < deadline) {
+            if (!running) return false
+            val traffic = XrayCore.traffic()
+            if (traffic != null && traffic.first > 0) return true
+            delay(500)
+        }
+        return false
+    }
+
     private fun fail(message: String) {
+        running = false
         shutdown()
         VpnManager.notifyError(message)
         stopSelf()
     }
 
     private fun shutdown() {
+        running = false
         XrayCore.stop()
         try {
             tun?.close()
@@ -175,6 +204,9 @@ class CrystalVpnService : VpnService() {
         const val ACTION_START = "com.crystaln.vpn.START"
         const val ACTION_STOP = "com.crystaln.vpn.STOP"
         const val EXTRA_PROFILE_ID = "profile_id"
+
+        /** Max wait for the first server response before declaring failure. */
+        const val PROBE_TIMEOUT_MS = 15_000L
 
         fun startIntent(context: Context, profile: Profile): Intent =
             Intent(context, CrystalVpnService::class.java)

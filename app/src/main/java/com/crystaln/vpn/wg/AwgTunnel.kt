@@ -8,6 +8,7 @@ import java.io.StringReader
 import org.amnezia.awg.backend.GoBackend
 import org.amnezia.awg.backend.Tunnel
 import org.amnezia.awg.config.Config
+import org.amnezia.awg.crypto.Key
 
 /**
  * Real AmneziaWG tunnel on the official AmneziaWG Android core
@@ -23,6 +24,9 @@ class AwgTunnel(context: Context, private val profile: Profile) : Tunnel {
     private val config: Config = Config.parse(
         BufferedReader(StringReader(WgConfigNormalizer.normalize(profile.wgConfig, AwgParams.fromFields(profile.fields)))),
     )
+
+    /** Public key of the first [Peer], used to look up its handshake stats. */
+    private val peerKey: Key? = config.peers.firstOrNull()?.publicKey
 
     @Volatile
     private var up = false
@@ -49,5 +53,16 @@ class AwgTunnel(context: Context, private val profile: Profile) : Tunnel {
         if (!isUp()) return null
         val stats = backend.getStatistics(this) ?: return null
         return stats.totalRx() to stats.totalTx()
+    }
+
+    /**
+     * True once the peer has completed at least one Noise handshake — the
+     * only real proof that the server is alive and the keys match (a tunnel
+     * being "UP" merely means the config was applied).
+     */
+    fun handshakeHappened(): Boolean {
+        val key = peerKey ?: return true // nothing to verify against
+        val stats = backend.getStatistics(this) ?: return false
+        return (stats.peer(key)?.latestHandshakeEpochMillis ?: 0L) > 0L
     }
 }

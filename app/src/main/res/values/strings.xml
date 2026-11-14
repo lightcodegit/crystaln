@@ -10,6 +10,7 @@
     <string name="speed_kbps_fmt">%1$.1f КБ/с</string>
     <string name="speed_mbps_fmt">%1$.1f МБ/с</string>
     <string name="speed_gbps_fmt">%1$.2f ГБ/с</string>
+    <string name="server_unreachable">Сервер недоступен</string>
     <string name="action_stop">Disconnect</string>
     <string name="connect">Connect</string>
     <string name="disconnect">Disconnect</string>

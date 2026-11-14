@@ -2,6 +2,7 @@ package com.crystaln.vpn.service
 
 import android.content.Context
 import androidx.core.content.ContextCompat
+import com.crystaln.vpn.R
 import com.crystaln.vpn.data.Profile
 import com.crystaln.vpn.data.Protocol
 import com.crystaln.vpn.openvpn.OpenVpnService
@@ -13,6 +14,7 @@ import java.util.concurrent.atomic.AtomicLong
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -27,6 +29,9 @@ import kotlinx.coroutines.launch
  * state of a newer connect() (classic race between `down()` and `up()`).
  */
 object VpnManager {
+
+    /** Max wait for the first WireGuard handshake before declaring failure. */
+    private const val HANDSHAKE_TIMEOUT_MS = 20_000L
 
     enum class State { OFF, STARTING, CONNECTED, STOPPING }
 
@@ -138,25 +143,51 @@ object VpnManager {
 
     private fun startWireGuard(context: Context, profile: Profile, myGeneration: Long) {
         engineScope.launch {
+            var tunnel: WireGuardTunnel? = null
             try {
-                val tunnel = WireGuardTunnel(context, profile)
-                tunnel.up()
-                val published = publishIfCurrent(myGeneration) {
-                    wgTunnel = tunnel
-                    UiState(State.CONNECTED, profile)
-                }
-                if (published == null) {
-                    // A newer connect()/stop() superseded this one.
-                    try {
-                        tunnel.down()
-                    } catch (_: Throwable) {
+                val t = WireGuardTunnel(context, profile)
+                tunnel = t
+                t.up()
+                when (awaitHandshake({ t.handshakeHappened() }, myGeneration)) {
+                    null -> {
+                        // A newer connect()/stop() superseded this attempt.
+                        try {
+                            t.down()
+                        } catch (_: Throwable) {
+                        }
+                        return@launch
                     }
-                    return@launch
+
+                    false -> {
+                        // No handshake in time: the server is off, unreachable
+                        // or the keys don't match — a mere up() proves nothing.
+                        try {
+                            t.down()
+                        } catch (_: Throwable) {
+                        }
+                        wgTunnel = null
+                        failGeneration(myGeneration, profile, context.getString(R.string.server_unreachable))
+                    }
+
+                    true -> {
+                        val published = publishIfCurrent(myGeneration) {
+                            wgTunnel = t
+                            UiState(State.CONNECTED, profile)
+                        }
+                        if (published == null) {
+                            try {
+                                t.down()
+                            } catch (_: Throwable) {
+                            }
+                            return@launch
+                        }
+                        // No app-owned service for WireGuard: post the status
+                        // notification ("VPN подключён" + speed) from the app side.
+                        VpnStatusNotification.startApp(context, profile.name)
+                    }
                 }
-                // No app-owned service for WireGuard: post the status
-                // notification ("VPN подключён" + speed) from the app side.
-                VpnStatusNotification.startApp(context, profile.name)
             } catch (t: Throwable) {
+                tunnel = null
                 wgTunnel = null
                 failGeneration(myGeneration, profile, WgErrorText.of(t))
             }
@@ -165,26 +196,65 @@ object VpnManager {
 
     private fun startAwg(context: Context, profile: Profile, myGeneration: Long) {
         engineScope.launch {
+            var tunnel: AwgTunnel? = null
             try {
-                val tunnel = AwgTunnel(context, profile)
-                tunnel.up()
-                val published = publishIfCurrent(myGeneration) {
-                    awgTunnel = tunnel
-                    UiState(State.CONNECTED, profile)
-                }
-                if (published == null) {
-                    try {
-                        tunnel.down()
-                    } catch (_: Throwable) {
+                val t = AwgTunnel(context, profile)
+                tunnel = t
+                t.up()
+                when (awaitHandshake({ t.handshakeHappened() }, myGeneration)) {
+                    null -> {
+                        try {
+                            t.down()
+                        } catch (_: Throwable) {
+                        }
+                        return@launch
                     }
-                    return@launch
+
+                    false -> {
+                        try {
+                            t.down()
+                        } catch (_: Throwable) {
+                        }
+                        awgTunnel = null
+                        failGeneration(myGeneration, profile, context.getString(R.string.server_unreachable))
+                    }
+
+                    true -> {
+                        val published = publishIfCurrent(myGeneration) {
+                            awgTunnel = t
+                            UiState(State.CONNECTED, profile)
+                        }
+                        if (published == null) {
+                            try {
+                                t.down()
+                            } catch (_: Throwable) {
+                            }
+                            return@launch
+                        }
+                        VpnStatusNotification.startApp(context, profile.name)
+                    }
                 }
-                VpnStatusNotification.startApp(context, profile.name)
             } catch (t: Throwable) {
+                tunnel = null
                 awgTunnel = null
                 failGeneration(myGeneration, profile, WgErrorText.of(t))
             }
         }
+    }
+
+    /**
+     * Waits for the first peer handshake — the only real proof that the
+     * server is alive and the keys match. Returns false on timeout, null
+     * when the attempt was superseded by a newer connect()/stop().
+     */
+    private suspend fun awaitHandshake(check: () -> Boolean, myGeneration: Long): Boolean? {
+        val deadline = System.currentTimeMillis() + HANDSHAKE_TIMEOUT_MS
+        while (System.currentTimeMillis() < deadline) {
+            if (synchronized(lifecycleLock) { generation.get() != myGeneration }) return null
+            if (check()) return true
+            delay(500)
+        }
+        return false
     }
 
     /**
