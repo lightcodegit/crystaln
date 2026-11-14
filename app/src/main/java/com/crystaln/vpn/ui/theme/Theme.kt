@@ -28,7 +28,6 @@ fun CrystalNTheme(
     CompositionLocalProvider(LocalCrystalPalette provides palette) {
         MaterialTheme(
             colorScheme = colorScheme,
-            typography = CrystalTypography,
             content = content,
         )
     }
