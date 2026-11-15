@@ -789,6 +789,7 @@ private fun binStatus(): String {
     return listOfNotNull(
         "xray " + if (s.xrayReady) "✓" else "✗",
         "tun2socks " + if (s.tun2socksReady) "✓" else "✗",
+        "amneziawg " + if (s.awgReady) "✓" else "✗",
         "geosite " + if (s.geositeReady) "✓" else "✗",
     ).joinToString(", ")
 }

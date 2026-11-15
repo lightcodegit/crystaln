@@ -20,7 +20,8 @@ import java.net.Socket
  *   privileged script wires a TUN device + default route to it through
  *   tun2socks; in proxy mode the user just points apps at the local proxy.
  * - WireGuard: native wg-quick up/down (needs root).
- * - AmneziaWG: not supported on desktop yet (needs the amnezia kernel module).
+ * - AmneziaWG: userspace amneziawg-go + awg setconf (needs root), including
+ *   junk parameters I1..I5 and wg-quick-style default routing through fwmark.
  * - OpenVPN: system openvpn child run with privileges.
  *
  * The JVM process owns the children, so closing the app tears everything
@@ -33,7 +34,7 @@ object TunnelManager {
     data class UiState(
         val state: State = State.OFF,
         val profile: Profile? = null,
-        /** "tun" | "proxy" | "wg" | "openvpn" — backend actually used. */
+        /** "tun" | "proxy" | "wg" | "awg" | "openvpn" — backend actually used. */
         val mode: String = "",
         val error: String? = null,
         /** Session byte counters (0 when the backend has no visible device). */
@@ -59,6 +60,9 @@ object TunnelManager {
 
     @Volatile
     private var wgConfPath: String? = null
+
+    @Volatile
+    private var awgIface: String? = null
 
     /** Network interface whose /sys counters feed the live traffic stats. */
     @Volatile
@@ -91,9 +95,7 @@ object TunnelManager {
             try {
                 when {
                     profile.protocol == Protocol.WIREGUARD -> connectWireGuard(profile)
-                    profile.protocol == Protocol.AMNEZIAWG -> throw IllegalStateException(
-                        "AmneziaWG пока не поддерживается в Linux-версии (нужен модуль ядра amnezia)",
-                    )
+                    profile.protocol == Protocol.AMNEZIAWG -> connectAmneziaWg(profile)
                     profile.protocol == Protocol.OPENVPN -> connectOpenVpn(profile)
                     else -> connectXray(profile)
                 }
@@ -224,6 +226,91 @@ object TunnelManager {
         markConnected(p, "wg")
     }
 
+    private fun connectAmneziaWg(p: Profile) {
+        if (!Binaries.status().awgReady) {
+            throw IllegalStateException(
+                "Бинарники AmneziaWG не найдены — Настройки → Система → «Обновить бинарники»",
+            )
+        }
+        if (p.wgConfig.isBlank()) {
+            throw IllegalStateException("В профиле нет конфигурации AmneziaWG")
+        }
+        val parsed = WgSetconf.build(p.wgConfig, p.fields)
+        val iface = "crystaln-${p.id.take(8)}"
+        val bin = AppDirs.binDir()
+        val goBin = ChildProcess.bin(bin, Binaries.AWG_GO)
+        val awgBin = ChildProcess.bin(bin, Binaries.AWG)
+        val pidFile = File(AppDirs.dataDir(), "amneziawg.pid")
+        val confFile = "/var/run/amneziawg/$iface.conf"
+        val socket = "/var/run/amneziawg/$iface.sock"
+        val tmp = File.createTempFile(iface, ".conf")
+        tmp.writeText(parsed.setconf)
+        tmp.setReadable(false, false)
+        tmp.setReadable(true, true)
+        logLine("Запуск amneziawg-go ($iface)…")
+        val cmds = mutableListOf(
+            "mkdir -p /var/run/amneziawg",
+            "rm -f $confFile $socket ${pidFile.absolutePath}",
+            "install -m 600 ${tmp.absolutePath} $confFile",
+            // -f is important: without it amneziawg-go re-execs itself and $!
+            // would point at the short-lived parent, not the actual daemon.
+            "nohup $goBin -f $iface >/dev/null 2>&1 & echo \\$! > ${pidFile.absolutePath}",
+            "for i in \\$(seq 1 50); do [ -S $socket ] && break; sleep 0.1; done",
+            "[ -S $socket ] || { kill \\$(cat ${pidFile.absolutePath}); exit 1; }",
+            "$awgBin setconf $iface $confFile",
+            "ip link set $iface mtu ${parsed.mtu} up",
+        )
+        parsed.addresses.forEach { cmds += "ip address add $it dev $iface" }
+        if (parsed.defaultRoute) {
+            // Same routing model as wg-quick: tunnel packets for ordinary
+            // traffic, but leave the server's route in the main table.
+            cmds += listOf(
+                "$awgBin set $iface fwmark 51820",
+                "ip -4 rule add not fwmark 51820 table 51820 || true",
+                "ip -4 rule add table main suppress_prefixlength 0 || true",
+                "ip -6 rule add not fwmark 51820 table 51820 || true",
+                "ip -6 rule add table main suppress_prefixlength 0 || true",
+            )
+            if ("0.0.0.0/0" in parsed.routes) {
+                cmds += "ip -4 route add 0.0.0.0/0 dev $iface table 51820 || true"
+            }
+            if ("::/0" in parsed.routes) {
+                cmds += "ip -6 route add ::/0 dev $iface table 51820 || true"
+            }
+        }
+        parsed.routes.filter { it != "0.0.0.0/0" && it != "::/0" }.forEach {
+            cmds += "ip route replace $it dev $iface"
+        }
+        if (parsed.dnsServers.isNotEmpty()) {
+            cmds += "resolvectl dns $iface ${parsed.dnsServers.joinToString(" ")} || true"
+            cmds += "resolvectl domain $iface '~.' || true"
+        }
+        val res = Privileges.runScript("awg-up", cmds)
+        tmp.delete()
+        if (res != Privileges.Result.Ok) {
+            Privileges.runScript("awg-failed", awgDownCommands(iface, pidFile, confFile, socket))
+            throw IllegalStateException(
+                "amneziawg-go не запущен: " +
+                    ((res as Privileges.Result.Fail).output.ifBlank { "отказано в доступе" }),
+            )
+        }
+        awgIface = iface
+        markConnected(p, "awg")
+    }
+
+    private fun awgDownCommands(iface: String, pidFile: File, confFile: String, socket: String) = listOf(
+        "kill \\$(cat ${pidFile.absolutePath}) || true",
+        "rm -f ${pidFile.absolutePath}",
+        "ip -4 rule del table main suppress_prefixlength 0 || true",
+        "ip -4 rule del not fwmark 51820 table 51820 || true",
+        "ip -6 rule del table main suppress_prefixlength 0 || true",
+        "ip -6 rule del not fwmark 51820 table 51820 || true",
+        "ip route flush table 51820 || true",
+        "ip link del $iface || true",
+        "resolvectl revert $iface || true",
+        "rm -f $confFile $socket",
+    )
+
     private fun connectOpenVpn(p: Profile) {
         if (!ChildProcess.commandExists("openvpn")) {
             throw IllegalStateException("openvpn не найден в системе")
@@ -287,6 +374,21 @@ object TunnelManager {
                 }
                 wgConfPath = null
             }
+            "awg" -> {
+                awgIface?.let { iface ->
+                    Privileges.runScript(
+                        "awg-down",
+                        awgDownCommands(
+                            iface,
+                            File(AppDirs.dataDir(), "amneziawg.pid"),
+                            "/var/run/amneziawg/$iface.conf",
+                            "/var/run/amneziawg/$iface.sock",
+                        ),
+                    )
+                    stoppedSomething = true
+                }
+                awgIface = null
+            }
             "openvpn" -> {
                 val pidFile = File(AppDirs.dataDir(), "openvpn.pid")
                 Privileges.runScript("ovpn-down", listOf("kill $(cat ${pidFile.absolutePath})", "rm -f ${pidFile.absolutePath}"))
@@ -339,7 +441,7 @@ object TunnelManager {
     private fun startTrafficPoller(p: Profile, mode: String) {
         val dev = when (mode) {
             "tun" -> "crystaln0"
-            "wg" -> "crystaln-${p.id.take(8)}"
+            "wg", "awg" -> "crystaln-${p.id.take(8)}"
             "openvpn" -> "crystaln0"
             else -> null // proxy: no network device to measure
         }
@@ -398,6 +500,7 @@ object TunnelManager {
         "tun" -> "TUN"
         "proxy" -> "локальный прокси"
         "wg" -> "WireGuard"
+        "awg" -> "AmneziaWG"
         "openvpn" -> "OpenVPN"
         else -> mode
     }

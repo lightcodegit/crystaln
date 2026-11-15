@@ -7,19 +7,32 @@ import java.util.zip.ZipFile
 
 /**
  * External binaries needed by the desktop app: the official Xray-core build,
- * tun2socks (TUN mode on top of the local socks proxy) and the geosite
+ * tun2socks (TUN mode on top of the local socks proxy), the userspace
+ * AmneziaWG daemon with its `awg` configuration utility, and the geosite
  * database for ad blocking. Everything is downloaded once into
  * ~/.local/share/crystaln/bin; connect() refuses to run without them.
+ *
+ * amneziawg-go is built from upstream by our `awg.yml` GitHub workflow and
+ * published to the `awg-go-bin` release of this repository.
  */
 object Binaries {
 
     const val XRAY = "xray"
     const val TUN2SOCKS = "tun2socks"
+    const val AWG_GO = "amneziawg-go"
+    const val AWG = "awg"
+
+    private const val AWG_GO_RELEASE =
+        "https://github.com/lightcodegit/crystaln/releases/download/awg-go-bin"
+    private const val AWG_TOOLS_ZIP =
+        "https://github.com/amnezia-vpn/amneziawg-tools/releases/download/" +
+            "v3.1.20260812/ubuntu-22.04-amneziawg-tools.zip"
 
     data class Status(
         val xrayReady: Boolean,
         val tun2socksReady: Boolean,
         val geositeReady: Boolean,
+        val awgReady: Boolean,
     ) {
         val proxyModeReady: Boolean get() = xrayReady
         val tunModeReady: Boolean get() = xrayReady && tun2socksReady
@@ -28,11 +41,14 @@ object Binaries {
     fun status(): Status {
         val bin = AppDirs.binDir()
         return Status(
-            xrayReady = File(bin, XRAY).let { it.exists() && it.canExecute() },
-            tun2socksReady = File(bin, TUN2SOCKS).let { it.exists() && it.canExecute() },
+            xrayReady = executable(File(bin, XRAY)),
+            tun2socksReady = executable(File(bin, TUN2SOCKS)),
             geositeReady = File(bin, "geosite.dat").exists(),
+            awgReady = executable(File(bin, AWG_GO)) && executable(File(bin, AWG)),
         )
     }
+
+    private fun executable(file: File) = file.exists() && file.canExecute()
 
     private fun archSuffix(): String {
         val a = System.getProperty("os.arch") ?: "amd64"
@@ -51,6 +67,7 @@ object Binaries {
         needXray: Boolean = true,
         needTun2socks: Boolean = true,
         needGeosite: Boolean = false,
+        needAwg: Boolean = true,
         progress: (String) -> Unit = {},
     ) {
         val bin = AppDirs.binDir()
@@ -103,6 +120,34 @@ object Binaries {
                 throw RuntimeException("В архиве tun2socks нет бинарника tun2socks-linux-$t2sArch")
             }
             zip.delete()
+        }
+        if (needAwg && !executable(File(bin, AWG_GO))) {
+            progress("Загрузка amneziawg-go…")
+            val goArch = if (arch == "64") "amd64" else "arm64"
+            val dst = File(bin, AWG_GO)
+            val tmp = File(bin, "$AWG_GO.tmp")
+            downloadTo("$AWG_GO_RELEASE/amneziawg-go-linux-$goArch", tmp)
+            if (!tmp.renameTo(dst)) dst.writeBytes(tmp.readBytes())
+            dst.setExecutable(true)
+        }
+        if (needAwg && !executable(File(bin, AWG))) {
+            progress("Загрузка утилиты awg…")
+            val zip = downloadTo(AWG_TOOLS_ZIP, File(bin, "amneziawg-tools.zip"))
+            var extracted = false
+            ZipFile(zip).use { zf ->
+                zf.getEntry("ubuntu-22.04-amneziawg-tools/awg")?.let { entry ->
+                    zf.getInputStream(entry).use { input ->
+                        val dst = File(bin, AWG)
+                        val tmp = File(bin, "$AWG.tmp")
+                        tmp.outputStream().use { input.copyTo(it) }
+                        if (!tmp.renameTo(dst)) dst.writeBytes(tmp.readBytes())
+                        dst.setExecutable(true)
+                        extracted = true
+                    }
+                }
+            }
+            zip.delete()
+            if (!extracted) throw RuntimeException("В архиве amneziawg-tools нет утилиты awg")
         }
         if (needGeosite && !status().geositeReady) {
             progress("Загрузка базы рекламных доменов…")
