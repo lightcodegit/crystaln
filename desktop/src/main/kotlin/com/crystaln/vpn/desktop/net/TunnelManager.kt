@@ -4,6 +4,7 @@ import com.crystaln.vpn.data.Profile
 import com.crystaln.vpn.data.Protocol
 import com.crystaln.vpn.data.SettingsStore
 import com.crystaln.vpn.desktop.AppDirs
+import com.crystaln.vpn.data.TrafficStatsStore
 import com.crystaln.vpn.xray.XrayConfigBuilder
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -35,6 +36,9 @@ object TunnelManager {
         /** "tun" | "proxy" | "wg" | "openvpn" — backend actually used. */
         val mode: String = "",
         val error: String? = null,
+        /** Session byte counters (0 when the backend has no visible device). */
+        val rx: Long = 0,
+        val tx: Long = 0,
     )
 
     private val _ui = MutableStateFlow(UiState())
@@ -55,6 +59,14 @@ object TunnelManager {
 
     @Volatile
     private var wgConfPath: String? = null
+
+    /** Network interface whose /sys counters feed the live traffic stats. */
+    @Volatile
+    private var statDevice: String? = null
+
+    /** True while the 1 Hz traffic poller thread is running. */
+    @Volatile
+    private var polling = false
 
     private var generation = 0
 
@@ -263,6 +275,7 @@ object TunnelManager {
     }
 
     private fun teardownAll() {
+        polling = false
         val mode = _ui.value.mode
         var stoppedSomething = false
         when (mode) {
@@ -312,6 +325,63 @@ object TunnelManager {
                 }
             }
         }
+        startTrafficPoller(p, mode)
+    }
+
+    /**
+     * 1 Hz poller, the desktop equivalent of the Android VpnManager loop:
+     * reads the kernel counters of the tunnel's network interface, feeds the
+     * session rx/tx into [ui] and accumulates per-profile totals in
+     * [TrafficStatsStore] (debounced — the file is written at most once a
+     * minute plus once at session end). Proxy mode has no visible device, so
+     * only the session duration accumulates there.
+     */
+    private fun startTrafficPoller(p: Profile, mode: String) {
+        val dev = when (mode) {
+            "tun" -> "crystaln0"
+            "wg" -> "crystaln-${p.id.take(8)}"
+            "openvpn" -> "crystaln0"
+            else -> null // proxy: no network device to measure
+        }
+        statDevice = dev
+        val dataDir = AppDirs.configDir()
+        val myGen = generation
+        polling = true
+        Thread {
+            var lastRx = deviceBytes(dev, "rx_bytes")
+            var lastTx = deviceBytes(dev, "tx_bytes")
+            var ticks = 0
+            while (polling && generation == myGen) {
+                try { Thread.sleep(1_000) } catch (_: InterruptedException) { break }
+                if (generation != myGen || !polling) break
+                if (_ui.value.state != State.CONNECTED) break
+                ticks++
+                val rx = deviceBytes(dev, "rx_bytes")
+                val tx = deviceBytes(dev, "tx_bytes")
+                val drx = (rx - lastRx).coerceAtLeast(0)
+                val dtx = (tx - lastTx).coerceAtLeast(0)
+                lastRx = rx
+                lastTx = tx
+                synchronized(lock) {
+                    if (generation == myGen && _ui.value.state == State.CONNECTED) {
+                        val cur = _ui.value
+                        _ui.value = cur.copy(rx = cur.rx + drx, tx = cur.tx + dtx)
+                    }
+                }
+                TrafficStatsStore.add(dataDir, p.id, drx, dtx, 1)
+            }
+            TrafficStatsStore.flush(dataDir)
+        }.apply {
+            name = "crystaln-traffic"
+            isDaemon = true
+            start()
+        }
+    }
+
+    private fun deviceBytes(dev: String?, file: String): Long = try {
+        File("/sys/class/net/$dev/statistics/$file").readText().trim().toLong()
+    } catch (_: Throwable) {
+        0L
     }
 
     private fun fail(message: String, myGen: Int) {
@@ -344,6 +414,7 @@ object TunnelManager {
     /** JVM shutdown: make sure children die with the app. */
     fun shutdownAll() {
         try {
+            polling = false
             teardownAll()
         } catch (_: Throwable) {
         }

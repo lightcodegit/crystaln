@@ -103,4 +103,54 @@ object SettingsStore {
 
     fun setTunnelMode(dataDir: File, m: TunnelMode) =
         mutate(dataDir) { it.put("tunnelMode", m.name) }
+
+    // ── appearance (parity with the Android app) ─────────────────────────
+
+    fun themeMode(dataDir: File): ThemeMode = when (load(dataDir).optString("themeMode")) {
+        "LIGHT" -> ThemeMode.LIGHT
+        "DARK" -> ThemeMode.DARK
+        else -> ThemeMode.SYSTEM
+    }
+
+    fun setThemeMode(dataDir: File, m: ThemeMode) = mutate(dataDir) { it.put("themeMode", m.name) }
+
+    fun paletteId(dataDir: File): String = load(dataDir).optString("palette").ifEmpty { "indigo" }
+
+    fun setPaletteId(dataDir: File, id: String) = mutate(dataDir) { it.put("palette", id) }
+
+    /** Before connecting, ping all servers and pick the fastest alive one. */
+    fun autoFastest(dataDir: File): Boolean = load(dataDir).optBoolean("autoFastest", false)
+
+    fun setAutoFastest(dataDir: File, v: Boolean) = mutate(dataDir) { it.put("autoFastest", v) }
+
+    /** Everything restorable from a crystaln/2 backup (plus desktop-only extras). */
+    fun exportJson(dataDir: File): JSONObject = JSONObject()
+        .put("themeMode", themeMode(dataDir).name)
+        .put("palette", paletteId(dataDir))
+        .put("autoConnect", autoConnect(dataDir))
+        .put("autoFastest", autoFastest(dataDir))
+        .put("dnsViaTunnel", dnsViaTunnel(dataDir))
+        .put("dnsServer", dnsServer(dataDir))
+        .put("blockAds", blockAds(dataDir))
+        .put("socksPort", socksPort(dataDir))
+        .put("httpPort", httpPort(dataDir))
+        .put("tunnelMode", tunnelMode(dataDir).name)
+
+    fun importJson(dataDir: File, o: JSONObject) {
+        mutate(dataDir) { store ->
+            when (o.optString("themeMode")) {
+                "LIGHT" -> store.put("themeMode", "LIGHT")
+                "DARK" -> store.put("themeMode", "DARK")
+                "SYSTEM" -> store.put("themeMode", "SYSTEM")
+            }
+            o.optString("palette").takeIf { it.isNotEmpty() }?.let { store.put("palette", it) }
+            store.put("autoConnect", o.optBoolean("autoConnect", false))
+            store.put("autoFastest", o.optBoolean("autoFastest", false))
+            store.put("dnsViaTunnel", o.optBoolean("dnsViaTunnel", false))
+            o.optString("dnsServer").takeIf { it.isNotEmpty() }?.let { store.put("dnsServer", it) }
+            store.put("blockAds", o.optBoolean("blockAds", false))
+            if (o.has("socksPort")) store.put("socksPort", o.optInt("socksPort", 10808).coerceIn(1024, 65535))
+            if (o.has("httpPort")) store.put("httpPort", o.optInt("httpPort", 10809).coerceIn(1024, 65535))
+        }
+    }
 }
