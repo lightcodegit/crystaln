@@ -301,8 +301,12 @@ object TunnelManager {
             cmds += "ip route replace $it dev $iface"
         }
         if (parsed.dnsServers.isNotEmpty()) {
+            // Все запросы (включая заблокированные домены, которые провайдер
+            // подменяет) должны идти в DNS туннеля, а не в DNS роутера.
             cmds += "resolvectl dns $iface ${parsed.dnsServers.joinToString(" ")} || true"
             cmds += "resolvectl domain $iface '~.' || true"
+            cmds += "resolvectl default-route $iface yes || true"
+            cmds += "resolvectl flush-caches || true"
         }
         val res = Privileges.runScript("awg-up", cmds)
         tmp.delete()

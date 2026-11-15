@@ -172,6 +172,8 @@ object RootService {
     }
 
     /** True when the installed helper matches [HELPER_VERSION] (or unknown). */
+    fun versionOk(): Boolean = installedVersionOk()
+
     private fun installedVersionOk(): Boolean = try {
         File(VERSION_FILE).readText().trim() == HELPER_VERSION
     } catch (_: Throwable) {

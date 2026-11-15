@@ -71,6 +71,9 @@ object Privileges {
         val script = commands.joinToString("\n", postfix = "\n") { cmd -> "$cmd || exit 1" }
         synchronized(lock) {
             // 1) Однажды установленный systemd-сервис: без диалогов вообще.
+            //    Версию проверяем ДО вызова: иначе устаревшие юниты (например,
+            //    без KillMode=process) живут вечно, т.к. exec() успешен.
+            if (!RootService.versionOk()) RootService.ensureInstalled()
             RootService.exec(script)?.let { return it }
             // 2) Сервис не установлен/сломан/старой версии — ставим или чиним
             //    (диалог пароля один раз), затем повторяем через сервис.
