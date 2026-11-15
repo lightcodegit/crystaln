@@ -264,27 +264,32 @@ object TunnelManager {
 
     private fun teardownAll() {
         val mode = _ui.value.mode
+        var stoppedSomething = false
         when (mode) {
             "wg" -> {
                 wgConfPath?.let { path ->
                     val name = path.substringAfterLast('/').removeSuffix(".conf")
                     Privileges.runScript("wg-down", listOf("wg-quick down $name", "rm -f $path"))
+                    stoppedSomething = true
                 }
                 wgConfPath = null
             }
             "openvpn" -> {
                 val pidFile = File(AppDirs.dataDir(), "openvpn.pid")
                 Privileges.runScript("ovpn-down", listOf("kill $(cat ${pidFile.absolutePath})", "rm -f ${pidFile.absolutePath}"))
+                stoppedSomething = true
             }
             "tun" -> {
                 tun2socks?.stop()
                 tun2socks = null
                 teardownTunQuietly()
+                stoppedSomething = true
             }
         }
+        if (xray != null) stoppedSomething = true
         xray?.stop()
         xray = null
-        logLine("Туннель остановлен")
+        if (stoppedSomething) logLine("Туннель остановлен")
     }
 
     private fun teardownTunQuietly() {
