@@ -110,9 +110,17 @@ export JAVA_HOME=/путь/к/jdk-21
 # Запуск окна
 ./gradlew :desktop:run
 
-# deb-пакет (нужен dpkg-deb; на Fedora только в CI)
+# deb-пакет (нужен dpkg-deb: Debian/Ubuntu) и rpm (нужен rpmbuild: Fedora)
 ./gradlew :desktop:packageDistributionForCurrentOS
+# только rpm (Fedora): jpackage Oracle-JDK не умеет deb без dpkg
+./gradlew :desktop:packageRpm
 ```
+
+Готовый пакет: `desktop/build/compose/binaries/main/rpm/crystaln-1.0.0-1.x86_64.rpm`.
+Установка на Fedora: `sudo dnf install ./crystaln-1.0.0-1.x86_64.rpm` —
+приложение ставится в `/opt/crystaln` и появляется в меню приложений
+(jpackage регистрирует ярлык через `xdg-desktop-menu`); в комплекте
+свой JRE-runtime, системный JDK не нужен.
 
 ## Импорт серверов
 

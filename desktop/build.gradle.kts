@@ -31,7 +31,12 @@ compose.desktop {
         mainClass = "com.crystaln.vpn.desktop.MainKt"
         // `./gradlew :desktop:packageDistributionForCurrentOS` → deb.
         nativeDistributions {
-            targetFormats(org.jetbrains.compose.desktop.application.dsl.TargetFormat.Deb)
+            // deb нужен dpkg-deb (Debian/Ubuntu), rpm — rpmbuild (Fedora/openSUSE);
+            // jpackage строит только форматы, для которых есть утилиты в PATH.
+            targetFormats(
+                org.jetbrains.compose.desktop.application.dsl.TargetFormat.Deb,
+                org.jetbrains.compose.desktop.application.dsl.TargetFormat.Rpm,
+            )
             packageName = "crystaln"
             packageVersion = "1.0.0"
             description = "Мультипротокольный VPN-клиент CrystalN"
