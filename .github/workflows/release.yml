@@ -32,9 +32,37 @@ jobs:
         run: |
           mkdir -p dist
           ver="${{ github.ref_name }}"; ver="${ver#v}"
-          find app/build/outputs/apk/debug -name "*.apk" -exec cp {} "dist/crystaln-${ver}-debug.apk" \;
-          find app/build/outputs/apk/release -name "*.apk" -exec cp {} "dist/" \;
+          # Ставится сразу: universal debug (все ABI, подписан debug-ключом).
+          cp app/build/outputs/apk/debug/app-universal-debug.apk \
+             "dist/crystaln-${ver}-debug.apk"
+          # Послабленные debug-APK для конкретных ABI — кому нужен маленький.
+          for f in app/build/outputs/apk/debug/app-*-debug.apk; do
+            case "$f" in *universal*) continue ;; esac
+            cp "$f" "dist/crystaln-${ver}-$(basename "$f" .apk | sed 's/^app-//').apk"
+          done
+          # Release-вариант подписывается секретами, если они заданы;
+          # без подписи APK ставить нельзя, поэтому не публикуем его вовсе.
+          if [ -n "$ANDROID_SIGNING_KEYSTORE" ]; then
+            echo "$ANDROID_SIGNING_KEYSTORE" | base64 -d > signing.jks
+            bt="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)"
+            for f in app/build/outputs/apk/release/app-*-release-unsigned.apk; do
+              out="dist/crystaln-${ver}-$(basename "$f" .apk | sed 's/^app-//; s/-release-unsigned/-release/').apk"
+              "$bt/apksigner" sign \
+                --ks signing.jks \
+                --ks-key-alias "$ANDROID_SIGNING_KEY_ALIAS" \
+                --ks-pass "pass:$ANDROID_SIGNING_KEY_PASSWORD" \
+                --key-pass "pass:$ANDROID_SIGNING_KEY_KEY_PASSWORD" \
+                --out "$out" "$f"
+              rm -f "$f"
+            done
+            rm -f signing.jks
+          fi
           ls -la dist
+        env:
+          ANDROID_SIGNING_KEYSTORE: ${{ secrets.ANDROID_SIGNING_KEYSTORE }}
+          ANDROID_SIGNING_KEY_ALIAS: ${{ secrets.ANDROID_SIGNING_KEY_ALIAS }}
+          ANDROID_SIGNING_KEY_PASSWORD: ${{ secrets.ANDROID_SIGNING_KEY_PASSWORD }}
+          ANDROID_SIGNING_KEY_KEY_PASSWORD: ${{ secrets.ANDROID_SIGNING_KEY_KEY_PASSWORD }}
       - uses: actions/upload-artifact@v4
         with:
           name: android-apk
@@ -96,8 +124,9 @@ jobs:
           body: |
             ## CrystalN ${{ github.ref_name }}
 
-            **Android:** `crystaln-VERSION-debug.apk` (ставится сразу) и
-            `app-release-unsigned.apk` (для подписи своим ключом)
+            **Android:** `crystaln-VERSION-debug.apk` (universal — ставится сразу на любой телефон),
+            `crystaln-VERSION-<abi>-debug.apk` (послабленные, под конкретный ABI)
+            и `crystaln-VERSION-<abi>-release.apk` (подписаны release-ключом, если он настроен)
             **Linux:** `crystaln-*.AppImage` (универсально), `*.rpm` (Fedora/openSUSE), `*.deb` (Debian/Ubuntu)
 
             AppImage: `chmod +x crystaln-*.AppImage && ./crystaln-*.AppImage`

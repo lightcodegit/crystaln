@@ -53,8 +53,9 @@ ALPN, publicKey/shortId/spiderX).
 
 ### Android
 
-Скачайте `app-debug.apk` из [Releases](https://github.com/lightcodegit/crystaln/releases/latest)
-или соберите сами (см. [Сборка](#сборка)) и установите. Понадобится Android 8+.
+Скачайте `crystaln-*-debug.apk` из [Releases](https://github.com/lightcodegit/crystaln/releases/latest)
+(universal — работает на любом телефоне) или соберите сами (см. [Сборка](#сборка))
+и установите. Понадобится Android 8+.
 
 ### Linux
 
