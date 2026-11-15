@@ -7,6 +7,7 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -34,22 +35,30 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FileOpen
 import androidx.compose.material.icons.filled.Lan
 import androidx.compose.material.icons.filled.NetworkCheck
 import androidx.compose.material.icons.filled.PowerSettingsNew
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -57,16 +66,28 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import android.content.Intent
+import android.graphics.Bitmap
+import android.widget.Toast
 import com.crystaln.vpn.R
 import com.crystaln.vpn.data.Profile
+import com.crystaln.vpn.data.ProfileShareLink
 import com.crystaln.vpn.data.Protocol
 import com.crystaln.vpn.data.TrafficStats
+import com.google.zxing.BarcodeFormat
+import com.google.zxing.EncodeHintType
+import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel
+import com.google.zxing.qrcode.QRCodeWriter
 import com.crystaln.vpn.service.VpnManager
 import com.crystaln.vpn.ui.LiquidBlobs
 import com.crystaln.vpn.ui.WallpaperLayer
@@ -115,6 +136,15 @@ fun MainScreen(
     onPingAll: () -> Unit = {},
     /** Accumulated per-profile usage, id → totals. */
     trafficStats: Map<String, TrafficStats> = emptyMap(),
+    /** Profile search filter. */
+    searchQuery: String = "",
+    onSearchChange: (String) -> Unit = {},
+    /** Subscription id → display name, for grouping. */
+    subscriptionTitles: Map<String, String> = emptyMap(),
+    /** Open the share dialog (link + QR) for a profile. */
+    onShare: (Profile) -> Unit = {},
+    shareProfile: Profile? = null,
+    onDismissShare: () -> Unit = {},
 ) {
     val wallpaper = rememberWallpaper(wallpaperPath)
     val overWallpaper = wallpaper != null
@@ -175,6 +205,26 @@ fun MainScreen(
 
                 Spacer(Modifier.height(10.dp))
 
+                if (profiles.isNotEmpty()) {
+                    OutlinedTextField(
+                        value = searchQuery,
+                        onValueChange = onSearchChange,
+                        singleLine = true,
+                        placeholder = { Text(stringResource(R.string.search_hint)) },
+                        leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                        trailingIcon = {
+                            if (searchQuery.isNotEmpty()) {
+                                IconButton(onClick = { onSearchChange("") }) {
+                                    Icon(Icons.Default.Close, contentDescription = "Clear")
+                                }
+                            }
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 10.dp),
+                    )
+                }
+
                 LazyColumn(
                     Modifier.weight(1f),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
@@ -190,20 +240,93 @@ fun MainScreen(
                             )
                         }
                     } else {
-                        items(profiles, key = { it.id }) { p ->
-                            ProfileCard(
-                                profile = p,
-                                selected = p.id == selectedId,
-                                isDark = glassDark,
-                                overWallpaper = overWallpaper,
-                                ping = pingResults[p.id],
-                                pingable = isPingable(p),
-                                onPing = { onPing(p) },
-                                onSelect = { onSelect(p) },
-                                onEdit = { onEdit(p) },
-                                onDelete = { onDelete(p) },
-                                totalTraffic = trafficStats[p.id],
-                            )
+                        val query = searchQuery.trim()
+                        val matched = { p: Profile ->
+                            query.isEmpty() ||
+                                p.name.contains(query, ignoreCase = true) ||
+                                p.address.contains(query, ignoreCase = true) ||
+                                p.protocol.displayName.contains(query, ignoreCase = true)
+                        }
+                        if (query.isNotEmpty()) {
+                            items(profiles.filter(matched), key = { it.id }) { p ->
+                                ProfileCard(
+                                    profile = p,
+                                    selected = p.id == selectedId,
+                                    isDark = glassDark,
+                                    overWallpaper = overWallpaper,
+                                    ping = pingResults[p.id],
+                                    pingable = isPingable(p),
+                                    onPing = { onPing(p) },
+                                    onSelect = { onSelect(p) },
+                                    onEdit = { onEdit(p) },
+                                    onDelete = { onDelete(p) },
+                                    onShare = { onShare(p) },
+                                    totalTraffic = trafficStats[p.id],
+                                )
+                            }
+                        } else if (subscriptionTitles.isNotEmpty()) {
+                            // Grouped: subscription groups first, then manual profiles.
+                            val groups = subscriptionTitles.entries
+                                .map { entry -> entry.key to profiles.filter { it.subscriptionId == entry.key } }
+                                .filter { it.second.isNotEmpty() }
+                            val manual = profiles.filter { it.subscriptionId == null }
+                            groups.forEach { (title, list) ->
+                                item(key = "group-$title") { SectionHeader(title) }
+                                items(list, key = { it.id }) { p ->
+                                    ProfileCard(
+                                        profile = p,
+                                        selected = p.id == selectedId,
+                                        isDark = glassDark,
+                                        overWallpaper = overWallpaper,
+                                        ping = pingResults[p.id],
+                                        pingable = isPingable(p),
+                                        onPing = { onPing(p) },
+                                        onSelect = { onSelect(p) },
+                                        onEdit = { onEdit(p) },
+                                        onDelete = { onDelete(p) },
+                                        onShare = { onShare(p) },
+                                        totalTraffic = trafficStats[p.id],
+                                    )
+                                }
+                            }
+                            if (manual.isNotEmpty()) {
+                                item(key = "group-manual") {
+                                    SectionHeader(stringResource(R.string.group_manual))
+                                }
+                                items(manual, key = { it.id }) { p ->
+                                    ProfileCard(
+                                        profile = p,
+                                        selected = p.id == selectedId,
+                                        isDark = glassDark,
+                                        overWallpaper = overWallpaper,
+                                        ping = pingResults[p.id],
+                                        pingable = isPingable(p),
+                                        onPing = { onPing(p) },
+                                        onSelect = { onSelect(p) },
+                                        onEdit = { onEdit(p) },
+                                        onDelete = { onDelete(p) },
+                                        onShare = { onShare(p) },
+                                        totalTraffic = trafficStats[p.id],
+                                    )
+                                }
+                            }
+                        } else {
+                            items(profiles.filter(matched), key = { it.id }) { p ->
+                                ProfileCard(
+                                    profile = p,
+                                    selected = p.id == selectedId,
+                                    isDark = glassDark,
+                                    overWallpaper = overWallpaper,
+                                    ping = pingResults[p.id],
+                                    pingable = isPingable(p),
+                                    onPing = { onPing(p) },
+                                    onSelect = { onSelect(p) },
+                                    onEdit = { onEdit(p) },
+                                    onDelete = { onDelete(p) },
+                                    onShare = { onShare(p) },
+                                    totalTraffic = trafficStats[p.id],
+                                )
+                            }
                         }
                     }
                 }
@@ -228,7 +351,120 @@ fun MainScreen(
                 .navigationBarsPadding()
                 .padding(horizontal = 28.dp, vertical = 12.dp),
         )
+
+        shareProfile?.let { profile ->
+            ShareProfileDialog(profile = profile, onDismiss = onDismissShare)
+        }
     }
+}
+
+/** Small grey caption above a profile group. */
+@Composable
+private fun SectionHeader(title: String) {
+    Text(
+        title.uppercase(),
+        style = MaterialTheme.typography.labelMedium,
+        fontWeight = FontWeight.Bold,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(start = 4.dp, top = 2.dp),
+    )
+}
+
+/**
+ * Share dialog: QR code (for scanning into another device) plus the raw
+ * share text with copy / system-share actions. Profiles without shareable
+ * content (e.g. a WG config that was never filled) say so instead.
+ */
+@Composable
+private fun ShareProfileDialog(
+    profile: Profile,
+    onDismiss: () -> Unit,
+) {
+    val context = LocalContext.current
+    val clipboard = LocalClipboardManager.current
+    val text = remember(profile.id) { ProfileShareLink.shareText(profile) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.share_title)) },
+        text = {
+            Column {
+                if (text == null) {
+                    Text(
+                        stringResource(R.string.share_unavailable),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                } else {
+                    if (text.length <= QR_MAX_TEXT) {
+                        val qr = remember(text) { qrBitmap(text) }
+                        Image(
+                            bitmap = qr.asImageBitmap(),
+                            contentDescription = "QR code",
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(bottom = 12.dp),
+                        )
+                    }
+                    OutlinedTextField(
+                        value = text,
+                        onValueChange = {},
+                        readOnly = true,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            if (text != null) {
+                Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                    TextButton(onClick = {
+                        clipboard.setText(AnnotatedString(text))
+                        Toast.makeText(context, R.string.share_copied, Toast.LENGTH_SHORT).show()
+                    }) {
+                        Icon(
+                            Icons.Default.ContentCopy,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp),
+                        )
+                        Spacer(Modifier.width(4.dp))
+                        Text(stringResource(R.string.action_copy))
+                    }
+                    TextButton(onClick = {
+                        val intent = Intent(Intent.ACTION_SEND).apply {
+                            type = "text/plain"
+                            putExtra(Intent.EXTRA_TEXT, text)
+                        }
+                        context.startActivity(Intent.createChooser(intent, null))
+                    }) {
+                        Text(stringResource(R.string.action_share))
+                    }
+                }
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.cancel))
+            }
+        },
+    )
+}
+
+/** Beyond this, QR density stops being scannable; fall back to text-only. */
+private const val QR_MAX_TEXT = 2000
+
+/** Black-on-white QR of [content], quiet zone 1 module. */
+private fun qrBitmap(content: String): Bitmap {
+    val size = 780
+    val hints = mapOf(
+        EncodeHintType.MARGIN to 1,
+        EncodeHintType.ERROR_CORRECTION to ErrorCorrectionLevel.M,
+    )
+    val matrix = QRCodeWriter().encode(content, BarcodeFormat.QR_CODE, size, size, hints)
+    val pixels = IntArray(size * size) { i ->
+        if (matrix.get(i % size, i / size)) android.graphics.Color.BLACK
+        else android.graphics.Color.WHITE
+    }
+    return Bitmap.createBitmap(pixels, size, size, Bitmap.Config.ARGB_8888)
 }
 
 /** App identity row: gradient logo mark, name, live status chip. */
@@ -646,6 +882,7 @@ private fun ProfileCard(
     onSelect: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
+    onShare: () -> Unit = {},
     totalTraffic: TrafficStats? = null,
 ) {
     val pc = protocolColor(profile.protocol)
@@ -754,6 +991,14 @@ private fun ProfileCard(
                         color = pc,
                     )
                 }
+            }
+            IconButton(onClick = onShare) {
+                Icon(
+                    Icons.Default.Share,
+                    contentDescription = "Share",
+                    modifier = Modifier.size(17.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
             IconButton(onClick = onEdit) {
                 Icon(

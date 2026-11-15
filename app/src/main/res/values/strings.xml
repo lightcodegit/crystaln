@@ -135,6 +135,13 @@
     <string name="block_ads_title">Блокировать рекламу</string>
     <string name="block_ads_sub">Отбрасывать рекламные и трекерские домены (нужна база geosite, скачается один раз)</string>
     <string name="block_ads_ready">База рекламных доменов загружена</string>
+    <string name="search_hint">Поиск профилей</string>
+    <string name="group_manual">Вручную</string>
+    <string name="share_title">Поделиться профилем</string>
+    <string name="share_unavailable">Этот профиль нельзя экспортировать: нет адреса или учётных данных.</string>
+    <string name="share_copied">Ссылка скопирована</string>
+    <string name="action_copy">Копировать</string>
+    <string name="action_share">Отправить</string>
     <string name="subscriptions_title">Подписки</string>
     <string name="subscriptions_empty">Нет подписок. Добавьте ссылку, чтобы серверы обновлялись автоматически.</string>
     <string name="subscriptions_add">Добавить подписку</string>

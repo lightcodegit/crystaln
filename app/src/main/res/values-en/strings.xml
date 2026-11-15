@@ -135,6 +135,13 @@
     <string name="block_ads_title">Block ads</string>
     <string name="block_ads_sub">Drop ad and tracker domains (needs a geosite base, downloaded once)</string>
     <string name="block_ads_ready">Ad-domain database downloaded</string>
+    <string name="search_hint">Search profiles</string>
+    <string name="group_manual">Manual</string>
+    <string name="share_title">Share profile</string>
+    <string name="share_unavailable">This profile cannot be exported: no address or credentials.</string>
+    <string name="share_copied">Link copied</string>
+    <string name="action_copy">Copy</string>
+    <string name="action_share">Send</string>
     <string name="subscriptions_title">Subscriptions</string>
     <string name="subscriptions_empty">No subscriptions. Add a URL to keep servers updated automatically.</string>
     <string name="subscriptions_add">Add subscription</string>

@@ -94,6 +94,9 @@ dependencies {
     implementation("androidx.camera:camera-view:1.4.2")
     implementation("com.google.mlkit:barcode-scanning:17.3.0")
 
+    // QR encoder for the "share profile" dialog (pure JVM, no Android deps).
+    implementation("com.google.zxing:core:3.5.3")
+
     // Pure-JVM tests for parsers/config builders. Robolectric supplies the
     // android.* implementations (Uri/Base64/org.json) on the host JVM.
     testImplementation("junit:junit:4.13.2")

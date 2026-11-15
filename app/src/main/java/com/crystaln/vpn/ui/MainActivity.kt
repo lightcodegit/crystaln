@@ -123,6 +123,8 @@ class MainActivity : ComponentActivity() {
     private val profiles = mutableStateOf<List<Profile>>(emptyList())
     private val selectedId = mutableStateOf<String?>(null)
     private val profileStats = mutableStateOf<Map<String, TrafficStats>>(emptyMap())
+    private val searchQuery = mutableStateOf("")
+    private val shareProfile = mutableStateOf<Profile?>(null)
 
     // Subscription rows and their refresh progress.
     private val subscriptions = mutableStateOf<List<Subscription>>(emptyList())
@@ -364,6 +366,12 @@ class MainActivity : ComponentActivity() {
                         pingAllRunning = pingAllRunning.value,
                         onPingAll = { pingAll() },
                         trafficStats = profileStats.value,
+                        searchQuery = searchQuery.value,
+                        onSearchChange = { searchQuery.value = it },
+                        subscriptionTitles = subscriptions.value.associate { it.id to it.name },
+                        onShare = { shareProfile.value = it },
+                        shareProfile = shareProfile.value,
+                        onDismissShare = { shareProfile.value = null },
                     )
 
                     Nav.SETTINGS -> SettingsScreen(
