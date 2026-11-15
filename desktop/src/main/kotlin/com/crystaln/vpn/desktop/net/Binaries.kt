@@ -12,8 +12,9 @@ import java.util.zip.ZipFile
  * database for ad blocking. Everything is downloaded once into
  * ~/.local/share/crystaln/bin; connect() refuses to run without them.
  *
- * amneziawg-go is built from upstream by our `awg.yml` GitHub workflow and
- * published to the `awg-go-bin` release of this repository.
+ * amneziawg-go is built from upstream by the `awg.yml` GitHub workflow in the
+ * public `lightcodegit/crystaln-binaries` repository (this private repository's
+ * release assets cannot be downloaded without a GitHub token).
  */
 object Binaries {
 
@@ -23,7 +24,7 @@ object Binaries {
     const val AWG = "awg"
 
     private const val AWG_GO_RELEASE =
-        "https://github.com/lightcodegit/crystaln/releases/download/awg-go-bin"
+        "https://github.com/lightcodegit/crystaln-binaries/releases/download/awg-go-bin"
     private const val AWG_TOOLS_ZIP =
         "https://github.com/amnezia-vpn/amneziawg-tools/releases/download/" +
             "v3.1.20260812/ubuntu-22.04-amneziawg-tools.zip"

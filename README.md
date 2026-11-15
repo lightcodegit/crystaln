@@ -88,10 +88,13 @@ Desktop-вариант в модуле `desktop` — то же ядро (про�
 - **Протоколы:** Xray-семейство (VMess/VLESS/Trojan/Shadowsocks/SOCKS/HTTP)
   через официальный xray-core, WireGuard через системный `wg-quick`
   (пакет `wireguard-tools`), OpenVPN через системный `openvpn`.
-  AmneziaWG на Linux пока не поддерживается (нужен модуль ядра).
-- **Бинарники** (`xray`, `tun2socks`, `geosite.dat`) скачиваются в
-  `~/.local/share/crystaln/bin` кнопкой «Обновить бинарники» или при первом
-  использовании.
+  AmneziaWG работает в userspace через `amneziawg-go` и `awg setconf`
+  (модуль ядра не нужен); поддерживаются junk-параметры, DNS и AllowedIPs.
+- **Бинарники** (`xray`, `tun2socks`, `amneziawg-go`, `awg`, `geosite.dat`)
+  скачиваются в `~/.local/share/crystaln/bin` кнопкой «Обновить бинарники»
+  или при первом использовании. amneziawg-go собирается из официального
+  upstream для linux/amd64 и linux/arm64 в публичном репозитории
+  `lightcodegit/crystaln-binaries` (исходники клиента там не публикуются).
 - **Данные:** конфиги в `~/.config/crystaln` (profiles.json, subscriptions.json,
   settings.json — форматы как на Android), журнал в
   `~/.local/share/crystaln/logs`. При закрытии окна дочерние процессы
