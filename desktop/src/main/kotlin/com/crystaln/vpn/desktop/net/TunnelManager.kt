@@ -257,6 +257,9 @@ object TunnelManager {
         val pidFile = File(AppDirs.dataDir(), "amneziawg.pid")
         val confFile = "/var/run/amneziawg/$iface.conf"
         val socket = "/var/run/amneziawg/$iface.sock"
+        // Лог демона нужен для диагностики: без него причина падения
+        // amneziawg-go невидима (вывод больше не идёт в /dev/null).
+        val logFile = "/var/run/amneziawg/$iface.log"
         val tmp = File.createTempFile(iface, ".conf")
         tmp.writeText(parsed.setconf)
         tmp.setReadable(false, false)
@@ -268,9 +271,11 @@ object TunnelManager {
             "install -m 600 ${tmp.absolutePath} $confFile",
             // -f is important: without it amneziawg-go re-execs itself and $!
             // would point at the short-lived parent, not the actual daemon.
-            "nohup $goBin -f $iface >/dev/null 2>&1 & echo \$! > ${pidFile.absolutePath}",
-            "for i in $(seq 1 50); do [ -S $socket ] && break; sleep 0.1; done",
-            "[ -S $socket ] || { kill $(cat ${pidFile.absolutePath}); exit 1; }",
+            "nohup $goBin -f $iface >\"$logFile\" 2>&1 & echo \$! > ${pidFile.absolutePath}",
+            "for i in $(seq 1 100); do [ -S $socket ] && break; sleep 0.1; done",
+            // Если сокет не появился — процесс мёртв или завис; показываем его лог,
+            // иначе пользователь видит только вторичную ошибку kill.
+            "[ -S $socket ] || { kill $(cat ${pidFile.absolutePath}) 2>/dev/null; tail -n 10 \"$logFile\" 2>/dev/null; exit 1; }",
             "$awgBin setconf $iface $confFile",
             "ip link set $iface mtu ${parsed.mtu} up",
         )
