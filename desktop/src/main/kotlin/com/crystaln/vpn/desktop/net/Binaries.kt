@@ -78,23 +78,31 @@ object Binaries {
         }
         if (needTun2socks && !status().tun2socksReady) {
             progress("Загрузка tun2socks…")
-            // xjasonlyu/tun2socks ships a gzipped binary.
-            val gz = downloadTo(
-                "https://github.com/xjasonlyu/tun2socks/releases/latest/download/tun2socks-linux-${
-                    if (arch == "64") "amd64" else "arm64"
-                }.gz",
-                File(bin, "tun2socks.gz"),
+            // xjasonlyu/tun2socks ships a zip with the binary inside
+            // (the old .gz asset is gone since v2.6+ — downloading it 404s).
+            val t2sArch = if (arch == "64") "amd64" else "arm64"
+            val zip = downloadTo(
+                "https://github.com/xjasonlyu/tun2socks/releases/latest/download/tun2socks-linux-$t2sArch.zip",
+                File(bin, "tun2socks.zip"),
             )
             progress("Распаковка tun2socks…")
-            val out = File(bin, TUN2SOCKS)
-            val tmp = File(bin, "$TUN2SOCKS.tmp")
-            ProcessBuilder("gunzip", "-c", gz.absolutePath)
-                .redirectOutput(tmp)
-                .start()
-                .waitFor()
-            if (!tmp.renameTo(out)) out.writeBytes(tmp.readBytes())
-            out.setExecutable(true)
-            gz.delete()
+            var extracted = false
+            ZipFile(zip).use { zf ->
+                zf.getEntry("tun2socks-linux-$t2sArch")?.let { entry ->
+                    zf.getInputStream(entry).use { input ->
+                        val out = File(bin, TUN2SOCKS)
+                        val tmp = File(bin, "$TUN2SOCKS.tmp")
+                        tmp.outputStream().use { input.copyTo(it) }
+                        if (!tmp.renameTo(out)) out.writeBytes(tmp.readBytes())
+                        out.setExecutable(true)
+                        extracted = true
+                    }
+                }
+            }
+            if (!extracted) {
+                throw RuntimeException("В архиве tun2socks нет бинарника tun2socks-linux-$t2sArch")
+            }
+            zip.delete()
         }
         if (needGeosite && !status().geositeReady) {
             progress("Загрузка базы рекламных доменов…")
@@ -116,18 +124,23 @@ object Binaries {
             instanceFollowRedirects = true
         }
         try {
+            val code = conn.responseCode
+            if (code !in 200..299) {
+                dst.delete()
+                throw RuntimeException("Не удалось скачать $url: HTTP $code")
+            }
             conn.inputStream.use { input ->
                 dst.outputStream().use { input.copyTo(it) }
             }
         } catch (t: Throwable) {
             dst.delete()
-            throw RuntimeException("Не удалось скачать ${url.substringBeforeLast('/')}: ${t.message}", t)
+            throw RuntimeException("Не удалось скачать $url: ${t.message}", t)
         } finally {
             conn.disconnect()
         }
         if (dst.length() == 0L) {
             dst.delete()
-            throw RuntimeException("Пустой файл загрузки")
+            throw RuntimeException("Пустой файл загрузки: $url")
         }
         return dst
     }
