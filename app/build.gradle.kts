@@ -69,7 +69,9 @@ dependencies {
     implementation("androidx.work:work-runtime-ktx:2.12.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
 
-    implementation(platform("androidx.compose:compose-bom:2026.09.00"))
+    // BOM 2026.09+ (Compose 1.12) требует compileSdk 37 и AGP 9.1 — вернуть,
+    // когда обновим тулчейн (см. также ignore в dependabot.yml).
+    implementation(platform("androidx.compose:compose-bom:2024.12.01"))
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-graphics")
     implementation("androidx.compose.foundation:foundation")

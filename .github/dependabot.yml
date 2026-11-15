@@ -12,6 +12,12 @@ updates:
         patterns: ["org.jetbrains.kotlin*", "*compose*"]
       androidx:
         patterns: ["androidx.*"]
+    ignore:
+      # haze 1.7.x тянет Compose 1.12, которому нужны compileSdk 37 + AGP 9.1.
+      # Вернуть в игру после апгрейда тулчейна (compileSdk 37, AGP 9.1+).
+      - dependency-name: "dev.chrisbanes.haze*"
+      # compose-bom 2026.09+ пинит Compose 1.12 — та же причина.
+      - dependency-name: "androidx.compose:compose-bom"
 
   # Версии actions в workflow (security-обновления прилетают сами).
   - package-ecosystem: "github-actions"
