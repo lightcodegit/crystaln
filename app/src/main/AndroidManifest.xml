@@ -130,5 +130,20 @@
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
             </intent-filter>
         </receiver>
+
+        <!-- Home-screen widget: VPN status + connect toggle -->
+        <receiver
+            android:name=".widget.CrystalWidget"
+            android:exported="false"
+            android:label="@string/app_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="com.crystaln.vpn.widget.TOGGLE" />
+                <action android:name="com.crystaln.vpn.widget.REFRESH" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/crystal_widget_info" />
+        </receiver>
     </application>
 </manifest>

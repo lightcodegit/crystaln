@@ -17,6 +17,7 @@ import com.crystaln.vpn.openvpn.OpenVpnStats
 import com.crystaln.vpn.wg.AwgTunnel
 import com.crystaln.vpn.wg.WgErrorText
 import com.crystaln.vpn.wg.WireGuardTunnel
+import com.crystaln.vpn.widget.CrystalWidget
 import java.util.concurrent.atomic.AtomicLong
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -389,6 +390,7 @@ object VpnManager {
         }
         // The status row ("VPN подключён" + speed) must not outlive the tunnel.
         if (state == State.OFF) VpnStatusNotification.stop()
+        pushWidgetUpdate()
     }
 
     /** Publishes polled byte counters for the UI. */
@@ -401,6 +403,16 @@ object VpnManager {
             _ui.value = _ui.value.copy(state = State.OFF, error = message, checking = false)
         }
         VpnStatusNotification.stop()
+        pushWidgetUpdate()
+    }
+
+    /** Mirrors state transitions onto home-screen widgets, best-effort. */
+    private fun pushWidgetUpdate() {
+        val ctx = appContext ?: return
+        try {
+            CrystalWidget.updateAll(ctx)
+        } catch (_: Throwable) {
+        }
     }
 
     /** Polls the active engine for byte counters. Safe to call from any thread. */

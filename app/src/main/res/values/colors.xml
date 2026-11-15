@@ -6,4 +6,12 @@
     <color name="crystal_bg_dark">#0C0E1A</color>
     <color name="crystal_connected">#2BB673</color>
     <color name="crystal_error">#D93025</color>
+
+    <!-- Home-screen widget -->
+    <color name="widget_bg_off">#E6151620</color>
+    <color name="widget_bg_on">#E61F6B45</color>
+    <color name="widget_btn_off">#4C4F5E</color>
+    <color name="widget_btn_on">#8FE3B4</color>
+    <color name="widget_text">#FFFFFF</color>
+    <color name="widget_text_sub">#B3FFFFFF</color>
 </resources>

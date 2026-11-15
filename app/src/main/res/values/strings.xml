@@ -185,6 +185,10 @@
     <string name="tile_off">Нажмите, чтобы подключить</string>
     <string name="tile_transition">Подключение…</string>
     <string name="tile_on">Подключено: %1$s</string>
+    <!-- Home-screen widget -->
+    <string name="widget_description">Статус VPN и кнопка подключения</string>
+    <string name="widget_tap_hint">Тап — тумблер</string>
+    <string name="widget_toggle">Подключить / отключить</string>
     <!-- Protected export (vault) -->
     <string name="vault_protect">Защитить паролем</string>
     <string name="vault_password">Пароль (минимум 4 символа)</string>

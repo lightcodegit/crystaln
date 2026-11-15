@@ -185,6 +185,9 @@
     <string name="tile_off">Tap to connect</string>
     <string name="tile_transition">Working…</string>
     <string name="tile_on">Connected: %1$s</string>
+    <string name="widget_description">VPN status and a connect button</string>
+    <string name="widget_tap_hint">Tap to toggle</string>
+    <string name="widget_toggle">Connect / disconnect</string>
 
     <!-- Protected export (vault) -->
     <string name="vault_protect">Protect with a password</string>
