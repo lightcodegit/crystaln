@@ -156,6 +156,11 @@
     <string name="diag_vpn_active">VPN сейчас подключён (другой профиль) — проверки безопасны.</string>
     <string name="diag_vpn_idle">VPN отключён.</string>
     <string name="diag_hint">Проверки не устанавливают VPN-соединение и не отправляют трафик через туннель.</string>
+
+    <!-- Quick Settings tile -->
+    <string name="tile_off">Нажмите, чтобы подключить</string>
+    <string name="tile_transition">Подключение…</string>
+    <string name="tile_on">Подключено: %1$s</string>
     <string name="section_data">Профили и данные</string>
     <string name="data_info">Импорт: файл конфигурации (.conf / .txt / .json), ссылки vless:// trojan:// ss:// vmess:// socks5:// или wg-quick конфиг.</string>
     <string name="section_about">О приложении</string>

@@ -156,6 +156,11 @@
     <string name="diag_vpn_active">A VPN is currently connected (another profile) — checks are safe to run.</string>
     <string name="diag_vpn_idle">VPN is disconnected.</string>
     <string name="diag_hint">Checks never establish a VPN connection or send traffic through the tunnel.</string>
+
+    <!-- Quick Settings tile -->
+    <string name="tile_off">Tap to connect</string>
+    <string name="tile_transition">Working…</string>
+    <string name="tile_on">Connected: %1$s</string>
     <string name="section_data">Profiles and data</string>
     <string name="data_info">Import: a config file (.conf / .txt / .json), vless:// trojan:// ss:// vmess:// socks5:// links or a wg-quick config.</string>
     <string name="section_about">About</string>

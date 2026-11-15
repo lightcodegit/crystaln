@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Deep navy canvas behind the faceted crystal. -->
+    <color name="ic_launcher_background">#17204D</color>
+</resources>
