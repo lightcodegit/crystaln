@@ -16,7 +16,7 @@ dependencies {
     // Dispatchers.Main for Compose Desktop (Swing); same version as core.
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-swing:1.8.1")
     // Matches the org.json API used by the Android app (android.jar stub).
-    implementation("org.json:json:20240303")
+    implementation("org.json:json:20260814")
     // Pure-JVM QR encoding for the profile share dialog (Android uses ML Kit).
     implementation("com.google.zxing:core:3.5.4")
 
