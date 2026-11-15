@@ -102,5 +102,5 @@ dependencies {
     // Pure-JVM tests for parsers/config builders. Robolectric supplies the
     // android.* implementations (Uri/Base64/org.json) on the host JVM.
     testImplementation("junit:junit:4.13.2")
-    testImplementation("org.robolectric:robolectric:4.16")
+    testImplementation("org.robolectric:robolectric:4.17")
 }
