@@ -140,6 +140,22 @@
     <string name="subscription_refresh_failed">Не удалось обновить подписку</string>
     <string name="subscription_removed">Подписка удалена</string>
     <string name="subscription_invalid_url">Некорректная ссылка подписки</string>
+
+    <!-- Diagnostics -->
+    <string name="diag_title">Диагностика</string>
+    <string name="diag_target">Проверяемый профиль</string>
+    <string name="diag_checks">Проверки</string>
+    <string name="diag_run">Запустить проверку</string>
+    <string name="diag_running">Проверка…</string>
+    <string name="diag_not_run">Проверки ещё не запускались</string>
+    <string name="diag_dns">DNS-резолв адреса</string>
+    <string name="diag_tcp">TCP-подключение к серверу</string>
+    <string name="diag_config">Полнота конфигурации</string>
+    <string name="diag_status_ok">OK</string>
+    <string name="diag_status_fail">Ошибка</string>
+    <string name="diag_vpn_active">VPN сейчас подключён (другой профиль) — проверки безопасны.</string>
+    <string name="diag_vpn_idle">VPN отключён.</string>
+    <string name="diag_hint">Проверки не устанавливают VPN-соединение и не отправляют трафик через туннель.</string>
     <string name="section_data">Профили и данные</string>
     <string name="data_info">Импорт: файл конфигурации (.conf / .txt / .json), ссылки vless:// trojan:// ss:// vmess:// socks5:// или wg-quick конфиг.</string>
     <string name="section_about">О приложении</string>

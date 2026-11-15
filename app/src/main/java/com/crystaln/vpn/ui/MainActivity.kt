@@ -61,6 +61,7 @@ import androidx.lifecycle.lifecycleScope
 import com.crystaln.vpn.R
 import com.crystaln.vpn.data.Profile
 import com.crystaln.vpn.data.ProfileImporter
+import com.crystaln.vpn.data.ConnectionDiagnostics
 import com.crystaln.vpn.data.ProfileStore
 import com.crystaln.vpn.data.SettingsStore
 import com.crystaln.vpn.data.Subscription
@@ -68,6 +69,7 @@ import com.crystaln.vpn.data.SubscriptionRefresher
 import com.crystaln.vpn.data.SubscriptionsStore
 import com.crystaln.vpn.data.SubscriptionSyncScheduler
 import com.crystaln.vpn.service.VpnManager
+import com.crystaln.vpn.ui.screens.DiagnosticsScreen
 import com.crystaln.vpn.ui.screens.EditorScreen
 import com.crystaln.vpn.ui.screens.MainScreen
 import com.crystaln.vpn.ui.screens.SettingsScreen
@@ -90,7 +92,7 @@ class MainActivity : ComponentActivity() {
     private val maxWallpaperBytes = 25L * 1024 * 1024
 
     // Simple in-process navigation state.
-    private enum class Nav { MAIN, SETTINGS, EDITOR }
+    private enum class Nav { MAIN, SETTINGS, DIAGNOSTICS, EDITOR }
 
     private val nav = mutableStateOf(Nav.MAIN)
     private val editing = mutableStateOf<Profile?>(null)
@@ -112,6 +114,10 @@ class MainActivity : ComponentActivity() {
 
     /** Measured TCP ping per profile id (ms), -1 = unreachable. */
     private val pingResults = mutableStateMapOf<String, Long>()
+
+    // Connection diagnostics: null = not run yet, list = last run's results.
+    private val diagResults = mutableStateOf<List<ConnectionDiagnostics.Result>?>(null)
+    private val diagRunning = mutableStateOf(false)
     private val pinging: MutableSet<String> =
         java.util.Collections.newSetFromMap(java.util.concurrent.ConcurrentHashMap())
 
@@ -355,7 +361,23 @@ class MainActivity : ComponentActivity() {
                             importMenu.value = false
                             fileExport.launch("crystaln_profiles.json")
                         },
+                        onDiagnostics = {
+                            diagResults.value = null
+                            nav.value = Nav.DIAGNOSTICS
+                        },
                         onBack = { nav.value = Nav.MAIN },
+                    )
+
+                    Nav.DIAGNOSTICS -> DiagnosticsScreen(
+                        isDark = dark,
+                        profileName = diagProfile()?.name ?: "",
+                        protocolName = diagProfile()?.protocol?.displayName ?: "",
+                        addressPort = diagProfile()?.let { "${it.address}:${it.port}" } ?: "",
+                        vpnRunning = uiState.state == VpnManager.State.CONNECTED,
+                        results = diagResults.value,
+                        running = diagRunning.value,
+                        onRun = { runDiagnostics() },
+                        onBack = { nav.value = Nav.SETTINGS },
                     )
 
                     Nav.EDITOR -> EditorScreen(
@@ -461,9 +483,33 @@ class MainActivity : ComponentActivity() {
         VpnManager.connect(this@MainActivity, profile)
     }
 
+    /** The profile the diagnostics screen is aimed at. */
+    private fun diagProfile(): Profile? =
+        ProfileStore.selected(this) ?: ProfileStore.load(this).firstOrNull()
+
+    /**
+     * Runs DNS/TCP/config checks off the UI thread. Safe to use while a VPN
+     * is up: nothing here starts or stops a tunnel.
+     */
+    private fun runDiagnostics() {
+        if (diagRunning.value) return
+        val profile = diagProfile() ?: run {
+            Toast.makeText(this, R.string.no_profile, Toast.LENGTH_SHORT).show()
+            return
+        }
+        lifecycleScope.launch(Dispatchers.IO) {
+            diagRunning.value = true
+            try {
+                val results = ConnectionDiagnostics.run(profile)
+                diagResults.value = results
+            } finally {
+                diagRunning.value = false
+            }
+        }
+    }
+
     /** Measures the profile's server reachability on demand (TCP connect). */
-    private fun pingProfile(profile: Profile) {
-        if (!pinging.add(profile.id)) return
+    private fun pingProfile(profile: Profile) {        if (!pinging.add(profile.id)) return
         lifecycleScope.launch(Dispatchers.IO) {
             val ms = tcpPing(profile.address, profile.port)
             pingResults[profile.id] = ms

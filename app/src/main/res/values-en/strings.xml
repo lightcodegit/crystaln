@@ -140,6 +140,22 @@
     <string name="subscription_refresh_failed">Could not refresh subscription</string>
     <string name="subscription_removed">Subscription deleted</string>
     <string name="subscription_invalid_url">Invalid subscription URL</string>
+
+    <!-- Diagnostics -->
+    <string name="diag_title">Diagnostics</string>
+    <string name="diag_target">Profile under test</string>
+    <string name="diag_checks">Checks</string>
+    <string name="diag_run">Run checks</string>
+    <string name="diag_running">Checking…</string>
+    <string name="diag_not_run">Checks have not run yet</string>
+    <string name="diag_dns">DNS resolution</string>
+    <string name="diag_tcp">TCP connect to server</string>
+    <string name="diag_config">Config completeness</string>
+    <string name="diag_status_ok">OK</string>
+    <string name="diag_status_fail">Fail</string>
+    <string name="diag_vpn_active">A VPN is currently connected (another profile) — checks are safe to run.</string>
+    <string name="diag_vpn_idle">VPN is disconnected.</string>
+    <string name="diag_hint">Checks never establish a VPN connection or send traffic through the tunnel.</string>
     <string name="section_data">Profiles and data</string>
     <string name="data_info">Import: a config file (.conf / .txt / .json), vless:// trojan:// ss:// vmess:// socks5:// links or a wg-quick config.</string>
     <string name="section_about">About</string>

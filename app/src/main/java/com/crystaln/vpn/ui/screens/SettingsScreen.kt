@@ -25,6 +25,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.FileOpen
 import androidx.compose.material.icons.filled.Image
@@ -103,6 +104,7 @@ fun SettingsScreen(
     onClearWallpaper: () -> Unit,
     onImport: () -> Unit,
     onExport: () -> Unit,
+    onDiagnostics: () -> Unit,
     onBack: () -> Unit,
 ) {
     val wallpaper = rememberWallpaper(SettingsStore.wallpaper(LocalContext.current))
@@ -255,6 +257,16 @@ fun SettingsScreen(
                             subtitle = stringResource(R.string.autoconnect_sub),
                             checked = autoConnect,
                             onChange = onAutoConnectChange,
+                        )
+                        GlassDivider(Modifier.padding(vertical = 14.dp))
+                        PillButton(
+                            text = stringResource(R.string.diag_title),
+                            icon = Icons.Default.Bolt,
+                            accent = false,
+                            isDark = glassDark,
+                            overWallpaper = overWallpaper,
+                            onClick = onDiagnostics,
+                            modifier = Modifier.fillMaxWidth(),
                         )
                     }
 
@@ -450,7 +462,7 @@ fun SettingsScreen(
 
 /** A rounded glass panel holding the rows of one settings section. */
 @Composable
-private fun SettingsPanel(
+internal fun SettingsPanel(
     isDark: Boolean,
     overWallpaper: Boolean,
     content: @Composable () -> Unit,
