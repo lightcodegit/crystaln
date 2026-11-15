@@ -18,6 +18,8 @@ updates:
       - dependency-name: "dev.chrisbanes.haze*"
       # compose-bom 2026.09+ пинит Compose 1.12 — та же причина.
       - dependency-name: "androidx.compose:compose-bom"
+      # core-ktx 1.19+ требует AGP 9.1 — та же причина.
+      - dependency-name: "androidx.core:core-ktx"
 
   # Версии actions в workflow (security-обновления прилетают сами).
   - package-ecosystem: "github-actions"
