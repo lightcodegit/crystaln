@@ -21,6 +21,9 @@ third_party/
 .DS_Store
 Thumbs.db
 
+# Kotlin/Native + Compose compiler caches
+.kotlin/
+
 # OpenVPN core (built by tools/build_openvpn_core.sh)
 app/src/main/jniLibs/
 third_party/build/
