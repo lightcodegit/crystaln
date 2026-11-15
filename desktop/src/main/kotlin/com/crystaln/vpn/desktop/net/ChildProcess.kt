@@ -64,14 +64,16 @@ class ChildProcess(
     companion object {
         /** True when the command is present on PATH. */
         fun commandExists(cmd: String): Boolean = try {
-            ProcessBuilder("which", cmd).start().waitFor() == 0 &&
-                ProcessBuilder("which", cmd).start().inputStream.readBytes()
-                    .toString(Charsets.UTF_8).isNotBlank()
+            val finder = if (com.crystaln.vpn.desktop.Platform.isWindows) "where" else "which"
+            ProcessBuilder(finder, cmd).start().waitFor() == 0
         } catch (_: Throwable) {
             false
         }
 
+        /** Путь к бинарнику в [dir] (с учётом `.exe` на Windows) или его имя. */
         fun bin(dir: File, name: String): String {
+            val withSuffix = File(dir, name + com.crystaln.vpn.desktop.Platform.exeSuffix)
+            if (withSuffix.exists()) return withSuffix.absolutePath
             val f = File(dir, name)
             return if (f.exists()) f.absolutePath else name
         }

@@ -76,13 +76,17 @@ object Binaries {
         val arch = archSuffix()
         if (needXray && !status().xrayReady) {
             progress("Загрузка Xray-core…")
+            // Windows-сборка называется Xray-windows-64.zip и содержит xray.exe.
+            val win = com.crystaln.vpn.desktop.Platform.isWindows
+            val zipName = if (win) "Xray-windows-$arch.zip" else "Xray-linux-$arch.zip"
+            val entryName = if (win) "xray.exe" else "xray"
             val zip = downloadTo(
-                "https://github.com/XTLS/Xray-core/releases/latest/download/Xray-linux-$arch.zip",
+                "https://github.com/XTLS/Xray-core/releases/latest/download/$zipName",
                 File(bin, "xray.zip"),
             )
             progress("Распаковка Xray…")
             ZipFile(zip).use { zf ->
-                zf.getEntry("xray")?.let { entry ->
+                zf.getEntry(entryName)?.let { entry ->
                     zf.getInputStream(entry).use { input ->
                         val out = File(bin, XRAY)
                         val tmp = File(bin, "$XRAY.tmp")
@@ -94,7 +98,9 @@ object Binaries {
             }
             zip.delete()
         }
-        if (needTun2socks && !status().tun2socksReady) {
+        if (needTun2socks && !status().tun2socksReady &&
+            com.crystaln.vpn.desktop.Platform.supportsTun
+        ) {
             progress("Загрузка tun2socks…")
             // xjasonlyu/tun2socks ships a zip with the binary inside
             // (the old .gz asset is gone since v2.6+ — downloading it 404s).
@@ -122,7 +128,9 @@ object Binaries {
             }
             zip.delete()
         }
-        if (needAwg && !executable(File(bin, AWG_GO))) {
+        if (needAwg && !executable(File(bin, AWG_GO)) &&
+            com.crystaln.vpn.desktop.Platform.supportsDaemons
+        ) {
             progress("Загрузка amneziawg-go…")
             val goArch = if (arch == "64") "amd64" else "arm64"
             val dst = File(bin, AWG_GO)

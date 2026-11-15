@@ -51,12 +51,22 @@ compose.desktop {
         mainClass = "com.crystaln.vpn.desktop.MainKt"
         // `./gradlew :desktop:packageDistributionForCurrentOS` → deb.
         nativeDistributions {
-            // deb нужен dpkg-deb (Debian/Ubuntu), rpm — rpmbuild (Fedora/openSUSE);
-            // jpackage строит только форматы, для которых есть утилиты в PATH.
+            // Форматы по платформе: jpackage умеет только «родные» пакеты.
+            // Linux: deb (нужен dpkg-deb), rpm (нужен rpmbuild);
+            // Windows: msi; macOS: dmg.
+            val hostOs = System.getProperty("os.name").lowercase()
             targetFormats(
-                org.jetbrains.compose.desktop.application.dsl.TargetFormat.Deb,
-                org.jetbrains.compose.desktop.application.dsl.TargetFormat.Rpm,
+                when {
+                    hostOs.contains("win") ->
+                        org.jetbrains.compose.desktop.application.dsl.TargetFormat.Msi
+                    hostOs.contains("mac") ->
+                        org.jetbrains.compose.desktop.application.dsl.TargetFormat.Dmg
+                    else -> org.jetbrains.compose.desktop.application.dsl.TargetFormat.Deb
+                },
             )
+            if (!hostOs.contains("win") && !hostOs.contains("mac")) {
+                targetFormats(org.jetbrains.compose.desktop.application.dsl.TargetFormat.Rpm)
+            }
             packageName = "crystaln"
             packageVersion = project.findProperty("appVersion") as String? ?: "0.1.0"
             description = "Мультипротокольный VPN-клиент CrystalN"
@@ -64,6 +74,19 @@ compose.desktop {
             modules("java.instrument", "java.management", "jdk.unsupported")
             linux {
                 iconFile.set(rootProject.file("desktop/src/main/resources/crystaln/icon.png"))
+            }
+            windows {
+                iconFile.set(rootProject.file("desktop/src/main/resources/crystaln/icon.ico"))
+                // Стабильный UUID: нужен jpackage для msi (иначе генерируется
+                // новый и обновление ставится рядом второй копией).
+                upgradeUuid = "7d3f0f0a-3e5b-4c8f-9a41-2f6b8c5d1e70"
+                menuGroup = "CrystalN"
+                shortcut = true
+                dirChooser = true
+            }
+            macOS {
+                iconFile.set(rootProject.file("desktop/src/main/resources/crystaln/icon.png"))
+                bundleID = "com.crystaln.vpn"
             }
         }
     }
@@ -73,6 +96,7 @@ compose.desktop {
 // createDistributable; see tools/make_appimage.sh.
 tasks.register<Exec>("packageAppImage") {
     group = "compose desktop"
+    onlyIf { !System.getProperty("os.name").lowercase().let { it.contains("win") || it.contains("mac") } }
     dependsOn("createDistributable")
     commandLine("bash", rootProject.file("tools/make_appimage.sh").absolutePath)
     environment("VERSION", compose.desktop.application.nativeDistributions.packageVersion ?: "1.0.0")

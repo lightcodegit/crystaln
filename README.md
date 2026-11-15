@@ -81,6 +81,18 @@ tools/setup.sh install app.AppImage --system  # системно (sudo)
 tools/setup.sh uninstall                  # удалить; профили сохраняются
 ```
 
+**Windows** — установщик `.msi`:
+
+```bat
+gradlew.bat :desktop:packageMsi
+```
+
+Ставится в Program Files, ярлык в меню «Пуск». В Windows доступен
+**режим локального прокси** (SOCKS+HTTP через xray): приложения настраиваются
+на `127.0.0.1:10808` (SOCKS) или `127.0.0.1:10809` (HTTP). TUN-режим,
+WireGuard, AmneziaWG и OpenVPN пока только на Linux — при попытке включить
+приложение покажет понятное сообщение вместо ошибки.
+
 **rpm / deb** — классические пакеты (в комплекте свой JRE):
 
 ```bash
@@ -109,10 +121,11 @@ sudo systemctl daemon-reload
 ## Сборка
 
 Требования: JDK 21 (toolchain), Android SDK (платформа 35) — для Android-версии.
+Desktop-модуль собирается на **Linux, Windows и macOS**.
 
 ```bash
 # 1. Скачать ядро Xray (один раз; WireGuard придёт сам из Maven Central)
-tools/fetch_cores.sh
+tools/fetch_cores.sh              # Windows: bash tools/fetch_cores.sh
 
 # 2. Android: debug-APK
 ./gradlew assembleDebug            # → app/build/outputs/apk/debug/
@@ -124,6 +137,9 @@ tools/fetch_cores.sh
 ./gradlew :desktop:packageAppImage                    # AppImage (любой Linux)
 ./gradlew :desktop:packageRpm                         # rpm (нужен rpmbuild)
 ./gradlew :desktop:packageDistributionForCurrentOS    # deb+rpm (deb нужен dpkg-deb)
+
+# Windows: установщик msi (gradlew.bat на Windows)
+./gradlew :desktop:packageMsi
 
 # Тесты
 ./gradlew :app:testDebugUnitTest :desktop:test

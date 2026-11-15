@@ -124,6 +124,14 @@ object TunnelManager {
         if (!st.xrayReady) {
             throw IllegalStateException("Бинарник xray не найден — нажмите «Обновить бинарники»")
         }
+        if (SettingsStore.tunnelMode(dataDir) == SettingsStore.TunnelMode.TUN &&
+            !com.crystaln.vpn.desktop.Platform.supportsTun
+        ) {
+            throw IllegalStateException(
+                "TUN-режим недоступен на " + com.crystaln.vpn.desktop.Platform.displayName +
+                    ": переключите режим в «Настройки → Прокси» (SOCKS/HTTP через xray).",
+            )
+        }
         if (SettingsStore.tunnelMode(dataDir) == SettingsStore.TunnelMode.TUN && !st.tun2socksReady) {
             throw IllegalStateException("tun2socks не найден — нажмите «Обновить бинарники»")
         }
@@ -200,7 +208,19 @@ object TunnelManager {
         markConnected(p, "tun")
     }
 
+    private fun requireDaemons() {
+        if (!com.crystaln.vpn.desktop.Platform.supportsDaemons) {
+            throw IllegalStateException(
+                "WireGuard/AmneziaWG/OpenVPN пока не поддерживаются на " +
+                    com.crystaln.vpn.desktop.Platform.displayName +
+                    ". Используйте Xray-профиль (VLESS/VMess/Trojan/Shadowsocks/" +
+                    "SOCKS/HTTP) — он работает в режиме локального прокси.",
+            )
+        }
+    }
+
     private fun connectWireGuard(p: Profile) {
+        requireDaemons()
         if (!ChildProcess.commandExists("wg-quick")) {
             if (Binaries.status().awgReady) {
                 logLine("wg-quick не установлен — использую amneziawg-go в режиме WireGuard…")
@@ -237,7 +257,10 @@ object TunnelManager {
         markConnected(p, "wg")
     }
 
-    private fun connectAmneziaWg(p: Profile) = connectAwgBackend(p, "awg")
+    private fun connectAmneziaWg(p: Profile) {
+        requireDaemons()
+        connectAwgBackend(p, "awg")
+    }
 
     /** Userspace WireGuard-compatible backend used by AWG and as a wg-quick fallback. */
     private fun connectAwgBackend(p: Profile, mode: String) {
@@ -337,6 +360,7 @@ object TunnelManager {
     )
 
     private fun connectOpenVpn(p: Profile) {
+        requireDaemons()
         if (!ChildProcess.commandExists("openvpn")) {
             throw IllegalStateException("openvpn не найден в системе")
         }
