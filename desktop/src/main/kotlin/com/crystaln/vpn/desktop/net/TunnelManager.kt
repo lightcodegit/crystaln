@@ -54,6 +54,10 @@ object TunnelManager {
     private var tun2socks: ChildProcess? = null
     private var openvpn: ChildProcess? = null
 
+    /** Temporary OpenVPN configs and credentials, removed on disconnect/failure. */
+    @Volatile
+    private var openvpnFiles: List<File> = emptyList()
+
     /** Extra default-route bookkeeping for the TUN teardown. */
     @Volatile
     private var origGateway: String? = null
@@ -320,6 +324,23 @@ object TunnelManager {
         }
         val file = File.createTempFile("crystaln-", ".ovpn")
         file.writeText(conf)
+        // OpenVPN runs as root and reads these files before dropping privileges.
+        // Keep secrets owner-readable on disk, even before pkexec starts it.
+        file.setReadable(false, false)
+        file.setReadable(true, true)
+        file.setWritable(false, false)
+        file.setWritable(true, true)
+        val user = p.fields["ovpnUser"]?.trim().orEmpty()
+        val pass = p.fields["ovpnPass"]?.trim().orEmpty()
+        val authFile = openVpnCredentialText(user, pass)?.let { credentials ->
+            File.createTempFile("crystaln-", ".auth").apply {
+                writeText(credentials)
+                setReadable(false, false)
+                setReadable(true, true)
+                setWritable(false, false)
+                setWritable(true, true)
+            }
+        }
         logLine("Запуск openvpn…")
         // openvpn must run privileged to create the TUN; run it detached via
         // pkexec/sudo and supervise its lifecycle through a pidfile.
@@ -327,15 +348,18 @@ object TunnelManager {
         val script = listOf(
             "rm -f ${pidFile.absolutePath}",
             "sh -c 'openvpn --config ${file.absolutePath.replace("\'", "\\'")} " +
+                (authFile?.let { "--auth-user-pass ${it.absolutePath} " } ?: "") +
                 "--dev crystaln0 --script-security 2 & echo \\$! > ${pidFile.absolutePath}'",
         )
         val res = Privileges.runScript("ovpn-up", script)
         if (res != Privileges.Result.Ok) {
             file.delete()
+            authFile?.delete()
             throw IllegalStateException(
                 "openvpn не запущен: " + ((res as Privileges.Result.Fail).output.ifBlank { "отказано в доступе" }),
             )
         }
+        openvpnFiles = listOfNotNull(file, authFile)
         openvpn = ChildProcess(
             "openvpn-watch",
             listOf("sh", "-c", "while kill -0 $(cat ${pidFile.absolutePath}) 2>/dev/null; do sleep 1; done"),
@@ -392,6 +416,10 @@ object TunnelManager {
             "openvpn" -> {
                 val pidFile = File(AppDirs.dataDir(), "openvpn.pid")
                 Privileges.runScript("ovpn-down", listOf("kill $(cat ${pidFile.absolutePath})", "rm -f ${pidFile.absolutePath}"))
+                openvpn?.stop()
+                openvpn = null
+                openvpnFiles.forEach { it.delete() }
+                openvpnFiles = emptyList()
                 stoppedSomething = true
             }
             "tun" -> {
@@ -523,4 +551,11 @@ object TunnelManager {
         }
         _ui.value = UiState(State.OFF)
     }
+}
+
+/** openvpn's auth-user-pass file has one unescaped username/password per line. */
+internal fun openVpnCredentialText(user: String?, pass: String?): String? {
+    val u = user?.trim().orEmpty()
+    val p = pass?.trim().orEmpty()
+    return if (u.isEmpty() && p.isEmpty()) null else "$u\n$p\n"
 }
