@@ -21,7 +21,7 @@ jobs:
         with:
           distribution: temurin
           java-version: "17"
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v6
       - name: Fetch Xray core bindings
         run: bash tools/fetch_cores.sh
       - name: Build APKs
@@ -78,7 +78,7 @@ jobs:
         with:
           distribution: temurin
           java-version: "21"
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v6
       - name: Install packaging tools
         run: |
           sudo apt-get update
