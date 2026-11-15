@@ -271,7 +271,9 @@ object TunnelManager {
             "install -m 600 ${tmp.absolutePath} $confFile",
             // -f is important: without it amneziawg-go re-execs itself and $!
             // would point at the short-lived parent, not the actual daemon.
-            "LOG_LEVEL=debug nohup $goBin -f $iface >\"$logFile\" 2>&1 & echo \$! > ${pidFile.absolutePath}",
+            // CRYSTALN_DEBUG=1 включает подробный лог amneziawg-go (диагностика
+            // хендшейков). По умолчанию — только ошибки, чтобы лог не рос.
+            "LOG_LEVEL=\${CRYSTALN_DEBUG:+debug} nohup $goBin -f $iface >\"$logFile\" 2>&1 & echo \$! > ${pidFile.absolutePath}",
             "for i in $(seq 1 100); do [ -S $socket ] && break; sleep 0.1; done",
             // Если сокет не появился — процесс мёртв или завис; показываем его лог,
             // иначе пользователь видит только вторичную ошибку kill.
