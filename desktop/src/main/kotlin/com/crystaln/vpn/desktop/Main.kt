@@ -1,5 +1,6 @@
 package com.crystaln.vpn.desktop
 
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -40,6 +41,13 @@ private val traySupported: Boolean by lazy {
     }
 }
 
+/** Profile to connect to from the tray: the selected one, or the first saved. */
+private fun trayProfile(): com.crystaln.vpn.data.Profile? {
+    val cfg = AppDirs.configDir()
+    return com.crystaln.vpn.data.ProfileStore.selected(cfg)
+        ?: com.crystaln.vpn.data.ProfileStore.load(cfg).firstOrNull()
+}
+
 fun main() {
     // Children (xray, tun2socks, openvpn watchers) must not outlive the app:
     // a normal exit and a crash both run this hook and tear everything down.
@@ -49,6 +57,9 @@ fun main() {
         // На Windows закрытие окна сворачивает приложение в трей (туннель
         // продолжает работать); без трея — обычный выход.
         var windowVisible by remember { mutableStateOf(true) }
+
+        // Состояние туннеля для меню трея (Подключить/Отключить, подсказка).
+        val conn by TunnelManager.ui.collectAsState()
 
         Window(
             onCloseRequest = {
@@ -64,12 +75,35 @@ fun main() {
 
         val icon = windowIcon
         if (traySupported && icon != null) {
+            val tooltip = when (val c = conn.state) {
+                TunnelManager.State.CONNECTED ->
+                    "CrystalN — подключено (${conn.profile?.name ?: "профиль"})"
+                TunnelManager.State.STARTING -> "CrystalN — подключение…"
+                TunnelManager.State.STOPPING -> "CrystalN — отключение…"
+                else -> "CrystalN — отключено"
+            }
             Tray(
                 icon = icon,
-                tooltip = "CrystalN — VPN",
+                tooltip = tooltip,
                 // Двойной клик по иконке в трее (Windows) открывает окно.
                 onAction = { windowVisible = true },
             ) {
+                Item(tooltip, enabled = false) { /* только статус */ }
+                Separator()
+                if (conn.state == TunnelManager.State.OFF ||
+                    conn.state == TunnelManager.State.STOPPING
+                ) {
+                    Item("Подключить") {
+                        val p = trayProfile()
+                        if (p != null) TunnelManager.connect(p)
+                    }
+                }
+                if (conn.state == TunnelManager.State.STARTING ||
+                    conn.state == TunnelManager.State.CONNECTED
+                ) {
+                    Item("Отключить") { TunnelManager.stop() }
+                }
+                Separator()
                 Item("Открыть CrystalN") { windowVisible = true }
                 Item("Выход") {
                     // Полный выход: shutdown-хук погасит xray/tun2socks/openvpn.
