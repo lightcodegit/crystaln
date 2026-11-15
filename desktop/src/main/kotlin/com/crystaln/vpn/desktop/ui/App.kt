@@ -77,7 +77,7 @@ import kotlinx.coroutines.withContext
 private const val MAX_IMPORT_BYTES = 512 * 1024
 
 /** App version; must match packageVersion in desktop/build.gradle.kts. */
-private const val APP_VERSION = "1.0.0"
+private const val APP_VERSION = "0.1.0"
 
 /**
  * Root composable: theme + navigation + all the wiring (dialogs, ping,

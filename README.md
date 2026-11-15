@@ -127,8 +127,8 @@ export JAVA_HOME=/путь/к/jdk-21
 ./gradlew :desktop:packageRpm
 ```
 
-Готовый пакет: `desktop/build/compose/binaries/main/rpm/crystaln-1.0.0-1.x86_64.rpm`.
-Установка на Fedora: `sudo dnf install ./crystaln-1.0.0-1.x86_64.rpm` —
+Готовый пакет: `desktop/build/compose/binaries/main/rpm/crystaln-0.1.0-1.x86_64.rpm`.
+Установка на Fedora: `sudo dnf install ./crystaln-0.1.0-1.x86_64.rpm` —
 приложение ставится в `/opt/crystaln` и появляется в меню приложений
 (jpackage регистрирует ярлык через `xdg-desktop-menu`); в комплекте
 свой JRE-runtime, системный JDK не нужен.
@@ -140,10 +140,30 @@ export JAVA_HOME=/путь/к/jdk-21
 ```
 
 Готовый файл: `desktop/build/compose/binaries/main/appimage/
-crystaln-1.0.0-x86_64.AppImage`. Запуск: `chmod +x *.AppImage &&
-./crystaln-1.0.0-x86_64.AppImage`. Нужен только libfuse2 (или запуск с
+crystaln-0.1.0-x86_64.AppImage`. Запуск: `chmod +x *.AppImage &&
+./crystaln-0.1.0-x86_64.AppImage`. Нужен только libfuse2 (или запуск с
 переменной `APPIMAGE_EXTRACT_AND_RUN=1` без FUSE). Требуется `mksquashfs`
 (пакет squashfs-tools; Fedora: `sudo dnf install squashfs-tools`).
+
+### Установка в меню (setup)
+
+Вариант 1 — Gear Lever (GNOME, есть на Flathub): откройте наш AppImage
+кнопкой «Открыть» — менеджер сам перенесёт его в свою папку, создаст
+ярлык в меню и будет следить за обновлениями. Метаданные для интеграции
+(иконка, Exec, `X-AppImage-Version`) уже встроены в AppImage.
+
+Вариант 2 — скрипт-setup, работает на любом дистрибутиве:
+
+```sh
+tools/setup.sh install [путь/к/crystaln-*.AppImage]   # в ~/.local (без root)
+tools/setup.sh install путь.AppImage --system         # системная установка (sudo)
+tools/setup.sh uninstall                              # удалить
+```
+
+Скрипт кладёт приложение в `~/.local/share/crystaln/`, регистрирует
+ярлык в меню приложений и иконку; конфигурация профилей при удалении
+сохраняется. Gear Lever есть не на всех дистрибутивах — скрипт работает
+везде, где есть bash.
 
 ## Первая настройка
 

@@ -9,7 +9,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 # mksquashfs is needed by appimagetool; prefer a user-local copy.
 export PATH="$HOME/.local/bin:$PATH"
-VERSION="${VERSION:-1.0.0}"
+VERSION="${VERSION:-0.1.0}"
 ARCH="${ARCH:-x86_64}"
 DIST="desktop/build/compose/binaries/main/appimage"
 APPDIR="$DIST/CrystalN.AppDir"
@@ -60,6 +60,7 @@ Type=Application
 Categories=Network;
 Terminal=false
 StartupWMClass=crystaln
+X-AppImage-Version=$VERSION
 EOF
 
 cat > "$APPDIR/AppRun" <<'EOF'

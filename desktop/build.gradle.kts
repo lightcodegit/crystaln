@@ -38,7 +38,7 @@ compose.desktop {
                 org.jetbrains.compose.desktop.application.dsl.TargetFormat.Rpm,
             )
             packageName = "crystaln"
-            packageVersion = "1.0.0"
+            packageVersion = "0.1.0"
             description = "Мультипротокольный VPN-клиент CrystalN"
             vendor = "CrystalN"
             modules("java.instrument", "java.management", "jdk.unsupported")
