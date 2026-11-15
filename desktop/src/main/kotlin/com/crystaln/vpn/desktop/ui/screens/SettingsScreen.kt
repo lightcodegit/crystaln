@@ -230,7 +230,7 @@ fun SettingsScreen(
                         )
                         Spacer(Modifier.height(10.dp))
                         GlassSegmented(
-                            options = listOf("TUN (root)", "Прокси"),
+                            options = listOf("TUN (root / admin)", "Прокси"),
                             selected = if (tunnelMode == SettingsStore.TunnelMode.TUN) 0 else 1,
                             onSelect = { i ->
                                 onTunnelModeChange(

@@ -47,6 +47,22 @@ class ChildProcess(
     fun stop() {
         val p = proc ?: return
         if (p.isAlive) {
+            if (com.crystaln.vpn.desktop.Platform.isWindows) {
+                // destroy() на Windows может не добить дерево (xray/plugins);
+                // taskkill /T /F надёжен и снимает дочерние процессы.
+                try {
+                    val killer = ProcessBuilder(
+                        "taskkill", "/PID", p.pid().toString(), "/T", "/F",
+                    ).apply { redirectErrorStream(true) }.start()
+                    killer.waitFor(3_000, java.util.concurrent.TimeUnit.MILLISECONDS)
+                    if (!p.waitFor(3_000, java.util.concurrent.TimeUnit.MILLISECONDS)) {
+                        p.destroyForcibly()
+                    }
+                } catch (_: Throwable) {
+                    p.destroyForcibly()
+                }
+                return
+            }
             p.destroy()
             try {
                 if (!p.waitFor(3_000, java.util.concurrent.TimeUnit.MILLISECONDS)) {

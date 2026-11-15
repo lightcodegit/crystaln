@@ -93,7 +93,8 @@ fun OnboardingScreen(
                         0 -> {
                             SettingsPanel(isDark = isDark) {
                                 Text(
-                                    "Мультипротокольный VPN-клиент для Linux: локальный прокси " +
+                                    "Мультипротокольный VPN-клиент для Linux и Windows: " +
+                                        "локальный прокси " +
                                         "и полноэкранный TUN, умный выбор самого быстрого сервера, " +
                                         "статистика трафика и защита от рекламы.",
                                     style = MaterialTheme.typography.bodyLarge,
@@ -198,8 +199,9 @@ fun OnboardingScreen(
                                 Spacer(Modifier.height(8.dp))
                                 Text(
                                     "Нажмите на большой круг на главном экране, чтобы включить VPN. " +
-                                        "Для TUN-режима root запрашивается один раз — дальше сервис " +
-                                        "работает без пароля. Автоподключение и другие настройки — в «Настройках».",
+                                        "Для TUN-режима повышенные права запрашиваются один раз " +
+                                        "(root на Linux, UAC на Windows) — дальше подключение идёт " +
+                                        "без диалогов. Автоподключение и другие настройки — в «Настройках».",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )

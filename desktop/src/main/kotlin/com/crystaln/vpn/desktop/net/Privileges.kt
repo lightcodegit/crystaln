@@ -68,6 +68,10 @@ object Privileges {
      * session's helper has not been started yet.
      */
     fun runScript(name: String, commands: List<String>): Result {
+        if (com.crystaln.vpn.desktop.Platform.isWindows) {
+            // Windows: elevated helper через файл-очередь (один UAC на сессию).
+            return WindowsHelper.runScript(name, commands)
+        }
         val script = commands.joinToString("\n", postfix = "\n") { cmd -> "$cmd || exit 1" }
         synchronized(lock) {
             // 1) Однажды установленный systemd-сервис: без диалогов вообще.

@@ -3,10 +3,10 @@ package com.crystaln.vpn.desktop
 /**
  * Платформа, под которой запущено приложение.
  *
- * Большая часть privileged-кода (TUN, root-хелпер, `ip`/`resolvectl`) написана
- * под Linux. На Windows/macOS приложение собирается и работает в прокси-режиме
- * (локальный SOCKS+HTTP через xray), а TUN-режим явно сообщает, что недоступен,
- * вместо того чтобы падать с непонятной ошибкой.
+ * Полноценный VPN (TUN, WireGuard/AmneziaWG/OpenVPN) поддерживается на Linux
+ * и Windows. На macOS приложение работает в прокси-режиме (локальный
+ * SOCKS+HTTP через xray), а TUN-режим явно сообщает, что недоступен, вместо
+ * того чтобы падать с непонятной ошибкой.
  */
 object Platform {
 
@@ -22,10 +22,10 @@ object Platform {
     val exeSuffix: String = if (isWindows) ".exe" else ""
 
     /** Поддерживается ли TUN-режим (полный VPN) на этой платформе. */
-    val supportsTun: Boolean get() = isLinux
+    val supportsTun: Boolean get() = isLinux || isWindows
 
     /** Поддерживаются ли WireGuard/AmneziaWG/OpenVPN через ядра-демоны. */
-    val supportsDaemons: Boolean get() = isLinux
+    val supportsDaemons: Boolean get() = isLinux || isWindows
 
     /** Полное имя бинарника с учётом платформы. */
     fun binName(base: String): String = base + exeSuffix

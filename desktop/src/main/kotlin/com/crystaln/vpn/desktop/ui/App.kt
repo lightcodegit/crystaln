@@ -896,12 +896,19 @@ private fun downloadText(url: String): String {
 /** Short human-readable binaries availability line. */
 private fun binStatus(): String {
     val s = Binaries.status()
-    return listOfNotNull(
-        "xray " + if (s.xrayReady) "✓" else "✗",
-        "tun2socks " + if (s.tun2socksReady) "✓" else "✗",
-        "amneziawg " + if (s.awgReady) "✓" else "✗",
-        "geosite " + if (s.geositeReady) "✓" else "✗",
-    ).joinToString(", ")
+    return buildList {
+        add("xray " + if (s.xrayReady) "✓" else "✗")
+        if (com.crystaln.vpn.desktop.Platform.isWindows) {
+            add("tun2socks " + if (s.tun2socksReady) "✓" else "✗")
+            add("wintun " + if (s.wintunReady) "✓" else "✗")
+            add("amneziawg " + if (s.awgReady) "✓" else "✗")
+            add("openvpn " + if (s.openVpnReady) "✓" else "✗")
+        } else {
+            add("tun2socks " + if (s.tun2socksReady) "✓" else "✗")
+            add("amneziawg " + if (s.awgReady) "✓" else "✗")
+        }
+        add("geosite " + if (s.geositeReady) "✓" else "✗")
+    }.joinToString(", ")
 }
 
 /**
