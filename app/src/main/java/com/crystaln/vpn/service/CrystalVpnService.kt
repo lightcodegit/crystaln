@@ -13,6 +13,7 @@ import androidx.core.app.NotificationCompat
 import com.crystaln.vpn.R
 import com.crystaln.vpn.data.Profile
 import com.crystaln.vpn.data.ProfileStore
+import com.crystaln.vpn.data.SettingsStore
 import com.crystaln.vpn.ui.MainActivity
 import com.crystaln.vpn.xray.XrayConfigBuilder
 import com.crystaln.vpn.xray.XrayCore
@@ -77,7 +78,14 @@ class CrystalVpnService : VpnService() {
                 // bytes received through the proxy outbound (system network
                 // validation probes the new VPN within seconds) before
                 // claiming CONNECTED.
-                val configJson = XrayConfigBuilder.build(profile)
+                val configJson = XrayConfigBuilder.build(
+                    profile,
+                    XrayConfigBuilder.Options(
+                        dnsViaTunnel = SettingsStore.dnsViaTunnel(applicationContext),
+                        dnsServer = SettingsStore.dnsServer(applicationContext),
+                        blockAds = SettingsStore.blockAds(applicationContext),
+                    ),
+                )
                 XrayCore.start(configJson, fd.fd)
                 VpnManager.notifyChecking(true)
                 if (!awaitProxyResponse(PROBE_TIMEOUT_MS)) {

@@ -12,6 +12,9 @@ object SettingsStore {
     private const val KEY_PALETTE = "palette"
     private const val KEY_AUTOCONNECT = "auto_connect"
     private const val KEY_AUTO_FASTEST = "auto_fastest"
+    private const val KEY_DNS_TUNNEL = "dns_via_tunnel"
+    private const val KEY_DNS_SERVER = "dns_server"
+    private const val KEY_BLOCK_ADS = "block_ads"
     private const val KEY_WALLPAPER = "wallpaper"
 
     /** Named accent palette id (see ui.theme.CrystalPalettes). */
@@ -67,6 +70,39 @@ object SettingsStore {
     fun setAutoFastest(context: Context, value: Boolean) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .edit().putBoolean(KEY_AUTO_FASTEST, value).apply()
+    }
+
+    /**
+     * Intercept DNS (port 53) in the TUN and forward it through the tunnel
+     * instead of letting the system resolver talk to the ISP. Xray profiles.
+     */
+    fun dnsViaTunnel(context: Context): Boolean =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getBoolean(KEY_DNS_TUNNEL, false)
+
+    fun setDnsViaTunnel(context: Context, value: Boolean) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit().putBoolean(KEY_DNS_TUNNEL, value).apply()
+    }
+
+    /** Upstream DNS used when [dnsViaTunnel] is on. */
+    fun dnsServer(context: Context): String =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getString(KEY_DNS_SERVER, "1.1.1.1") ?: "1.1.1.1"
+
+    fun setDnsServer(context: Context, value: String) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit().putString(KEY_DNS_SERVER, value.trim()).apply()
+    }
+
+    /** Drop connections to ad/tracker domains (requires geosite.dat in filesDir). */
+    fun blockAds(context: Context): Boolean =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getBoolean(KEY_BLOCK_ADS, false)
+
+    fun setBlockAds(context: Context, value: Boolean) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit().putBoolean(KEY_BLOCK_ADS, value).apply()
     }
 
     /**

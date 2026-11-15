@@ -93,6 +93,13 @@ fun SettingsScreen(
     onAutoConnectChange: (Boolean) -> Unit,
     autoFastest: Boolean,
     onAutoFastestChange: (Boolean) -> Unit,
+    dnsViaTunnel: Boolean,
+    onDnsViaTunnelChange: (Boolean) -> Unit,
+    dnsServer: String,
+    onDnsServerChange: (String) -> Unit,
+    blockAds: Boolean,
+    onBlockAdsChange: (Boolean) -> Unit,
+    blockAdsBusy: Boolean,
     subscriptions: List<Subscription>,
     subscriptionsBusy: Boolean,
     subscriptionBusyId: String?,
@@ -276,6 +283,35 @@ fun SettingsScreen(
                             overWallpaper = overWallpaper,
                             onClick = onDiagnostics,
                             modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
+
+                    // ── Privacy ────────────────────────────────────────
+                    SectionLabel(stringResource(R.string.privacy_title))
+                    SettingsPanel(isDark = glassDark, overWallpaper = overWallpaper) {
+                        SwitchRow(
+                            title = stringResource(R.string.dns_tunnel_title),
+                            subtitle = stringResource(R.string.dns_tunnel_sub),
+                            checked = dnsViaTunnel,
+                            onChange = onDnsViaTunnelChange,
+                        )
+                        if (dnsViaTunnel) {
+                            Spacer(Modifier.height(10.dp))
+                            OutlinedTextField(
+                                value = dnsServer,
+                                onValueChange = onDnsServerChange,
+                                singleLine = true,
+                                label = { Text(stringResource(R.string.dns_server_label)) },
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                        }
+                        GlassDivider(Modifier.padding(vertical = 14.dp))
+                        SwitchRow(
+                            title = stringResource(R.string.block_ads_title),
+                            subtitle = stringResource(R.string.block_ads_sub),
+                            checked = blockAds,
+                            enabled = !blockAdsBusy,
+                            onChange = onBlockAdsChange,
                         )
                     }
 

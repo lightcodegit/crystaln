@@ -128,6 +128,13 @@
     <string name="autoconnect_sub">Соединять выбранный профиль при запуске приложения</string>
     <string name="auto_fastest_title">Автовыбор самого быстрого</string>
     <string name="auto_fastest_sub">Перед подключением проверять серверы и брать самый отзывчивый живой</string>
+    <string name="privacy_title">Приватность</string>
+    <string name="dns_tunnel_title">DNS через туннель</string>
+    <string name="dns_tunnel_sub">Перехватывать DNS-запросы и отправлять их через VPN, чтобы провайдер не видел имена сайтов</string>
+    <string name="dns_server_label">DNS-сервер</string>
+    <string name="block_ads_title">Блокировать рекламу</string>
+    <string name="block_ads_sub">Отбрасывать рекламные и трекерские домены (нужна база geosite, скачается один раз)</string>
+    <string name="block_ads_ready">База рекламных доменов загружена</string>
     <string name="subscriptions_title">Подписки</string>
     <string name="subscriptions_empty">Нет подписок. Добавьте ссылку, чтобы серверы обновлялись автоматически.</string>
     <string name="subscriptions_add">Добавить подписку</string>

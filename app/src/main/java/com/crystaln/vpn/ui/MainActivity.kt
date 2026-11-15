@@ -80,6 +80,7 @@ import com.crystaln.vpn.ui.screens.MainScreen
 import com.crystaln.vpn.ui.screens.SettingsScreen
 import com.crystaln.vpn.ui.theme.CrystalNTheme
 import java.io.File
+import java.net.URL
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
@@ -88,6 +89,10 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 class MainActivity : ComponentActivity() {
+
+    /** v2fly domain list for the ad-block routing rule (dlc.dat = geosite.dat). */
+    private val geositeUrl =
+        "https://github.com/v2fly/domain-list-community/releases/latest/download/dlc.dat"
 
     private var pendingProfileId: String? = null
 
@@ -107,6 +112,10 @@ class MainActivity : ComponentActivity() {
     private val paletteId = mutableStateOf("indigo")
     private val autoConnect = mutableStateOf(false)
     private val autoFastest = mutableStateOf(false)
+    private val dnsViaTunnel = mutableStateOf(false)
+    private val dnsServer = mutableStateOf("1.1.1.1")
+    private val blockAds = mutableStateOf(false)
+    private val blockAdsBusy = mutableStateOf(false)
     private val importMenu = mutableStateOf(false)
     private val urlDialog = mutableStateOf(false)
     private val wallpaperPath = mutableStateOf<String?>(null)
@@ -233,6 +242,9 @@ class MainActivity : ComponentActivity() {
         paletteId.value = SettingsStore.paletteId(this)
         autoConnect.value = SettingsStore.autoConnect(this)
         autoFastest.value = SettingsStore.autoFastest(this)
+        dnsViaTunnel.value = SettingsStore.dnsViaTunnel(this)
+        dnsServer.value = SettingsStore.dnsServer(this)
+        blockAds.value = SettingsStore.blockAds(this)
         refreshProfiles()
         refreshSubscriptions()
         refreshWallpaper()
@@ -381,6 +393,19 @@ class MainActivity : ComponentActivity() {
                             autoFastest.value = on
                             SettingsStore.setAutoFastest(this@MainActivity, on)
                         },
+                        dnsViaTunnel = dnsViaTunnel.value,
+                        onDnsViaTunnelChange = { on ->
+                            dnsViaTunnel.value = on
+                            SettingsStore.setDnsViaTunnel(this@MainActivity, on)
+                        },
+                        dnsServer = dnsServer.value,
+                        onDnsServerChange = { value ->
+                            dnsServer.value = value
+                            SettingsStore.setDnsServer(this@MainActivity, value)
+                        },
+                        blockAds = blockAds.value,
+                        blockAdsBusy = blockAdsBusy.value,
+                        onBlockAdsChange = { on -> toggleBlockAds(on) },
                         subscriptions = subscriptions.value,
                         subscriptionsBusy = subscriptionsBusy.value,
                         subscriptionBusyId = subscriptionBusyId.value,
@@ -623,6 +648,55 @@ class MainActivity : ComponentActivity() {
         if (best.id != selectedId.value) {
             ProfileStore.select(this, best.id)
             refreshProfiles()
+        }
+    }
+
+    /**
+     * Ad blocking needs the geosite database in the app's files dir — the same
+     * place Xray's asset loader looks. Download it once on enable; on failure
+     * the toggle reverts so settings never lie about the effective state.
+     */
+    private fun toggleBlockAds(on: Boolean) {
+        if (!on) {
+            blockAds.value = false
+            SettingsStore.setBlockAds(this, false)
+            return
+        }
+        if (blockAdsBusy.value) return
+        blockAdsBusy.value = true
+        lifecycleScope.launch(Dispatchers.IO) {
+            val dst = File(filesDir, "geosite.dat")
+            try {
+                val bytes = URL(geositeUrl).openStream().use { input ->
+                    input.readBytes()
+                }
+                if (bytes.isEmpty()) throw IllegalStateException("empty geosite.dat")
+                val tmp = File(filesDir, "geosite.dat.tmp")
+                tmp.writeBytes(bytes)
+                if (!tmp.renameTo(dst)) {
+                    dst.writeBytes(bytes)
+                    tmp.delete()
+                }
+                withContext(Dispatchers.Main) {
+                    blockAds.value = true
+                    SettingsStore.setBlockAds(this@MainActivity, true)
+                    Toast.makeText(this@MainActivity, R.string.block_ads_ready, Toast.LENGTH_SHORT).show()
+                }
+            } catch (t: Throwable) {
+                dst.delete()
+                File(filesDir, "geosite.dat.tmp").delete()
+                withContext(Dispatchers.Main) {
+                    blockAds.value = false
+                    SettingsStore.setBlockAds(this@MainActivity, false)
+                    Toast.makeText(
+                        this@MainActivity,
+                        t.message ?: t.javaClass.simpleName,
+                        Toast.LENGTH_LONG,
+                    ).show()
+                }
+            } finally {
+                blockAdsBusy.value = false
+            }
         }
     }
 

@@ -128,6 +128,13 @@
     <string name="autoconnect_sub">Connect the selected profile when the app starts</string>
     <string name="auto_fastest_title">Auto-select the fastest server</string>
     <string name="auto_fastest_sub">Before connecting, ping the servers and take the most responsive live one</string>
+    <string name="privacy_title">Privacy</string>
+    <string name="dns_tunnel_title">DNS through the tunnel</string>
+    <string name="dns_tunnel_sub">Intercept DNS queries and send them via the VPN so the ISP never sees site names</string>
+    <string name="dns_server_label">DNS server</string>
+    <string name="block_ads_title">Block ads</string>
+    <string name="block_ads_sub">Drop ad and tracker domains (needs a geosite base, downloaded once)</string>
+    <string name="block_ads_ready">Ad-domain database downloaded</string>
     <string name="subscriptions_title">Subscriptions</string>
     <string name="subscriptions_empty">No subscriptions. Add a URL to keep servers updated automatically.</string>
     <string name="subscriptions_add">Add subscription</string>

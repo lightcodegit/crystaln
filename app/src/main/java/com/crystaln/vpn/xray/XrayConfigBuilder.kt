@@ -16,7 +16,19 @@ object XrayConfigBuilder {
 
     const val TUN_MTU = 8500
 
-    fun build(profile: Profile): String {
+    /** Options that tune the config without changing the server. */
+    data class Options(
+        /** Intercept port 53 in the TUN and resolve DNS through the tunnel. */
+        val dnsViaTunnel: Boolean = false,
+        /** Upstream DNS server used when [dnsViaTunnel] is on. */
+        val dnsServer: String = "1.1.1.1",
+        /** Drop ad/tracker domains (geosite:category-ads-all → block). */
+        val blockAds: Boolean = false,
+    )
+
+    fun build(profile: Profile): String = build(profile, Options())
+
+    fun build(profile: Profile, options: Options): String {
         val root = JSONObject()
         root.put("log", JSONObject().put("loglevel", "warning"))
         root.put("inbounds", JSONArray().put(tunInbound()))
@@ -24,8 +36,9 @@ object XrayConfigBuilder {
             put(buildOutbound(profile))
             put(directOutbound())
             put(blockOutbound())
+            if (options.dnsViaTunnel) put(dnsOutbound(options.dnsServer))
         })
-        root.put("routing", routing())
+        root.put("routing", routing(options))
         return root.toString()
     }
 
@@ -43,20 +56,54 @@ object XrayConfigBuilder {
         )
     }
 
-    private fun routing(): JSONObject = JSONObject().apply {
+    private fun routing(options: Options): JSONObject = JSONObject().apply {
         put("domainStrategy", "IPIfNonMatch")
         put(
             "rules",
-            JSONArray().put(
-                // Keep local/loopback/link-local traffic off the tunnel.
-                JSONObject().put(
-                    "ip",
-                    JSONArray()
-                        .put("10.0.0.0/8").put("172.16.0.0/12").put("192.168.0.0/16")
-                        .put("127.0.0.0/8").put("169.254.0.0/16").put("100.64.0.0/10")
-                        .put("fe80::/10").put("fc00::/7"),
-                ).put("outboundTag", "direct"),
-            ),
+            JSONArray().apply {
+                // Local/loopback/link-local traffic stays off the tunnel.
+                put(
+                    JSONObject().put(
+                        "ip",
+                        JSONArray()
+                            .put("10.0.0.0/8").put("172.16.0.0/12").put("192.168.0.0/16")
+                            .put("127.0.0.0/8").put("169.254.0.0/16").put("100.64.0.0/10")
+                            .put("fe80::/10").put("fc00::/7"),
+                    ).put("outboundTag", "direct"),
+                )
+                // Ads/tracker domains die before they leave the device.
+                if (options.blockAds) {
+                    put(
+                        JSONObject()
+                            .put("domain", JSONArray().put("geosite:category-ads-all"))
+                            .put("outboundTag", "block"),
+                    )
+                }
+                // Plain DNS (port 53) goes through the tunnel's dns-out instead
+                // of leaking to the local network / ISP resolver. Must precede
+                // the catch-all proxy rule.
+                if (options.dnsViaTunnel) {
+                    put(
+                        JSONObject()
+                            .put("port", "53")
+                            .put("network", "udp,tcp")
+                            .put("outboundTag", "dns-out"),
+                    )
+                }
+            },
+        )
+    }
+
+    /** DNS forwarded to [server] through the proxy outbound. */
+    private fun dnsOutbound(server: String): JSONObject = JSONObject().apply {
+        put("tag", "dns-out")
+        put("protocol", "dns")
+        put(
+            "settings",
+            JSONObject().apply {
+                if (server.isNotEmpty()) put("address", server)
+                put("port", 53)
+            },
         )
     }
 
