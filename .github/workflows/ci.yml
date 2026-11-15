@@ -32,6 +32,9 @@ jobs:
         with:
           cache-read-only: false
 
+      - name: Fetch Xray core bindings
+        run: bash tools/fetch_cores.sh
+
       - name: Run unit tests
         run: ./gradlew --no-daemon :app:testDebugUnitTest --console=plain
 
