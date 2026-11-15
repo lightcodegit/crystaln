@@ -128,6 +128,15 @@ object SettingsStore {
 
     fun setAutoFastest(dataDir: File, v: Boolean) = mutate(dataDir) { it.put("autoFastest", v) }
 
+    /**
+     * Автозагрузка при входе в систему (Windows: HKCU Run, Linux: XDG
+     * autostart). Путь к бинарнику машино-специфичен — в backup не экспортируется.
+     */
+    fun startWithSystem(dataDir: File): Boolean = load(dataDir).optBoolean("startWithSystem", false)
+
+    fun setStartWithSystem(dataDir: File, v: Boolean) =
+        mutate(dataDir) { it.put("startWithSystem", v) }
+
     /** Everything restorable from a crystaln/2 backup (plus desktop-only extras). */
     fun exportJson(dataDir: File): JSONObject = JSONObject()
         .put("themeMode", themeMode(dataDir).name)

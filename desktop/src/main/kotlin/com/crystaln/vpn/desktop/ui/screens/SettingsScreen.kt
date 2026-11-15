@@ -82,6 +82,8 @@ fun SettingsScreen(
     onAutoConnectChange: (Boolean) -> Unit,
     autoFastest: Boolean,
     onAutoFastestChange: (Boolean) -> Unit,
+    startWithSystem: Boolean,
+    onStartWithSystemChange: (Boolean) -> Unit,
     dnsViaTunnel: Boolean,
     onDnsViaTunnelChange: (Boolean) -> Unit,
     dnsServer: String,
@@ -209,6 +211,15 @@ fun SettingsScreen(
                             checked = autoFastest,
                             onChange = onAutoFastestChange,
                         )
+                        if (com.crystaln.vpn.desktop.Autostart.isSupported()) {
+                            GlassDivider(Modifier.padding(vertical = 14.dp))
+                            SwitchRow(
+                                title = "Запускать при входе в систему",
+                                subtitle = "Автозагрузка через реестр Windows (HKCU Run)",
+                                checked = startWithSystem,
+                                onChange = onStartWithSystemChange,
+                            )
+                        }
                         GlassDivider(Modifier.padding(vertical = 14.dp))
                         PillButton(
                             text = "Диагностика",

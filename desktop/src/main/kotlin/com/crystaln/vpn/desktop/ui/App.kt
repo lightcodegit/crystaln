@@ -57,6 +57,7 @@ import com.crystaln.vpn.data.Subscription
 import com.crystaln.vpn.data.SubscriptionRefresher
 import com.crystaln.vpn.data.SubscriptionsStore
 import com.crystaln.vpn.desktop.AppDirs
+import com.crystaln.vpn.desktop.Autostart
 import com.crystaln.vpn.desktop.net.Binaries
 import com.crystaln.vpn.desktop.net.TunnelManager
 import com.crystaln.vpn.desktop.ui.screens.DiagnosticsScreen
@@ -116,6 +117,7 @@ fun CrystalnApp() {
     // ── settings state ──────────────────────────────────────────────────
     var autoConnect by remember { mutableStateOf(SettingsStore.autoConnect(cfg)) }
     var autoFastest by remember { mutableStateOf(SettingsStore.autoFastest(cfg)) }
+    var startWithSystem by remember { mutableStateOf(Autostart.isEnabled()) }
     var dnsViaTunnel by remember { mutableStateOf(SettingsStore.dnsViaTunnel(cfg)) }
     var dnsServer by remember { mutableStateOf(SettingsStore.dnsServer(cfg)) }
     var blockAds by remember { mutableStateOf(SettingsStore.blockAds(cfg)) }
@@ -492,6 +494,14 @@ fun CrystalnApp() {
 
     // ── launch-time effects ─────────────────────────────────────────────
 
+    // Само-восстановление автозагрузки: настройка включена, а запись ОС
+    // отсутствует (переустановка приложения, смена пути) — восстанавливаем.
+    LaunchedEffect(Unit) {
+        if (SettingsStore.startWithSystem(cfg) && !Autostart.isEnabled()) {
+            scope.launch(Dispatchers.IO) { Autostart.sync(true) }
+        }
+    }
+
     // Auto-connect the selected profile on cold launch, if enabled.
     LaunchedEffect(Unit) {
         if (SettingsStore.autoConnect(cfg) &&
@@ -647,6 +657,16 @@ fun CrystalnApp() {
                         onAutoFastestChange = { on ->
                             autoFastest = on
                             SettingsStore.setAutoFastest(cfg, on)
+                        },
+                        startWithSystem = startWithSystem,
+                        onStartWithSystemChange = { on ->
+                            if (Autostart.setEnabled(on)) {
+                                startWithSystem = on
+                                SettingsStore.setStartWithSystem(cfg, on)
+                                notice = if (on) "Автозагрузка включена" else "Автозагрузка выключена"
+                            } else {
+                                notice = "Не удалось настроить автозагрузку (dev-запуск без установки?)"
+                            }
                         },
                         dnsViaTunnel = dnsViaTunnel,
                         onDnsViaTunnelChange = { on ->
