@@ -209,7 +209,11 @@ object ShareLinkParser {
     }
 
     private fun applyCommonQuery(p: Profile, uri: Uri) {
-        uri.getQueryParameter("type")?.takeIf { it.isNotEmpty() }?.let { p.fields["network"] = it }
+        // v2rayN and other clients use "type" (newer) or "network" (older).
+        (uri.getQueryParameter("type")?.takeIf { it.isNotEmpty() }
+            ?: uri.getQueryParameter("network")?.takeIf { it.isNotEmpty() })?.let {
+            p.fields["network"] = it
+        }
         when (uri.getQueryParameter("security")) {
             "tls" -> p.fields["tls"] = "true"
             "reality" -> p.fields["reality"] = "true"

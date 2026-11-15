@@ -53,6 +53,13 @@ android {
             useLegacyPackaging = true
         }
     }
+
+    testOptions {
+        unitTests {
+            // Let Robolectric look up its Android resources/config.
+            isIncludeAndroidResources = true
+        }
+    }
 }
 
 dependencies {
@@ -85,4 +92,9 @@ dependencies {
     implementation("androidx.camera:camera-lifecycle:1.4.2")
     implementation("androidx.camera:camera-view:1.4.2")
     implementation("com.google.mlkit:barcode-scanning:17.3.0")
+
+    // Pure-JVM tests for parsers/config builders. Robolectric supplies the
+    // android.* implementations (Uri/Base64/org.json) on the host JVM.
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("org.robolectric:robolectric:4.16")
 }
