@@ -1,0 +1,14 @@
+# Нормализация переводов строк
+* text=auto eol=lf
+
+# Бинарные файлы не трогаем
+*.png binary
+*.jpg binary
+*.aar binary
+*.AppImage binary
+*.keystore binary
+*.jar binary
+
+# Скрипты должны сохранять LF даже на Windows
+*.sh text eol=lf
+gradlew text eol=lf

@@ -41,6 +41,14 @@ jobs:
       - name: Build debug APK
         run: ./gradlew --no-daemon :app:assembleDebug --console=plain
 
+      - name: Upload debug APK
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: crystaln-android-apk
+          path: app/build/outputs/apk/debug/*.apk
+          if-no-files-found: ignore
+
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4
@@ -71,8 +79,16 @@ jobs:
       - name: Run desktop unit tests
         run: ./gradlew --no-daemon :desktop:test --console=plain
 
+      - name: Install packaging tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y rpm squashfs-tools libfuse2
+
       - name: Build desktop app and deb package
         run: ./gradlew --no-daemon :desktop:build :desktop:packageDistributionForCurrentOS --console=plain
+
+      - name: Build AppImage
+        run: ./gradlew --no-daemon :desktop:packageAppImage --console=plain
 
       - name: Upload test results
         if: always()
@@ -82,10 +98,13 @@ jobs:
           path: desktop/build/test-results/test/
           if-no-files-found: ignore
 
-      - name: Upload deb package
+      - name: Upload Linux packages
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: crystaln-linux-deb
-          path: desktop/build/compose/binaries/**/*.deb
+          name: crystaln-linux
+          path: |
+            desktop/build/compose/binaries/**/*.deb
+            desktop/build/compose/binaries/**/*.rpm
+            desktop/build/compose/binaries/**/*.AppImage
           if-no-files-found: ignore

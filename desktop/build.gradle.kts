@@ -26,6 +26,26 @@ kotlin {
     jvmToolchain(21)
 }
 
+// Версия для рантайма (проверка обновлений) — из единственного источника
+// gradle.properties, а не захардкоженная константа.
+val appVersion: String = project.findProperty("appVersion") as String? ?: "0.1.0"
+val generateVersionProperties by tasks.registering {
+    val outDir = layout.buildDirectory.dir("generated/resources/version")
+    outputs.dir(outDir)
+    val version = appVersion
+    doLast {
+        val file = outDir.get().file("crystaln/version.properties").asFile
+        file.parentFile.mkdirs()
+        file.writeText("version=$version\n")
+    }
+}
+
+sourceSets {
+    main {
+        resources.srcDir(generateVersionProperties)
+    }
+}
+
 compose.desktop {
     application {
         mainClass = "com.crystaln.vpn.desktop.MainKt"
@@ -38,7 +58,7 @@ compose.desktop {
                 org.jetbrains.compose.desktop.application.dsl.TargetFormat.Rpm,
             )
             packageName = "crystaln"
-            packageVersion = "0.1.0"
+            packageVersion = project.findProperty("appVersion") as String? ?: "0.1.0"
             description = "Мультипротокольный VPN-клиент CrystalN"
             vendor = "CrystalN"
             modules("java.instrument", "java.management", "jdk.unsupported")

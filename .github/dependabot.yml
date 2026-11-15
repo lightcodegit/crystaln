@@ -1,0 +1,21 @@
+version: 2
+updates:
+  # Gradle-зависимости (Compose, Kotlin, AndroidX, WorkManager…).
+  - package-ecosystem: "gradle"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    groups:
+      kotlin:
+        patterns: ["org.jetbrains.kotlin*", "*compose*"]
+      androidx:
+        patterns: ["androidx.*"]
+
+  # Версии actions в workflow (security-обновления прилетают сами).
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
