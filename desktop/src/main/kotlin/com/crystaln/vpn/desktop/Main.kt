@@ -17,7 +17,7 @@ fun main() {
         Window(
             onCloseRequest = ::exitApplication,
             title = "CrystalN",
-            state = rememberWindowState(size = DpSize(1020.dp, 780.dp)),
+            state = rememberWindowState(size = DpSize(1080.dp, 840.dp)),
         ) {
             CrystalnApp()
         }

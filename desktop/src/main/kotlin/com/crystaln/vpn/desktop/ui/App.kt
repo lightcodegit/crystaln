@@ -1,544 +1,786 @@
 package com.crystaln.vpn.desktop.ui
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ContentPaste
+import androidx.compose.material.icons.filled.FileDownload
+import androidx.compose.material.icons.filled.FileOpen
+import androidx.compose.material.icons.filled.Link
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
-import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.RadioButton
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import com.crystaln.vpn.data.Backup
+import com.crystaln.vpn.data.ConnectionDiagnostics
 import com.crystaln.vpn.data.Profile
 import com.crystaln.vpn.data.ProfileImporter
 import com.crystaln.vpn.data.ProfileStore
+import com.crystaln.vpn.data.ProfileVault
 import com.crystaln.vpn.data.SettingsStore
+import com.crystaln.vpn.data.TrafficStats
+import com.crystaln.vpn.data.TrafficStatsStore
+import com.crystaln.vpn.data.Subscription
 import com.crystaln.vpn.data.SubscriptionRefresher
 import com.crystaln.vpn.data.SubscriptionsStore
 import com.crystaln.vpn.desktop.AppDirs
 import com.crystaln.vpn.desktop.net.Binaries
 import com.crystaln.vpn.desktop.net.TunnelManager
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
+import com.crystaln.vpn.desktop.ui.screens.DiagnosticsScreen
+import com.crystaln.vpn.desktop.ui.screens.EditorScreen
+import com.crystaln.vpn.desktop.ui.screens.MainScreen
+import com.crystaln.vpn.desktop.ui.screens.SettingsScreen
+import com.crystaln.vpn.desktop.ui.theme.CrystalNTheme
 import java.io.File
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+
+/** Max size of an imported config, protects against OOM from a hostile file. */
+private const val MAX_IMPORT_BYTES = 512 * 1024
 
 /**
- * Main window: connection controls, profile list, import, subscriptions,
- * settings and a live log. All state comes from the stores + TunnelManager
- * flows; there is no view model layer — the desktop app is small enough.
+ * Root composable: theme + navigation + all the wiring (dialogs, ping,
+ * subscriptions, backup). Desktop port of Android's MainActivity — same
+ * navigation order, same behaviors.
  */
 @Composable
 fun CrystalnApp() {
     val cfg = remember { AppDirs.configDir() }
     val scope = rememberCoroutineScope()
 
-    var profiles by remember { mutableStateOf(ProfileStore.load(cfg).toList()) }
-    var selectedId by remember { mutableStateOf(ProfileStore.selectedId) }
+    // ── theme ────────────────────────────────────────────────────────────
+    var themeMode by remember { mutableStateOf(SettingsStore.themeMode(cfg)) }
+    var paletteId by remember { mutableStateOf(SettingsStore.paletteId(cfg)) }
+    val dark = when (themeMode) {
+        SettingsStore.ThemeMode.SYSTEM -> remember { systemDark() }
+        SettingsStore.ThemeMode.LIGHT -> false
+        SettingsStore.ThemeMode.DARK -> true
+    }
 
-    val conn by TunnelManager.ui.collectAsState()
-    val logLines by TunnelManager.log.collectAsState()
-
-    var mode by remember { mutableStateOf(SettingsStore.tunnelMode(cfg)) }
+    // ── settings state ──────────────────────────────────────────────────
+    var autoConnect by remember { mutableStateOf(SettingsStore.autoConnect(cfg)) }
+    var autoFastest by remember { mutableStateOf(SettingsStore.autoFastest(cfg)) }
+    var dnsViaTunnel by remember { mutableStateOf(SettingsStore.dnsViaTunnel(cfg)) }
+    var dnsServer by remember { mutableStateOf(SettingsStore.dnsServer(cfg)) }
+    var blockAds by remember { mutableStateOf(SettingsStore.blockAds(cfg)) }
+    var blockAdsBusy by remember { mutableStateOf(false) }
+    var tunnelMode by remember { mutableStateOf(SettingsStore.tunnelMode(cfg)) }
     var socksPort by remember { mutableStateOf(SettingsStore.socksPort(cfg).toString()) }
     var httpPort by remember { mutableStateOf(SettingsStore.httpPort(cfg).toString()) }
-    var dnsServer by remember { mutableStateOf(SettingsStore.dnsServer(cfg)) }
-    var dnsViaTunnel by remember { mutableStateOf(SettingsStore.dnsViaTunnel(cfg)) }
-    var blockAds by remember { mutableStateOf(SettingsStore.blockAds(cfg)) }
+    var binariesBusy by remember { mutableStateOf(false) }
+    var binariesStatus by remember { mutableStateOf(binStatus()) }
 
-    var importText by remember { mutableStateOf("") }
-    var subUrl by remember { mutableStateOf("") }
-    var busy by remember { mutableStateOf(false) }
-    var notice by remember { mutableStateOf("") }
+    // ── profiles ────────────────────────────────────────────────────────
+    var profiles by remember { mutableStateOf(ProfileStore.load(cfg).toList()) }
+    var selectedId by remember { mutableStateOf(ProfileStore.selectedId) }
+    var profileStats by remember { mutableStateOf<Map<String, TrafficStats>>(emptyMap()) }
+    var searchQuery by remember { mutableStateOf("") }
+    var shareProfile by remember { mutableStateOf<Profile?>(null) }
     var editing by remember { mutableStateOf<Profile?>(null) }
 
-    fun reload() {
+    // ── subscriptions ───────────────────────────────────────────────────
+    var subscriptions by remember { mutableStateOf(SubscriptionsStore.load(cfg)) }
+    var subscriptionsBusy by remember { mutableStateOf(false) }
+    var subscriptionBusyId by remember { mutableStateOf<String?>(null) }
+
+    // ── ping ────────────────────────────────────────────────────────────
+    val pingResults = remember { mutableStateMapOf<String, Long>() }
+    var pingAllRunning by remember { mutableStateOf(false) }
+    val pinging = remember {
+        java.util.Collections.newSetFromMap(java.util.concurrent.ConcurrentHashMap<String, Boolean>())
+    }
+
+    // ── diagnostics ─────────────────────────────────────────────────────
+    var diagResults by remember { mutableStateOf<List<ConnectionDiagnostics.Result>?>(null) }
+    var diagRunning by remember { mutableStateOf(false) }
+
+    // ── navigation + dialogs ────────────────────────────────────────────
+    var nav by remember { mutableStateOf(Nav.MAIN) }
+    var importMenu by remember { mutableStateOf(false) }
+    var urlDialog by remember { mutableStateOf(false) }
+    var exportDialogVisible by remember { mutableStateOf(false) }
+    var vaultPendingText by remember { mutableStateOf<String?>(null) }
+    var notice by remember { mutableStateOf("") }
+
+    fun refreshProfiles() {
         profiles = ProfileStore.load(cfg).toList()
         selectedId = ProfileStore.selectedId
+        profileStats = TrafficStatsStore.all(cfg)
     }
 
-    // Auto-connect at launch (off by default).
+    fun refreshSubscriptions() {
+        subscriptions = SubscriptionsStore.load(cfg)
+    }
+
+    /** The profile the diagnostics screen is aimed at. */
+    fun diagProfile(): Profile? = ProfileStore.selected(cfg) ?: ProfileStore.load(cfg).firstOrNull()
+
+    val conn by TunnelManager.ui.collectAsState()
+
+    fun onConnect() {
+        when (conn.state) {
+            TunnelManager.State.OFF -> {
+                notice = ""
+                val p = ProfileStore.selected(cfg)
+                if (p != null) TunnelManager.connect(p) else notice = "Нет профиля"
+            }
+            else -> TunnelManager.stop()
+        }
+    }
+
+    fun runDiagnostics() {
+        if (diagRunning) return
+        val profile = diagProfile() ?: run {
+            notice = "Нет профиля"
+            return
+        }
+        scope.launch(Dispatchers.IO) {
+            diagRunning = true
+            try {
+                val results = ConnectionDiagnostics.run(profile)
+                diagResults = results
+            } finally {
+                diagRunning = false
+            }
+        }
+    }
+
+    /** Measures the profile's server reachability on demand (TCP connect). */
+    fun pingProfile(profile: Profile) {
+        if (!pinging.add(profile.id)) return
+        scope.launch(Dispatchers.IO) {
+            val ms = tcpPing(profile.address, profile.port)
+            pingResults[profile.id] = ms
+            pinging.remove(profile.id)
+        }
+    }
+
+    /**
+     * Pings every profile in parallel (a few dozen sockets are cheap) and,
+     * when auto-select is enabled while the tunnel is down, moves the
+     * selection to the fastest reachable server.
+     */
+    fun pingAll() {
+        if (pingAllRunning) return
+        val list = profiles
+        if (list.isEmpty()) return
+        scope.launch(Dispatchers.IO) {
+            pingAllRunning = true
+            try {
+                coroutineScope {
+                    list.forEach { p ->
+                        launch { pingResults[p.id] = tcpPing(p.address, p.port) }
+                    }
+                }
+                withContext(Dispatchers.Main) {
+                    if (autoFastest && TunnelManager.ui.value.state == TunnelManager.State.OFF) {
+                        val best = profiles
+                            .filter { (pingResults[it.id] ?: -1L) >= 0 }
+                            .minByOrNull { pingResults[it.id] ?: Long.MAX_VALUE }
+                        if (best != null && best.id != selectedId) {
+                            ProfileStore.select(cfg, best.id)
+                            refreshProfiles()
+                        }
+                    }
+                }
+            } finally {
+                pingAllRunning = false
+            }
+        }
+    }
+
+    fun importText(text: String) {
+        if (text.length > MAX_IMPORT_BYTES) {
+            notice = "Файл слишком велик для конфига"
+            return
+        }
+        // Encrypted vault: ask for the password first, then re-import the
+        // decrypted payload.
+        if (ProfileVault.isVault(text)) {
+            vaultPendingText = text
+            return
+        }
+        // Full crystaln/2 backup (settings + subscriptions + profiles) first;
+        // anything else falls through to the profile-only parser.
+        Backup.importFull(cfg, text)?.let { summary ->
+            refreshProfiles()
+            refreshSubscriptions()
+            notice = summary
+            return
+        }
+        val parsed = ProfileImporter.parseText(text)
+        if (parsed.isEmpty()) {
+            notice = "Нечего импортировать"
+            return
+        }
+        // Re-imports update the same server instead of stacking duplicates.
+        val merged = ProfileStore.mergeProfiles(cfg, parsed, subscriptionId = null, selectFirst = true)
+        refreshProfiles()
+        notice = "Импортировано: ${merged.added + merged.updated} · Выбрано: ${merged.selectedProfile?.name ?: ""}"
+    }
+
+    fun importClipboard() {
+        val text = try {
+            val cm = java.awt.Toolkit.getDefaultToolkit().systemClipboard
+            val content = cm.getContents(null) as? java.awt.datatransfer.Transferable
+            content?.getTransferData(java.awt.datatransfer.DataFlavor.stringFlavor) as? String
+        } catch (_: Throwable) {
+            null
+        } ?: return
+        importText(text)
+    }
+
+    /** Native file chooser → parse & import (with the size limit). */
+    fun importFile() {
+        val chooser = javax.swing.JFileChooser().apply {
+            dialogTitle = "Установить конфиг из файла"
+            isAcceptAllFileFilterUsed = true
+        }
+        Thread {
+            val choice = chooser.showOpenDialog(null)
+            if (choice != javax.swing.JFileChooser.APPROVE_OPTION) return@Thread
+            val file = chooser.selectedFile ?: return@Thread
+            try {
+                val bytes = file.inputStream().use { it.readNBytes(MAX_IMPORT_BYTES + 1) }
+                if (bytes.size > MAX_IMPORT_BYTES) {
+                    notice = "Файл слишком велик для конфига"
+                    return@Thread
+                }
+                importText(String(bytes, Charsets.UTF_8))
+            } catch (t: Throwable) {
+                notice = t.message ?: t.javaClass.simpleName
+            }
+        }.apply { isDaemon = true; start() }
+    }
+
+    fun exportToFile(password: String?) {
+        val chooser = javax.swing.JFileChooser().apply {
+            dialogTitle = "Экспорт профилей в файл"
+            selectedFile = File(if (password == null) "crystaln_profiles.json" else "crystaln_vault.json")
+        }
+        Thread {
+            val choice = chooser.showSaveDialog(null)
+            if (choice != javax.swing.JFileChooser.APPROVE_OPTION) return@Thread
+            val file = chooser.selectedFile ?: return@Thread
+            try {
+                var json = Backup.exportFull(cfg)
+                // Password set by ExportDialog → write a vault envelope instead
+                // of raw credentials.
+                password?.let { pw -> json = ProfileVault.encrypt(json, pw.toCharArray()) }
+                file.writeText(json)
+                notice = "Профили экспортированы"
+            } catch (t: Throwable) {
+                notice = t.message ?: t.javaClass.simpleName
+            }
+        }.apply { isDaemon = true; start() }
+    }
+
+    /** Decrypts a vault envelope off the UI thread and imports the payload. */
+    fun decryptAndImport(envelope: String, password: String) {
+        scope.launch(Dispatchers.IO) {
+            val plain = try {
+                ProfileVault.decrypt(envelope, password.toCharArray())
+            } catch (_: ProfileVault.VaultException) {
+                withContext(Dispatchers.Main) { notice = "Неверный пароль или файл повреждён" }
+                return@launch
+            }
+            withContext(Dispatchers.Main) { importText(plain) }
+        }
+    }
+
+    /**
+     * Ad blocking needs the geosite database next to the binaries — the same
+     * place Xray's asset loader looks. Download it once on enable; on failure
+     * the toggle reverts so settings never lie about the effective state.
+     */
+    fun toggleBlockAds(on: Boolean) {
+        if (!on) {
+            blockAds = false
+            SettingsStore.setBlockAds(cfg, false)
+            return
+        }
+        if (blockAdsBusy) return
+        blockAdsBusy = true
+        scope.launch(Dispatchers.IO) {
+            try {
+                Binaries.downloadAll(needGeosite = true) { step ->
+                    notice = step
+                }
+                withContext(Dispatchers.Main) {
+                    blockAds = true
+                    SettingsStore.setBlockAds(cfg, true)
+                    notice = "База рекламных доменов загружена"
+                }
+            } catch (t: Throwable) {
+                withContext(Dispatchers.Main) {
+                    blockAds = false
+                    SettingsStore.setBlockAds(cfg, false)
+                    notice = "Ошибка загрузки: ${t.message ?: t.javaClass.simpleName}"
+                }
+            } finally {
+                withContext(Dispatchers.Main) { blockAdsBusy = false }
+            }
+        }
+    }
+
+    /** Adds and immediately refreshes a saved subscription. */
+    fun addSubscription(rawUrl: String) {
+        val url = SubscriptionsStore.normalizeUrl(rawUrl)
+        if (url == null) {
+            notice = "Некорректная ссылка подписки"
+            return
+        }
+        if (subscriptionsBusy) return
+        scope.launch(Dispatchers.IO) {
+            subscriptionsBusy = true
+            try {
+                val sub = SubscriptionsStore.add(cfg, url)
+                subscriptionBusyId = sub.id
+                val result = SubscriptionRefresher.refresh(cfg, sub)
+                withContext(Dispatchers.Main) {
+                    refreshProfiles()
+                    refreshSubscriptions()
+                    notice = if (result.ok) {
+                        "Подписка добавлена: серверов ${result.added + result.updated}"
+                    } else {
+                        "Подписка сохранена, но серверов не найдено"
+                    }
+                }
+            } finally {
+                withContext(Dispatchers.Main) {
+                    subscriptionBusyId = null
+                    subscriptionsBusy = false
+                }
+            }
+        }
+    }
+
+    fun refreshSubscription(id: String) {
+        if (subscriptionsBusy) return
+        val sub = SubscriptionsStore.byId(cfg, id) ?: return
+        scope.launch(Dispatchers.IO) {
+            subscriptionsBusy = true
+            subscriptionBusyId = id
+            try {
+                val result = SubscriptionRefresher.refresh(cfg, sub)
+                withContext(Dispatchers.Main) {
+                    refreshProfiles()
+                    refreshSubscriptions()
+                    notice = if (result.ok) {
+                        "Подписка обновлена: +${result.added} / ~${result.updated} / −${result.removed}"
+                    } else {
+                        "Не удалось обновить подписку"
+                    }
+                }
+            } finally {
+                withContext(Dispatchers.Main) {
+                    subscriptionBusyId = null
+                    subscriptionsBusy = false
+                }
+            }
+        }
+    }
+
+    fun refreshAllSubscriptions() {
+        if (subscriptionsBusy) return
+        scope.launch(Dispatchers.IO) {
+            subscriptionsBusy = true
+            try {
+                val results = SubscriptionRefresher.refreshAll(cfg)
+                withContext(Dispatchers.Main) {
+                    refreshProfiles()
+                    refreshSubscriptions()
+                    val failed = results.count { !it.second.ok }
+                    notice = if (failed == 0) "Подписки обновлены" else "Не удалось обновить подписку"
+                }
+            } finally {
+                withContext(Dispatchers.Main) { subscriptionsBusy = false }
+            }
+        }
+    }
+
+    // ── launch-time effects ─────────────────────────────────────────────
+
+    // Auto-connect the selected profile on cold launch, if enabled.
     LaunchedEffect(Unit) {
-        if (SettingsStore.autoConnect(cfg)) {
-            ProfileStore.selected(cfg)?.let { TunnelManager.connect(it) }
+        if (SettingsStore.autoConnect(cfg) &&
+            TunnelManager.ui.value.state == TunnelManager.State.OFF
+        ) {
+            if (SettingsStore.autoFastest(cfg)) {
+                pingAll()
+                while (pingAllRunning) delay(100)
+            }
+            val p = ProfileStore.selected(cfg) ?: ProfileStore.load(cfg).firstOrNull()
+            if (p != null) {
+                ProfileStore.select(cfg, p.id)
+                refreshProfiles()
+                TunnelManager.connect(p)
+            }
         }
     }
 
-    MaterialTheme {
-        Surface(Modifier.fillMaxSize()) {
-            Column(Modifier.fillMaxSize().padding(14.dp)) {
+    // Live per-profile usage totals refresh every ~10 s while the VPN runs.
+    LaunchedEffect(Unit) {
+        var ticks = 0
+        TunnelManager.ui.collect {
+            if (++ticks % 10 == 0 && TunnelManager.ui.value.state == TunnelManager.State.CONNECTED) {
+                profileStats = TrafficStatsStore.all(cfg)
+            }
+        }
+    }
 
-                // ── header: status + connect ─────────────────────────────
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) {
-                        Text(
-                            text = statusText(conn),
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = when (conn.state) {
-                                TunnelManager.State.CONNECTED -> Color(0xFF1B7A2E)
-                                TunnelManager.State.OFF ->
-                                    if (conn.error != null) Color(0xFFB3261E)
-                                    else MaterialTheme.colorScheme.onSurface
-                                else -> Color(0xFF9A6B00)
-                            },
+    // Background subscription refresh every 6 hours (Android: WorkManager).
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(6 * 60 * 60 * 1000L)
+            scope.launch(Dispatchers.IO) {
+                SubscriptionRefresher.refreshAll(cfg)
+                withContext(Dispatchers.Main) { refreshSubscriptions() }
+            }
+        }
+    }
+
+    CrystalNTheme(darkTheme = dark, paletteId = paletteId) {
+        Box(Modifier.background(MaterialTheme.colorScheme.background)) {
+            AnimatedContent(
+                targetState = nav,
+                transitionSpec = {
+                    // Directional slide: screens ordered MAIN →
+                    // SETTINGS → EDITOR; going "forward" slides left.
+                    val forward = targetState.ordinal > initialState.ordinal
+                    (
+                        slideInHorizontally(
+                            animationSpec = tween(340, easing = FastOutSlowInEasing),
+                        ) { full -> if (forward) full / 3 else -full / 3 } +
+                            fadeIn(tween(300))
+                        ) togetherWith (
+                        slideOutHorizontally(
+                            animationSpec = tween(300, easing = FastOutSlowInEasing),
+                        ) { full -> if (forward) -full / 3 else full / 3 } +
+                            fadeOut(tween(220))
                         )
-                        if (conn.error != null && conn.state == TunnelManager.State.OFF) {
-                            Text(
-                                conn.error!!,
-                                fontSize = 12.sp,
-                                color = Color(0xFFB3261E),
-                            )
-                        }
-                        if (notice.isNotBlank()) {
-                            Text(notice, fontSize = 12.sp, color = MaterialTheme.colorScheme.primary)
-                        }
-                    }
-                    OutlinedButton(
-                        onClick = {
-                            busy = true
+                },
+                label = "nav",
+            ) { screen ->
+                when (screen) {
+                    Nav.MAIN -> MainScreen(
+                        isDark = dark,
+                        state = conn,
+                        profiles = profiles,
+                        selectedId = selectedId,
+                        onSelect = { p ->
+                            ProfileStore.select(cfg, p.id)
+                            refreshProfiles()
+                        },
+                        onEdit = { p ->
+                            editing = p
+                            nav = Nav.EDITOR
+                        },
+                        onDelete = { p ->
+                            // Stop the tunnel first if this profile is live.
                             scope.launch(Dispatchers.IO) {
-                                try {
-                                    Binaries.downloadAll(needGeosite = blockAds) { step -> notice = step }
-                                    notice = "Бинарники готовы: ${binStatus()}"
-                                } catch (t: Throwable) {
-                                    notice = "Ошибка загрузки: ${t.message ?: t.javaClass.simpleName}"
-                                }
-                                busy = false
-                            }
-                        },
-                        enabled = !busy,
-                    ) { Text("Обновить\nбинарники") }
-                    Spacer(Modifier.width(10.dp))
-                    Button(
-                        onClick = {
-                            if (conn.state == TunnelManager.State.OFF) {
-                                notice = ""
-                                ProfileStore.selected(cfg)?.let { TunnelManager.connect(it) }
-                            } else {
-                                TunnelManager.stop()
-                            }
-                        },
-                        enabled = conn.state == TunnelManager.State.CONNECTED ||
-                            conn.state == TunnelManager.State.OFF ||
-                            conn.state == TunnelManager.State.STARTING,
-                    ) {
-                        Text(
-                            when (conn.state) {
-                                TunnelManager.State.OFF -> "Подключить"
-                                TunnelManager.State.STARTING -> "Подключение…"
-                                TunnelManager.State.CONNECTED -> "Отключить"
-                                TunnelManager.State.STOPPING -> "Отключение…"
-                            },
-                        )
-                    }
-                }
-
-                Spacer(Modifier.height(8.dp))
-                HorizontalDivider()
-                Spacer(Modifier.height(8.dp))
-
-                // ── settings row ─────────────────────────────────────────
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Режим:", fontSize = 13.sp)
-                    listOf(
-                        SettingsStore.TunnelMode.TUN to "TUN (root)",
-                        SettingsStore.TunnelMode.PROXY to "Прокси (без root)",
-                    ).forEach { (m, label) ->
-                        RadioButton(
-                            selected = mode == m,
-                            onClick = {
-                                mode = m
-                                SettingsStore.setTunnelMode(cfg, m)
-                            },
-                        )
-                        Text(label, fontSize = 13.sp)
-                        Spacer(Modifier.width(6.dp))
-                    }
-                    Spacer(Modifier.width(12.dp))
-                    OutlinedTextField(
-                        value = socksPort,
-                        onValueChange = {
-                            socksPort = it.filter { c -> c.isDigit() }.take(5)
-                            socksPort.toIntOrNull()?.let { p -> SettingsStore.setSocksPort(cfg, p) }
-                        },
-                        label = { Text("SOCKS") },
-                        singleLine = true,
-                        modifier = Modifier.width(104.dp),
-                        textStyle = MaterialTheme.typography.bodySmall,
-                    )
-                    Spacer(Modifier.width(8.dp))
-                    OutlinedTextField(
-                        value = httpPort,
-                        onValueChange = {
-                            httpPort = it.filter { c -> c.isDigit() }.take(5)
-                            httpPort.toIntOrNull()?.let { p -> SettingsStore.setHttpPort(cfg, p) }
-                        },
-                        label = { Text("HTTP") },
-                        singleLine = true,
-                        modifier = Modifier.width(104.dp),
-                        textStyle = MaterialTheme.typography.bodySmall,
-                    )
-                    Spacer(Modifier.width(12.dp))
-                    Checkbox(
-                        checked = dnsViaTunnel,
-                        onCheckedChange = {
-                            dnsViaTunnel = it
-                            SettingsStore.setDnsViaTunnel(cfg, it)
-                        },
-                    )
-                    Text("DNS через туннель", fontSize = 13.sp)
-                    Spacer(Modifier.width(6.dp))
-                    OutlinedTextField(
-                        value = dnsServer,
-                        onValueChange = {
-                            dnsServer = it
-                            SettingsStore.setDnsServer(cfg, it)
-                        },
-                        singleLine = true,
-                        modifier = Modifier.width(120.dp),
-                        textStyle = MaterialTheme.typography.bodySmall,
-                    )
-                    Spacer(Modifier.width(12.dp))
-                    Checkbox(
-                        checked = blockAds,
-                        onCheckedChange = {
-                            blockAds = it
-                            SettingsStore.setBlockAds(cfg, it)
-                        },
-                    )
-                    Text("Блокировать рекламу", fontSize = 13.sp)
-                }
-
-                Text(
-                    "Xray: ${binStatus()}  ·  режим применяется при следующем подключении",
-                    fontSize = 11.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-
-                Spacer(Modifier.height(8.dp))
-
-                // ── edit form (inline, no dialog) ────────────────────────
-                editing?.let { target ->
-                    EditProfileForm(
-                        target = target,
-                        onCancel = { editing = null },
-                        onSave = { name, address, port ->
-                            ProfileStore.upsert(cfg, target.copy(name = name, address = address, port = port))
-                            editing = null
-                            reload()
-                            notice = "Профиль сохранён"
-                        },
-                    )
-                    Spacer(Modifier.height(6.dp))
-                }
-
-                // ── profiles ─────────────────────────────────────────────
-                Text("Профили (${profiles.size})", fontWeight = FontWeight.SemiBold)
-                Spacer(Modifier.height(6.dp))
-                LazyColumn(Modifier.weight(1f).fillMaxWidth()) {
-                    items(profiles, key = { it.id }) { p ->
-                        ProfileRow(
-                            profile = p,
-                            selected = p.id == selectedId,
-                            onSelect = {
-                                ProfileStore.select(cfg, p.id)
-                                selectedId = p.id
-                            },
-                            onEdit = { editing = p },
-                            onDelete = {
+                                if (TunnelManager.ui.value.profile?.id == p.id) TunnelManager.stop()
                                 ProfileStore.remove(cfg, p.id)
-                                reload()
-                                notice = "Профиль удалён"
-                            },
-                        )
-                    }
-                }
-
-                Spacer(Modifier.height(8.dp))
-                HorizontalDivider()
-                Spacer(Modifier.height(8.dp))
-
-                // ── import ───────────────────────────────────────────────
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    OutlinedTextField(
-                        value = importText,
-                        onValueChange = { importText = it },
-                        label = { Text("Ссылки vless://, vmess://, ss://, trojan://, wg/ovpn-конфиг") },
-                        singleLine = true,
-                        modifier = Modifier.weight(1f),
-                        textStyle = MaterialTheme.typography.bodySmall,
+                                withContext(Dispatchers.Main) { refreshProfiles() }
+                            }
+                        },
+                        onAdd = {
+                            editing = null
+                            nav = Nav.EDITOR
+                        },
+                        onImport = { importMenu = true },
+                        onConnect = { onConnect() },
+                        onSettings = { nav = Nav.SETTINGS },
+                        pingResults = pingResults,
+                        onPing = { p -> pingProfile(p) },
+                        pingAllRunning = pingAllRunning,
+                        onPingAll = { pingAll() },
+                        trafficStats = profileStats,
+                        searchQuery = searchQuery,
+                        onSearchChange = { searchQuery = it },
+                        subscriptionTitles = subscriptions.associate { it.id to it.name },
+                        onShare = { shareProfile = it },
+                        shareProfile = shareProfile,
+                        onDismissShare = { shareProfile = null },
                     )
-                    Spacer(Modifier.width(8.dp))
-                    Button(
-                        onClick = {
-                            val text = importText.trim()
-                            if (text.isEmpty()) return@Button
-                            busy = true
-                            scope.launch(Dispatchers.IO) {
-                                try {
-                                    val parsed = ProfileImporter.parseText(text)
-                                    if (parsed.isEmpty()) {
-                                        notice = "Ничего не распознано"
-                                    } else {
-                                        val r = ProfileStore.mergeProfiles(cfg, parsed, null, selectFirst = true)
-                                        notice = "Импорт: +${r.added} новых, ${r.updated} обновлено"
-                                        importText = ""
+
+                    Nav.SETTINGS -> SettingsScreen(
+                        isDark = dark,
+                        themeMode = themeMode,
+                        onThemeChange = { mode ->
+                            themeMode = mode
+                            SettingsStore.setThemeMode(cfg, mode)
+                        },
+                        paletteId = paletteId,
+                        onPaletteChange = { id ->
+                            paletteId = id
+                            SettingsStore.setPaletteId(cfg, id)
+                        },
+                        autoConnect = autoConnect,
+                        onAutoConnectChange = { on ->
+                            autoConnect = on
+                            SettingsStore.setAutoConnect(cfg, on)
+                        },
+                        autoFastest = autoFastest,
+                        onAutoFastestChange = { on ->
+                            autoFastest = on
+                            SettingsStore.setAutoFastest(cfg, on)
+                        },
+                        dnsViaTunnel = dnsViaTunnel,
+                        onDnsViaTunnelChange = { on ->
+                            dnsViaTunnel = on
+                            SettingsStore.setDnsViaTunnel(cfg, on)
+                        },
+                        dnsServer = dnsServer,
+                        onDnsServerChange = { value ->
+                            dnsServer = value
+                            SettingsStore.setDnsServer(cfg, value)
+                        },
+                        blockAds = blockAds,
+                        onBlockAdsChange = { on -> toggleBlockAds(on) },
+                        blockAdsBusy = blockAdsBusy,
+                        tunnelMode = tunnelMode,
+                        onTunnelModeChange = { m ->
+                            tunnelMode = m
+                            SettingsStore.setTunnelMode(cfg, m)
+                        },
+                        socksPort = socksPort,
+                        onSocksPortChange = { v ->
+                            socksPort = v
+                            v.toIntOrNull()?.let { SettingsStore.setSocksPort(cfg, it) }
+                        },
+                        httpPort = httpPort,
+                        onHttpPortChange = { v ->
+                            httpPort = v
+                            v.toIntOrNull()?.let { SettingsStore.setHttpPort(cfg, it) }
+                        },
+                        onRefreshBinaries = {
+                            if (!binariesBusy) {
+                                binariesBusy = true
+                                scope.launch(Dispatchers.IO) {
+                                    try {
+                                        Binaries.downloadAll(needGeosite = blockAds) { step ->
+                                            notice = step
+                                        }
+                                        withContext(Dispatchers.Main) {
+                                            binariesStatus = binStatus()
+                                            notice = "Бинарники готовы: $binariesStatus"
+                                        }
+                                    } catch (t: Throwable) {
+                                        withContext(Dispatchers.Main) {
+                                            notice = "Ошибка загрузки: ${t.message ?: t.javaClass.simpleName}"
+                                        }
                                     }
-                                } catch (t: Throwable) {
-                                    notice = "Ошибка импорта: ${t.message ?: t.javaClass.simpleName}"
+                                    binariesBusy = false
                                 }
-                                reload()
-                                busy = false
                             }
                         },
-                        enabled = !busy,
-                    ) { Text("Импорт") }
-                }
-
-                Spacer(Modifier.height(6.dp))
-
-                // ── subscriptions ────────────────────────────────────────
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    OutlinedTextField(
-                        value = subUrl,
-                        onValueChange = { subUrl = it },
-                        label = { Text("URL подписки (http/https)") },
-                        singleLine = true,
-                        modifier = Modifier.weight(1f),
-                        textStyle = MaterialTheme.typography.bodySmall,
+                        binariesBusy = binariesBusy,
+                        binariesStatus = binariesStatus,
+                        subscriptions = subscriptions,
+                        subscriptionsBusy = subscriptionsBusy,
+                        subscriptionBusyId = subscriptionBusyId,
+                        onAddSubscription = { url -> addSubscription(url) },
+                        onRefreshSubscription = { sub -> refreshSubscription(sub.id) },
+                        onRefreshAllSubscriptions = { refreshAllSubscriptions() },
+                        onToggleSubscription = { sub, on ->
+                            SubscriptionsStore.update(cfg, sub.copy(enabled = on))
+                            refreshSubscriptions()
+                            if (on) refreshSubscription(sub.id)
+                        },
+                        onRemoveSubscription = { sub ->
+                            SubscriptionsStore.remove(cfg, sub.id)
+                            ProfileStore.removeBySubscription(cfg, sub.id)
+                            refreshProfiles()
+                            refreshSubscriptions()
+                            notice = "Подписка удалена"
+                        },
+                        onImport = {
+                            importMenu = false
+                            importFile()
+                        },
+                        onExport = {
+                            importMenu = false
+                            exportDialogVisible = true
+                        },
+                        onDiagnostics = {
+                            diagResults = null
+                            nav = Nav.DIAGNOSTICS
+                        },
+                        onBack = { nav = Nav.MAIN },
                     )
-                    Spacer(Modifier.width(8.dp))
-                    OutlinedButton(
-                        onClick = {
-                            val url = subUrl.trim()
-                            if (url.isEmpty()) return@OutlinedButton
-                            busy = true
-                            scope.launch(Dispatchers.IO) {
-                                try {
-                                    val sub = SubscriptionsStore.add(cfg, url)
-                                    val r = SubscriptionRefresher.refresh(cfg, sub)
-                                    notice = if (r.ok) {
-                                        "Подписка: +${r.added}, обновлено ${r.updated}"
-                                    } else {
-                                        "Ошибка подписки: ${r.error ?: "неизвестно"}"
-                                    }
-                                    subUrl = ""
-                                } catch (t: Throwable) {
-                                    notice = "Ошибка: ${t.message ?: t.javaClass.simpleName}"
-                                }
-                                reload()
-                                busy = false
-                            }
+
+                    Nav.DIAGNOSTICS -> DiagnosticsScreen(
+                        isDark = dark,
+                        profileName = diagProfile()?.name ?: "",
+                        protocolName = diagProfile()?.protocol?.displayName ?: "",
+                        addressPort = diagProfile()?.let { "${it.address}:${it.port}" } ?: "",
+                        vpnRunning = conn.state == TunnelManager.State.CONNECTED,
+                        results = diagResults,
+                        running = diagRunning,
+                        onRun = { runDiagnostics() },
+                        onBack = { nav = Nav.SETTINGS },
+                    )
+
+                    Nav.EDITOR -> EditorScreen(
+                        existing = editing,
+                        isDark = dark,
+                        onSave = { p ->
+                            ProfileStore.upsert(cfg, p)
+                            refreshProfiles()
+                            nav = Nav.MAIN
                         },
-                        enabled = !busy,
-                    ) { Text("Добавить") }
-                    Spacer(Modifier.width(8.dp))
-                    OutlinedButton(
-                        onClick = {
-                            busy = true
-                            scope.launch(Dispatchers.IO) {
-                                val results = SubscriptionRefresher.refreshAll(cfg)
-                                notice = if (results.isEmpty()) {
-                                    "Нет активных подписок"
-                                } else {
-                                    "Подписки: " + results.joinToString("; ") { (s, r) ->
-                                        "${s.name}: " + if (r.ok) "+${r.added}" else "ошибка (${r.error})"
-                                    }
-                                }
-                                reload()
-                                busy = false
-                            }
-                        },
-                        enabled = !busy,
-                    ) { Text("Обновить") }
+                        onBack = { nav = Nav.MAIN },
+                    )
                 }
+            }
 
-                Spacer(Modifier.height(8.dp))
-                HorizontalDivider()
-                Spacer(Modifier.height(6.dp))
-
-                // ── log ──────────────────────────────────────────────────
-                Text("Журнал", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
-                Spacer(Modifier.height(4.dp))
-                LazyColumn(
-                    Modifier
-                        .fillMaxWidth()
-                        .height(150.dp)
+            // Inline toast-like notice (desktop has no Toast).
+            if (notice.isNotBlank()) {
+                Text(
+                    notice,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(bottom = 108.dp)
                         .background(
-                            MaterialTheme.colorScheme.surfaceVariant,
-                            RoundedCornerShape(6.dp),
-                        ),
-                    reverseLayout = true,
-                ) {
-                    items(logLines.asReversed()) { line ->
-                        Text(
-                            line,
-                            fontSize = 11.sp,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 1.dp),
+                            MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
+                            androidx.compose.foundation.shape.RoundedCornerShape(999.dp),
                         )
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                )
+            }
+        }
+
+        // ── dialogs ─────────────────────────────────────────────────────
+        if (importMenu) {
+            ImportDialog(
+                onDismiss = { importMenu = false },
+                onClipboard = {
+                    importMenu = false
+                    importClipboard()
+                },
+                onFile = {
+                    importMenu = false
+                    importFile()
+                },
+                onExport = {
+                    importMenu = false
+                    exportDialogVisible = true
+                },
+                onUrl = {
+                    importMenu = false
+                    urlDialog = true
+                },
+            )
+        }
+
+        if (exportDialogVisible) {
+            ExportDialog(
+                onDismiss = { exportDialogVisible = false },
+                onExport = { password ->
+                    exportDialogVisible = false
+                    exportToFile(password)
+                },
+            )
+        }
+
+        if (vaultPendingText != null) {
+            VaultPasswordDialog(
+                onDismiss = { vaultPendingText = null },
+                onUnlock = { password ->
+                    val envelope = vaultPendingText
+                    vaultPendingText = null
+                    if (envelope != null) decryptAndImport(envelope, password)
+                },
+            )
+        }
+
+        if (urlDialog) {
+            UrlImportDialog(
+                onDismiss = { urlDialog = false },
+                onOk = { url ->
+                    urlDialog = false
+                    scope.launch(Dispatchers.IO) {
+                        val text = try {
+                            downloadText(url)
+                        } catch (_: Throwable) {
+                            withContext(Dispatchers.Main) { notice = "Не удалось скачать конфиг" }
+                            return@launch
+                        }
+                        withContext(Dispatchers.Main) { importText(text) }
                     }
-                }
-            }
+                },
+            )
         }
     }
 }
 
-@Composable
-private fun ProfileRow(
-    profile: Profile,
-    selected: Boolean,
-    onSelect: () -> Unit,
-    onEdit: () -> Unit,
-    onDelete: () -> Unit,
-) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 3.dp)
-            .clickable(onClick = onSelect),
-        colors = CardDefaults.cardColors(
-            containerColor = if (selected) MaterialTheme.colorScheme.primaryContainer
-            else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-        ),
-    ) {
-        Row(Modifier.padding(horizontal = 10.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-            RadioButton(selected = selected, onClick = onSelect)
-            Column(Modifier.weight(1f)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        protocolBadge(profile),
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 12.sp,
-                        modifier = Modifier.padding(end = 6.dp),
-                    )
-                    Text(
-                        profile.name.ifBlank { "(без имени)" },
-                        fontWeight = FontWeight.SemiBold,
-                        maxLines = 1,
-                    )
-                }
-                Text(
-                    "${profile.address}:${profile.port}",
-                    fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                )
-            }
-            if (profile.subscriptionId != null) {
-                Text(
-                    "подписка",
-                    fontSize = 10.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(end = 4.dp),
-                )
-            }
-            TextButton(onClick = onEdit, enabled = profile.subscriptionId == null) { Text("Изм.") }
-            TextButton(onClick = onDelete) { Text("Удал.") }
-        }
+private enum class Nav { MAIN, SETTINGS, DIAGNOSTICS, EDITOR }
+
+private fun tcpPing(host: String, port: Int): Long = try {
+    val started = System.nanoTime()
+    java.net.Socket().use { s ->
+        s.connect(java.net.InetSocketAddress(host, port), 5000)
     }
+    (System.nanoTime() - started) / 1_000_000
+} catch (_: Throwable) {
+    -1L
 }
 
-@Composable
-private fun EditProfileForm(
-    target: Profile,
-    onCancel: () -> Unit,
-    onSave: (name: String, address: String, port: Int) -> Unit,
-) {
-    var name by remember(target.id) { mutableStateOf(target.name) }
-    var address by remember(target.id) { mutableStateOf(target.address) }
-    var port by remember(target.id) { mutableStateOf(target.port.toString()) }
-    Card(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(10.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    label = { Text("Имя") },
-                    singleLine = true,
-                    modifier = Modifier.weight(1f),
-                )
-                OutlinedTextField(
-                    value = address,
-                    onValueChange = { address = it.trim() },
-                    label = { Text("Адрес") },
-                    singleLine = true,
-                    modifier = Modifier.width(240.dp),
-                )
-                OutlinedTextField(
-                    value = port,
-                    onValueChange = { port = it.filter { c -> c.isDigit() }.take(5) },
-                    label = { Text("Порт") },
-                    singleLine = true,
-                    modifier = Modifier.width(100.dp),
-                )
-                Button(
-                    onClick = { onSave(name, address, port.toIntOrNull() ?: target.port) },
-                    enabled = name.isNotBlank() && address.isNotBlank(),
-                ) { Text("Сохранить") }
-                TextButton(onClick = onCancel) { Text("Отмена") }
-            }
-        }
+private fun downloadText(url: String): String {
+    val conn = (java.net.URL(url).openConnection() as java.net.HttpURLConnection).apply {
+        connectTimeout = 10_000
+        readTimeout = 10_000
+        instanceFollowRedirects = true
     }
-}
-
-private fun statusText(conn: TunnelManager.UiState): String = when (conn.state) {
-    TunnelManager.State.OFF ->
-        if (conn.error != null) "Ошибка: ${conn.error}" else "Отключено"
-    TunnelManager.State.STARTING -> "Подключение…"
-    TunnelManager.State.CONNECTED -> "Подключено · ${describeMode(conn.mode)}"
-    TunnelManager.State.STOPPING -> "Отключение…"
-}
-
-private fun describeMode(mode: String) = when (mode) {
-    "tun" -> "TUN"
-    "proxy" -> "локальный прокси (127.0.0.1)"
-    "wg" -> "WireGuard"
-    "openvpn" -> "OpenVPN"
-    else -> mode
-}
-
-private fun protocolBadge(p: Profile): String = when (p.protocol) {
-    com.crystaln.vpn.data.Protocol.VMESS -> "VMess"
-    com.crystaln.vpn.data.Protocol.VLESS -> "VLESS"
-    com.crystaln.vpn.data.Protocol.TROJAN -> "Trojan"
-    com.crystaln.vpn.data.Protocol.SHADOWSOCKS -> "SS"
-    com.crystaln.vpn.data.Protocol.SOCKS -> "SOCKS"
-    com.crystaln.vpn.data.Protocol.HTTP -> "HTTP"
-    com.crystaln.vpn.data.Protocol.WIREGUARD -> "WG"
-    com.crystaln.vpn.data.Protocol.AMNEZIAWG -> "AWG"
-    com.crystaln.vpn.data.Protocol.OPENVPN -> "OVPN"
+    try {
+        conn.inputStream.use { input ->
+            val bytes = input.readNBytes(MAX_IMPORT_BYTES + 1)
+            if (bytes.size > MAX_IMPORT_BYTES) {
+                throw java.io.IOException("Файл слишком велик для конфига")
+            }
+            return String(bytes, Charsets.UTF_8)
+        }
+    } finally {
+        conn.disconnect()
+    }
 }
 
 /** Short human-readable binaries availability line. */
@@ -549,4 +791,203 @@ private fun binStatus(): String {
         "tun2socks " + if (s.tun2socksReady) "✓" else "✗",
         "geosite " + if (s.geositeReady) "✓" else "✗",
     ).joinToString(", ")
+}
+
+/**
+ * Resolves the desktop system theme: GNOME color-scheme, then KDE color
+ * scheme, else light (same idea as Android's isSystemInDarkTheme()).
+ */
+private fun systemDark(): Boolean {
+    try {
+        val out = ProcessBuilder("gsettings", "get", "org.gnome.desktop.interface", "color-scheme")
+            .start().inputStream.bufferedReader().use { it.readText() }
+        if (out.contains("dark", ignoreCase = true)) return true
+        if (out.isNotBlank()) return false
+    } catch (_: Throwable) {
+    }
+    try {
+        val out = ProcessBuilder("kreadconfig6", "--group", "General", "--key", "ColorScheme")
+            .start().inputStream.bufferedReader().use { it.readText() }
+        if (out.contains("dark", ignoreCase = true)) return true
+    } catch (_: Throwable) {
+    }
+    return false
+}
+
+@Composable
+private fun ImportDialog(
+    onDismiss: () -> Unit,
+    onClipboard: () -> Unit,
+    onFile: () -> Unit,
+    onExport: () -> Unit,
+    onUrl: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {},
+        dismissButton = {},
+        title = { Text("Профили") },
+        text = {
+            Column {
+                ImportAction(Icons.Default.FileOpen, "Установить конфиг из файла", onFile)
+                ImportAction(Icons.Default.ContentPaste, "Импорт из буфера", onClipboard)
+                ImportAction(Icons.Default.Link, "Импорт по ссылке", onUrl)
+                ImportAction(Icons.Default.FileDownload, "Экспорт в файл", onExport)
+            }
+        },
+    )
+}
+
+@Composable
+private fun UrlImportDialog(
+    onDismiss: () -> Unit,
+    onOk: (String) -> Unit,
+) {
+    var url by remember { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Импорт по ссылке") },
+        text = {
+            OutlinedTextField(
+                value = url,
+                onValueChange = { url = it },
+                singleLine = true,
+                placeholder = { Text("Вставьте ссылку на конфиг") },
+                modifier = Modifier.fillMaxWidth(),
+            )
+        },
+        confirmButton = {
+            TextButton(
+                enabled = url.trim().startsWith("http://") || url.trim().startsWith("https://"),
+                onClick = { onOk(url.trim()) },
+            ) {
+                Text("OK")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Отмена") }
+        },
+    )
+}
+
+/**
+ * Asks how to export: raw JSON (full fidelity, no protection) or an
+ * AES-GCM "vault" encrypted with a user password. null password = raw.
+ */
+@Composable
+private fun ExportDialog(
+    onDismiss: () -> Unit,
+    onExport: (String?) -> Unit,
+) {
+    var usePassword by remember { mutableStateOf(true) }
+    var password by remember { mutableStateOf("") }
+    var confirm by remember { mutableStateOf("") }
+    val passwordOk = usePassword &&
+        password.length >= 4 &&
+        password == confirm
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Экспорт в файл") },
+        text = {
+            Column {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Checkbox(
+                        checked = usePassword,
+                        onCheckedChange = { usePassword = it },
+                    )
+                    Text("Защитить паролем")
+                }
+                if (usePassword) {
+                    Spacer(Modifier.height(6.dp))
+                    OutlinedTextField(
+                        value = password,
+                        onValueChange = { password = it },
+                        singleLine = true,
+                        visualTransformation = PasswordVisualTransformation(),
+                        label = { Text("Пароль (минимум 4 символа)") },
+                        isError = password.isNotEmpty() && password.length < 4,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = confirm,
+                        onValueChange = { confirm = it },
+                        singleLine = true,
+                        visualTransformation = PasswordVisualTransformation(),
+                        label = { Text("Повторите пароль") },
+                        isError = confirm.isNotEmpty() && password != confirm,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                enabled = !usePassword || passwordOk,
+                onClick = { onExport(if (usePassword) password else null) },
+            ) {
+                Text("Экспорт в файл")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Отмена") }
+        },
+    )
+}
+
+/** Password prompt for importing a vault envelope. */
+@Composable
+private fun VaultPasswordDialog(
+    onDismiss: () -> Unit,
+    onUnlock: (String) -> Unit,
+) {
+    var password by remember { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Защищённый экспорт") },
+        text = {
+            Column {
+                Text(
+                    "Файл зашифрован. Введите пароль, которым он был создан.",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                Spacer(Modifier.height(10.dp))
+                OutlinedTextField(
+                    value = password,
+                    onValueChange = { password = it },
+                    singleLine = true,
+                    visualTransformation = PasswordVisualTransformation(),
+                    label = { Text("Пароль (минимум 4 символа)") },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                enabled = password.isNotEmpty(),
+                onClick = { onUnlock(password) },
+            ) {
+                Text("OK")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Отмена") }
+        },
+    )
+}
+
+@Composable
+private fun ImportAction(icon: ImageVector, label: String, onClick: () -> Unit) {
+    TextButton(onClick = onClick, modifier = Modifier.fillMaxWidth()) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+                icon,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.width(24.dp),
+            )
+            Spacer(Modifier.width(10.dp))
+            Text(label)
+        }
+    }
 }
