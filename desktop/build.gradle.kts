@@ -12,16 +12,16 @@ dependencies {
     implementation(compose.desktop.currentOs)
     implementation(compose.material3)
     implementation(compose.materialIconsExtended)
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.1")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.11.0")
     // Dispatchers.Main for Compose Desktop (Swing); same version as core.
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-swing:1.8.1")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-swing:1.11.0")
     // Matches the org.json API used by the Android app (android.jar stub).
     implementation("org.json:json:20240303")
     // Pure-JVM QR encoding for the profile share dialog (Android uses ML Kit).
     implementation("com.google.zxing:core:3.5.3")
 
     testImplementation("junit:junit:4.13.2")
-    testImplementation("org.jetbrains.kotlin:kotlin-test:2.2.20")
+    testImplementation("org.jetbrains.kotlin:kotlin-test:2.4.21")
 }
 
 kotlin {
