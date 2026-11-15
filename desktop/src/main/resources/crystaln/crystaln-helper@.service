@@ -1,0 +1,9 @@
+[Unit]
+Description=CrystalN privileged helper (per connection)
+BindsTo=crystaln-helper.socket
+
+[Service]
+ExecStart=/usr/lib/crystaln/crystaln-helper.py
+StandardInput=socket
+StandardOutput=socket
+StandardError=journal

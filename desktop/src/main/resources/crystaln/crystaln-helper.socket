@@ -1,0 +1,13 @@
+[Unit]
+Description=CrystalN privileged helper socket
+Documentation=https://github.com/lightcodegit/crystaln
+
+[Socket]
+ListenStream=/run/crystaln-helper.sock
+Accept=yes
+SocketMode=0660
+SocketUser=root
+RemoveOnStop=true
+
+[Install]
+WantedBy=sockets.target

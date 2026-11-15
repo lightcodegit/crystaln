@@ -70,6 +70,21 @@ object Privileges {
     fun runScript(name: String, commands: List<String>): Result {
         val script = commands.joinToString("\n", postfix = "\n") { cmd -> "$cmd || exit 1" }
         synchronized(lock) {
+            // 1) Однажды установленный systemd-сервис: без диалогов вообще.
+            RootService.exec(script)?.let { return it }
+            // 2) Сервис ещё не установлен — ставим (один раз, через pkexec),
+            //    затем повторяем через сервис.
+            if (!RootService.isInstalled() && RootService.ensureInstalled()) {
+                RootService.exec(script)?.let { return it }
+            }
+            // 3) Фолбэк: сессионный хелпер через sudo -n / pkexec.
+            return runViaSessionHelper(script)
+        }
+    }
+
+    /** Executes [script] through the per-session root helper. */
+    internal fun runViaSessionHelper(script: String): Result {
+        synchronized(lock) {
             try {
                 val proc = ensureHelper()
                     ?: return Result.Fail("root-хелпер недоступен (отказано в доступе?)")

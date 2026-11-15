@@ -83,11 +83,19 @@ Desktop-вариант в модуле `desktop` — то же ядро (про�
 диагностика, шеринг с QR-кодом и статистика трафика.
 
 - **Режимы:** локальный прокси (SOCKS+HTTP, без root) и полный TUN через
-  tun2socks (нужны права root один раз при подключении — скрипты выполняются
-  через `sudo -n` или `pkexec`; само приложение root-прав не требует).
-  Пароль root запрашивается один раз на сессию приложения: при первом
-  privileged-вызове стартует root-хелпер, и все последующие скрипты
-  (подключение, отключение, смена сети) идут через него без диалогов.
+  tun2socks (нужны права root — скрипты выполняются через `sudo -n` или
+  `pkexec`; само приложение root-прав не требует).
+  Пароль запрашивается один раз: при первом privileged-вызове приложение
+  ставит systemd-сервис-хелпер (`crystaln-helper.socket` +
+  `crystaln-helper@.service`, скрипт в `/usr/lib/crystaln`, доступ
+  ограничен uid установщика через SO_PEERCRED). После этого все
+  root-операции (подключение, отключение, смена сети) идут через сервис
+  без диалогов — как в AmneziaVPN. Фолбэк — сессионный хелпер через
+  `pkexec` (если сервиса нет или systemd не подходит).
+  Удаление сервиса: `sudo systemctl disable --now crystaln-helper.socket &&
+  sudo rm /etc/systemd/system/crystaln-helper.{socket,@.service}
+  /usr/lib/crystaln/crystaln-helper.py /etc/crystaln-helper.uid &&
+  sudo systemctl daemon-reload`.
 - **Протоколы:** Xray-семейство (VMess/VLESS/Trojan/Shadowsocks/SOCKS/HTTP)
   через официальный xray-core, WireGuard через системный `wg-quick`
   (пакет `wireguard-tools`) либо, при его отсутствии, через тот же
