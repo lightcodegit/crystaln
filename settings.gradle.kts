@@ -25,3 +25,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "CrystalN"
 include(":app")
+include(":desktop")
