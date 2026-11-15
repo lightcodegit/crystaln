@@ -41,11 +41,14 @@ object Binaries {
 
     fun status(): Status {
         val bin = AppDirs.binDir()
+        // На Windows файлы называются xray.exe и т.д. — через Platform.binName.
+        val p = com.crystaln.vpn.desktop.Platform
         return Status(
-            xrayReady = executable(File(bin, XRAY)),
-            tun2socksReady = executable(File(bin, TUN2SOCKS)),
+            xrayReady = executable(File(bin, p.binName(XRAY))),
+            tun2socksReady = executable(File(bin, p.binName(TUN2SOCKS))),
             geositeReady = File(bin, "geosite.dat").exists(),
-            awgReady = executable(File(bin, AWG_GO)) && executable(File(bin, AWG)),
+            awgReady = executable(File(bin, p.binName(AWG_GO))) &&
+                executable(File(bin, p.binName(AWG))),
         )
     }
 
