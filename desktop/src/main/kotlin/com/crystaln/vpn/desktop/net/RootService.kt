@@ -36,8 +36,10 @@ object RootService {
      * Bump when the installed helper pieces change shape (unit mode, socket
      * path, protocol) so existing installations get repaired on next run.
      * v2: socket mode 0666 — 0660 root:root denied unprivileged peers.
+     * v3: KillMode=process — systemd убивал запущенный скриптом демон при
+     * выходе одноразового соединения (handshake проходит, потом Device closing).
      */
-    private const val HELPER_VERSION = "2"
+    private const val HELPER_VERSION = "3"
     private const val SENTINEL_RESULT = "__CR_R:"
     private const val READ_TIMEOUT_MS = 120_000
     private const val INSTALL_WAIT_MS = 5_000

@@ -7,3 +7,7 @@ ExecStart=/usr/lib/crystaln/crystaln-helper.py
 StandardInput=socket
 StandardOutput=socket
 StandardError=journal
+# Демоны (amneziawg-go и т.п.) запускаются скриптом через nohup и должны
+# переживать завершение этого одноразового соединения: default
+# KillMode=control-group убил бы их вместе с cgroup сервиса.
+KillMode=process
