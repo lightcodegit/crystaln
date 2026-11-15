@@ -1,5 +1,7 @@
 // CrystalN for Linux: Compose Desktop GUI + JVM core (profiles, parsers,
 // config builders) + process runners for xray / wg-quick / openvpn.
+import org.jetbrains.compose.desktop.application.dsl.TargetFormat
+
 plugins {
     id("org.jetbrains.kotlin.jvm")
     id("org.jetbrains.kotlin.plugin.compose")
@@ -52,21 +54,15 @@ compose.desktop {
         // `./gradlew :desktop:packageDistributionForCurrentOS` → deb.
         nativeDistributions {
             // Форматы по платформе: jpackage умеет только «родные» пакеты.
-            // Linux: deb (нужен dpkg-deb), rpm (нужен rpmbuild);
-            // Windows: msi; macOS: dmg.
+            // ВАЖНО: targetFormats() перезаписывает список, поэтому все форматы
+            // передаются одним вызовом (второй вызов молча терял deb).
             val hostOs = System.getProperty("os.name").lowercase()
-            targetFormats(
-                when {
-                    hostOs.contains("win") ->
-                        org.jetbrains.compose.desktop.application.dsl.TargetFormat.Msi
-                    hostOs.contains("mac") ->
-                        org.jetbrains.compose.desktop.application.dsl.TargetFormat.Dmg
-                    else -> org.jetbrains.compose.desktop.application.dsl.TargetFormat.Deb
-                },
-            )
-            if (!hostOs.contains("win") && !hostOs.contains("mac")) {
-                targetFormats(org.jetbrains.compose.desktop.application.dsl.TargetFormat.Rpm)
+            val formats = when {
+                hostOs.contains("win") -> listOf(TargetFormat.Msi)
+                hostOs.contains("mac") -> listOf(TargetFormat.Dmg)
+                else -> listOf(TargetFormat.Deb, TargetFormat.Rpm)
             }
+            targetFormats(*formats.toTypedArray())
             packageName = "crystaln"
             packageVersion = project.findProperty("appVersion") as String? ?: "0.1.0"
             description = "Мультипротокольный VPN-клиент CrystalN"
