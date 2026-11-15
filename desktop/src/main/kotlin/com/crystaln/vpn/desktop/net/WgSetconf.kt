@@ -99,6 +99,9 @@ object WgSetconf {
             .flatMap { splitList(it["allowedips"].orEmpty()) }
             .distinct()
             .toList()
+        // These values are interpolated into a privileged `ip`/`resolvectl`
+        // script. Never allow shell text from an imported config to reach it.
+        (addresses + dns + routes).forEach(::requireNetworkAddress)
         val out = StringBuilder("[Interface]\n")
         deviceKeys.forEach { key ->
             device[key]?.let { out.appendLine("${canonicalKeys.getValue(key)} = $it") }
@@ -126,5 +129,12 @@ object WgSetconf {
     private fun isSetJunkValue(value: String): Boolean {
         val range = Regex("""\d+-\d+""")
         return range.matches(value) || value.toLongOrNull()?.let { it > 0 } == true
+    }
+
+    private fun requireNetworkAddress(value: String) {
+        val safeSyntax = Regex("[0-9A-Fa-f:.]+(?:/[0-9]{1,3})?").matches(value)
+        require(safeSyntax && ('.' in value || ':' in value)) {
+            "Недопустимый IP-адрес или CIDR в конфигурации: $value"
+        }
     }
 }

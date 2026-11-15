@@ -1,6 +1,7 @@
 package com.crystaln.vpn.desktop.net
 
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import org.junit.Test
@@ -132,5 +133,15 @@ class WgSetconfTest {
 
         assertEquals(2, Regex("\\[Peer]").findAll(result.setconf).count())
         assertEquals(listOf("10.0.0.1/32", "fd00::/64", "10.0.0.3/32"), result.routes)
+    }
+
+    @Test
+    fun rejectsShellTextInPrivilegedNetworkArguments() {
+        listOf(
+            "[Interface]\nAddress = 10.0.0.2/32; touch /tmp/pwned\n[Peer]\nAllowedIPs = 10.0.0.0/24",
+            "[Interface]\nDNS = 1.1.1.1\n[Peer]\nAllowedIPs = 0.0.0.0/0; id",
+        ).forEach { config ->
+            assertFailsWith<IllegalArgumentException> { WgSetconf.build(config) }
+        }
     }
 }
