@@ -65,7 +65,9 @@ compose.desktop {
             targetFormats(*formats.toTypedArray())
             packageName = "crystaln"
             packageVersion = project.findProperty("appVersion") as String? ?: "0.1.0"
-            description = "Мультипротокольный VPN-клиент CrystalN"
+            // ASCII-only: WiX codepage 1252 не умеет кириллицу (LGHT0311),
+            // из-за русского описания packageMsi падал на light.exe (code 311).
+            description = "Multi-protocol VPN client CrystalN"
             vendor = "CrystalN"
             modules("java.instrument", "java.management", "jdk.unsupported")
             linux {
