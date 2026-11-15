@@ -55,6 +55,11 @@
     <string name="action_export">Export</string>
     <string name="ping_ms">%1$d ms</string>
     <string name="traffic_format">%1$s ↓ / %2$s ↑</string>
+    <string name="size_kb_fmt">%1$.0f KB</string>
+    <string name="size_mb_fmt">%1$.1f MB</string>
+    <string name="size_gb_fmt">%1$.2f GB</string>
+    <string name="size_tb_fmt">%1$.2f TB</string>
+    <string name="profile_traffic_total">Total: %1$s</string>
 
     <!-- Import / export -->
     <string name="import_clipboard">Import from clipboard</string>

@@ -66,6 +66,7 @@ import androidx.compose.ui.unit.dp
 import com.crystaln.vpn.R
 import com.crystaln.vpn.data.Profile
 import com.crystaln.vpn.data.Protocol
+import com.crystaln.vpn.data.TrafficStats
 import com.crystaln.vpn.service.VpnManager
 import com.crystaln.vpn.ui.LiquidBlobs
 import com.crystaln.vpn.ui.WallpaperLayer
@@ -112,6 +113,8 @@ fun MainScreen(
     onPing: (Profile) -> Unit = {},
     pingAllRunning: Boolean = false,
     onPingAll: () -> Unit = {},
+    /** Accumulated per-profile usage, id → totals. */
+    trafficStats: Map<String, TrafficStats> = emptyMap(),
 ) {
     val wallpaper = rememberWallpaper(wallpaperPath)
     val overWallpaper = wallpaper != null
@@ -199,6 +202,7 @@ fun MainScreen(
                                 onSelect = { onSelect(p) },
                                 onEdit = { onEdit(p) },
                                 onDelete = { onDelete(p) },
+                                totalTraffic = trafficStats[p.id],
                             )
                         }
                     }
@@ -642,6 +646,7 @@ private fun ProfileCard(
     onSelect: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
+    totalTraffic: TrafficStats? = null,
 ) {
     val pc = protocolColor(profile.protocol)
     val shape = RoundedCornerShape(22.dp)
@@ -702,6 +707,18 @@ private fun ProfileCard(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
+                totalTraffic?.takeIf { it.rx + it.tx > 0 }?.let { t ->
+                    Text(
+                        stringResource(
+                            R.string.profile_traffic_total,
+                            formatBytes(t.rx + t.tx),
+                        ),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
             }
             Spacer(Modifier.width(8.dp))
             if (pingable) {
@@ -880,4 +897,13 @@ fun humanBytes(v: Long): String {
         u++
     }
     return "%.1f %s".format(x, units[u])
+}
+
+/** Localized byte size for the per-profile totals row. */
+@Composable
+private fun formatBytes(v: Long): String = when {
+    v >= 1L shl 40 -> stringResource(R.string.size_tb_fmt, v / 1099511627776.0)
+    v >= 1L shl 30 -> stringResource(R.string.size_gb_fmt, v / 1073741824.0)
+    v >= 1L shl 20 -> stringResource(R.string.size_mb_fmt, v / 1048576.0)
+    else -> stringResource(R.string.size_kb_fmt, v / 1024.0)
 }

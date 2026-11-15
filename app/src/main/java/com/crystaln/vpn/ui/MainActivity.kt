@@ -67,6 +67,8 @@ import com.crystaln.vpn.data.ProfileVault
 import com.crystaln.vpn.data.ConnectionDiagnostics
 import com.crystaln.vpn.data.ProfileStore
 import com.crystaln.vpn.data.SettingsStore
+import com.crystaln.vpn.data.TrafficStats
+import com.crystaln.vpn.data.TrafficStatsStore
 import com.crystaln.vpn.data.Subscription
 import com.crystaln.vpn.data.SubscriptionRefresher
 import com.crystaln.vpn.data.SubscriptionsStore
@@ -111,6 +113,7 @@ class MainActivity : ComponentActivity() {
     // Live profile list + selection, refreshed after every import/edit/delete.
     private val profiles = mutableStateOf<List<Profile>>(emptyList())
     private val selectedId = mutableStateOf<String?>(null)
+    private val profileStats = mutableStateOf<Map<String, TrafficStats>>(emptyMap())
 
     // Subscription rows and their refresh progress.
     private val subscriptions = mutableStateOf<List<Subscription>>(emptyList())
@@ -140,6 +143,7 @@ class MainActivity : ComponentActivity() {
     private fun refreshProfiles() {
         profiles.value = ProfileStore.load(this).toList()
         selectedId.value = ProfileStore.selectedId
+        profileStats.value = TrafficStatsStore.all(this)
     }
 
     private fun refreshSubscriptions() {
@@ -261,6 +265,15 @@ class MainActivity : ComponentActivity() {
 
                 // Live traffic counters while connected.
                 // (The 1 Hz poller lives in VpnManager now.)
+                // Refresh per-profile usage totals every ~10s while it runs.
+                LaunchedEffect(Unit) {
+                    var ticks = 0
+                    VpnManager.ui.collect {
+                        if (++ticks % 10 == 0 && VpnManager.isRunning()) {
+                            profileStats.value = TrafficStatsStore.all(this@MainActivity)
+                        }
+                    }
+                }
 
                 // Auto-connect the selected profile on cold launch, if enabled.
                 if (freshLaunch) {
@@ -338,6 +351,7 @@ class MainActivity : ComponentActivity() {
                         onPing = { p -> pingProfile(p) },
                         pingAllRunning = pingAllRunning.value,
                         onPingAll = { pingAll() },
+                        trafficStats = profileStats.value,
                     )
 
                     Nav.SETTINGS -> SettingsScreen(

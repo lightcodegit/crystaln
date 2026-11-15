@@ -11,6 +11,7 @@ import androidx.core.content.ContextCompat
 import com.crystaln.vpn.R
 import com.crystaln.vpn.data.Profile
 import com.crystaln.vpn.data.Protocol
+import com.crystaln.vpn.data.TrafficStatsStore
 import com.crystaln.vpn.openvpn.OpenVpnService
 import com.crystaln.vpn.openvpn.OpenVpnStats
 import com.crystaln.vpn.wg.AwgTunnel
@@ -104,6 +105,10 @@ object VpnManager {
     @Volatile
     private var netCallback: ConnectivityManager.NetworkCallback? = null
 
+    /** Last 1 Hz traffic sample, for per-profile delta accumulation. */
+    private var lastSampleRx = 0L
+    private var lastSampleTx = 0L
+
     fun current(): UiState = _ui.value
 
     fun isRunning(): Boolean = _ui.value.state == State.STARTING ||
@@ -116,6 +121,8 @@ object VpnManager {
             // Fresh state also clears any stale error from previous attempts
             // and resets traffic counters for the new session.
             _ui.value = UiState(State.STARTING, profile)
+            lastSampleRx = 0
+            lastSampleTx = 0
             generation.incrementAndGet()
         }
         // A superseded async shutdown may never publish OFF, so drop the old
@@ -161,6 +168,11 @@ object VpnManager {
         val st = _ui.value
         if (st.state == State.OFF || st.state == State.STOPPING) return
         _ui.value = st.copy(state = State.STOPPING)
+        // Persist usage totals collected by the poller before anything tears down.
+        try {
+            TrafficStatsStore.flush(context)
+        } catch (_: Throwable) {
+        }
         when {
             st.profile?.isOpenVpn == true -> {
                 try {
@@ -425,9 +437,28 @@ object VpnManager {
                     }
                     val (rx, tx) = pollTraffic()
                     _ui.value = _ui.value.copy(rx = rx, tx = tx)
+                    accumulateTraffic(st.profile?.id, rx, tx)
                     reconnectIfWireGuardStale(st)
                 }
             }
+        }
+    }
+
+    /**
+     * Per-profile usage: the engines expose cumulative session counters, so
+     * deltas are computed here. A negative delta means the counter restarted
+     * (engine swap) — that side just contributes zero.
+     */
+    private fun accumulateTraffic(profileId: String?, rx: Long, tx: Long) {
+        val id = profileId ?: return
+        val ctx = appContext ?: return
+        val dRx = (rx - lastSampleRx).coerceAtLeast(0)
+        val dTx = (tx - lastSampleTx).coerceAtLeast(0)
+        lastSampleRx = rx
+        lastSampleTx = tx
+        try {
+            TrafficStatsStore.add(ctx, id, dRx, dTx, seconds = 1)
+        } catch (_: Throwable) {
         }
     }
 
