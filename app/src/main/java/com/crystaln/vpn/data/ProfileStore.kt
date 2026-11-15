@@ -24,6 +24,14 @@ object ProfileStore {
     var selectedId: String? = null
         private set
 
+    /** Test-only hook: clears the in-memory cache so a fresh context reloads from disk. */
+    internal fun resetForTest() {
+        synchronized(lock) {
+            cache = null
+            selectedId = null
+        }
+    }
+
     fun load(context: Context): MutableList<Profile> = synchronized(lock) {
         cache?.let { return it }
         val f = File(context.filesDir, FILE)
@@ -97,6 +105,89 @@ object ProfileStore {
             val list = load(context)
             list.removeAll { it.id == id }
             if (selectedId == id) selectedId = list.firstOrNull()?.id
+        }
+        save(context)
+    }
+
+    data class MergeResult(
+        val added: Int,
+        val updated: Int,
+        val removed: Int,
+        val selectedProfile: Profile?,
+    )
+
+    /**
+     * Imports a batch as profiles, reusing an existing profile when it represents
+     * the same server and credentials. This is what makes URL re-import and
+     * subscription refreshes idempotent.
+     *
+     * Existing manual profiles are updated but never become subscription-owned,
+     * so deleting a subscription will not delete a server the user had before.
+     */
+    fun mergeProfiles(
+        context: Context,
+        incoming: List<Profile>,
+        subscriptionId: String?,
+        selectFirst: Boolean = false,
+    ): MergeResult = synchronized(lock) {
+        val list = load(context)
+        val beforeCount = list.size
+        var added = 0
+        var updated = 0
+        val touched = mutableListOf<Profile>()
+        incoming.forEach { fresh ->
+            val key = fresh.identityKey() ?: fresh.id // fallback: deduplicate only exact ids
+            val idx = list.indexOfFirst { it.id == fresh.id || it.identityKey() == key }
+            if (idx >= 0) {
+                val old = list[idx]
+                list[idx] = fresh.copy(
+                    id = old.id,
+                    subscriptionId = old.subscriptionId,
+                )
+                updated++
+                touched += list[idx]
+            } else {
+                val owned = fresh.copy(subscriptionId = subscriptionId)
+                list += owned
+                added++
+                touched += owned
+            }
+        }
+
+        if (subscriptionId != null) {
+            val incomingKeys = incoming.mapNotNull { it.identityKey() }.toSet()
+            val incomingIds = incoming.map { it.id }.toSet()
+            val oldSize = list.size
+            list.removeAll { p ->
+                p.subscriptionId == subscriptionId &&
+                    (p.identityKey()?.let { it !in incomingKeys } ?: (p.id !in incomingIds))
+            }
+            if (list.size < oldSize) touched += list.filter { it.subscriptionId == subscriptionId }
+        }
+
+        selectedId = selectedId?.takeIf { id -> list.any { it.id == id } }
+        if (selectFirst) {
+            selectedId = touched.firstOrNull()?.id ?: selectedId
+        } else if (selectedId == null) {
+            selectedId = list.firstOrNull()?.id
+        }
+        save(context)
+        MergeResult(
+            added = added,
+            updated = updated,
+            removed = beforeCount - list.size,
+            selectedProfile = selectedId?.let { id -> list.firstOrNull { it.id == id } },
+        )
+    }
+
+    /** Removes every profile owned by [subscriptionId]. */
+    fun removeBySubscription(context: Context, subscriptionId: String) {
+        synchronized(lock) {
+            val list = load(context)
+            list.removeAll { it.subscriptionId == subscriptionId }
+            if (selectedId != null && list.none { it.id == selectedId }) {
+                selectedId = list.firstOrNull()?.id
+            }
         }
         save(context)
     }

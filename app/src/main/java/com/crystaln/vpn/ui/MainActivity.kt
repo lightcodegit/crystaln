@@ -63,6 +63,10 @@ import com.crystaln.vpn.data.Profile
 import com.crystaln.vpn.data.ProfileImporter
 import com.crystaln.vpn.data.ProfileStore
 import com.crystaln.vpn.data.SettingsStore
+import com.crystaln.vpn.data.Subscription
+import com.crystaln.vpn.data.SubscriptionRefresher
+import com.crystaln.vpn.data.SubscriptionsStore
+import com.crystaln.vpn.data.SubscriptionSyncScheduler
 import com.crystaln.vpn.service.VpnManager
 import com.crystaln.vpn.ui.screens.EditorScreen
 import com.crystaln.vpn.ui.screens.MainScreen
@@ -101,6 +105,11 @@ class MainActivity : ComponentActivity() {
     private val profiles = mutableStateOf<List<Profile>>(emptyList())
     private val selectedId = mutableStateOf<String?>(null)
 
+    // Subscription rows and their refresh progress.
+    private val subscriptions = mutableStateOf<List<Subscription>>(emptyList())
+    private val subscriptionsBusy = mutableStateOf(false)
+    private val subscriptionBusyId = mutableStateOf<String?>(null)
+
     /** Measured TCP ping per profile id (ms), -1 = unreachable. */
     private val pingResults = mutableStateMapOf<String, Long>()
     private val pinging: MutableSet<String> =
@@ -112,6 +121,10 @@ class MainActivity : ComponentActivity() {
     private fun refreshProfiles() {
         profiles.value = ProfileStore.load(this).toList()
         selectedId.value = ProfileStore.selectedId
+    }
+
+    private fun refreshSubscriptions() {
+        subscriptions.value = SubscriptionsStore.load(this)
     }
 
     private fun refreshWallpaper() {
@@ -190,6 +203,7 @@ class MainActivity : ComponentActivity() {
         paletteId.value = SettingsStore.paletteId(this)
         autoConnect.value = SettingsStore.autoConnect(this)
         refreshProfiles()
+        refreshSubscriptions()
         refreshWallpaper()
 
         handleViewIntent(intent)
@@ -314,6 +328,14 @@ class MainActivity : ComponentActivity() {
                             autoConnect.value = on
                             SettingsStore.setAutoConnect(this@MainActivity, on)
                         },
+                        subscriptions = subscriptions.value,
+                        subscriptionsBusy = subscriptionsBusy.value,
+                        subscriptionBusyId = subscriptionBusyId.value,
+                        onAddSubscription = { url -> addSubscription(url) },
+                        onRefreshSubscription = { sub -> refreshSubscription(sub.id) },
+                        onRefreshAllSubscriptions = { refreshAllSubscriptions() },
+                        onToggleSubscription = { sub, on -> toggleSubscription(sub, on) },
+                        onRemoveSubscription = { sub -> removeSubscription(sub) },
                         wallpaperSet = wallpaperPath.value != null,
                         onPickWallpaper = {
                             wallpaperPicker.launch(
@@ -480,6 +502,116 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    /** Adds and immediately refreshes a saved subscription. */
+    private fun addSubscription(rawUrl: String) {
+        val url = SubscriptionsStore.normalizeUrl(rawUrl)
+        if (url == null) {
+            Toast.makeText(this, R.string.subscription_invalid_url, Toast.LENGTH_SHORT).show()
+            return
+        }
+        if (subscriptionsBusy.value) return
+        lifecycleScope.launch(Dispatchers.IO) {
+            subscriptionsBusy.value = true
+            try {
+                val sub = SubscriptionsStore.add(this@MainActivity, url)
+                SubscriptionSyncScheduler.reschedule(this@MainActivity)
+                subscriptionBusyId.value = sub.id
+                val result = SubscriptionRefresher.refresh(this@MainActivity, sub)
+                withContext(Dispatchers.Main) {
+                    refreshProfiles()
+                    refreshSubscriptions()
+                    Toast.makeText(
+                        this@MainActivity,
+                        if (result.ok) {
+                            getString(
+                                R.string.subscription_added_ok,
+                                result.added + result.updated,
+                            )
+                        } else {
+                            getString(R.string.subscription_added_empty)
+                        },
+                        Toast.LENGTH_LONG,
+                    ).show()
+                }
+            } finally {
+                subscriptionBusyId.value = null
+                subscriptionsBusy.value = false
+            }
+        }
+    }
+
+    private fun refreshSubscription(id: String) {
+        if (subscriptionsBusy.value) return
+        val sub = SubscriptionsStore.byId(this, id) ?: return
+        lifecycleScope.launch(Dispatchers.IO) {
+            subscriptionsBusy.value = true
+            subscriptionBusyId.value = id
+            try {
+                val result = SubscriptionRefresher.refresh(this@MainActivity, sub)
+                withContext(Dispatchers.Main) {
+                    refreshProfiles()
+                    refreshSubscriptions()
+                    Toast.makeText(
+                        this@MainActivity,
+                        if (result.ok) {
+                            getString(
+                                R.string.subscription_refresh_ok,
+                                result.added,
+                                result.updated,
+                                result.removed,
+                            )
+                        } else {
+                            getString(R.string.subscription_refresh_failed)
+                        },
+                        Toast.LENGTH_LONG,
+                    ).show()
+                }
+            } finally {
+                subscriptionBusyId.value = null
+                subscriptionsBusy.value = false
+            }
+        }
+    }
+
+    private fun refreshAllSubscriptions() {
+        if (subscriptionsBusy.value) return
+        lifecycleScope.launch(Dispatchers.IO) {
+            subscriptionsBusy.value = true
+            try {
+                val results = SubscriptionRefresher.refreshAll(this@MainActivity)
+                withContext(Dispatchers.Main) {
+                    refreshProfiles()
+                    refreshSubscriptions()
+                    val failed = results.count { !it.second.ok }
+                    val message = if (failed == 0) {
+                        getString(R.string.subscription_refresh_ok, 0, 0, 0)
+                    } else {
+                        getString(R.string.subscription_refresh_failed)
+                    }
+                    Toast.makeText(this@MainActivity, message, Toast.LENGTH_LONG).show()
+                }
+            } finally {
+                subscriptionsBusy.value = false
+            }
+        }
+    }
+
+    private fun toggleSubscription(sub: Subscription, enabled: Boolean) {
+        SubscriptionsStore.update(this, sub.copy(enabled = enabled))
+        SubscriptionSyncScheduler.reschedule(this)
+        refreshSubscriptions()
+        if (enabled) refreshSubscription(sub.id)
+    }
+
+    private fun removeSubscription(sub: Subscription) {
+        SubscriptionsStore.remove(this, sub.id)
+        ProfileStore.removeBySubscription(this, sub.id)
+        SubscriptionSyncScheduler.reschedule(this)
+        refreshProfiles()
+        refreshSubscriptions()
+        Toast.makeText(this, R.string.subscription_removed, Toast.LENGTH_SHORT).show()
+    }
+
     private fun downloadText(url: String): String {
         val conn = (java.net.URL(url).openConnection() as java.net.HttpURLConnection).apply {
             connectTimeout = 10_000
@@ -509,14 +641,13 @@ class MainActivity : ComponentActivity() {
             Toast.makeText(this, R.string.import_nothing, Toast.LENGTH_SHORT).show()
             return
         }
-        parsed.forEach { ProfileStore.upsert(this, it) }
-        // Install-and-select: the first imported profile becomes active at once.
-        ProfileStore.select(this@MainActivity, parsed.first().id)
+        // Re-imports update the same server instead of stacking duplicates.
+        val merged = ProfileStore.mergeProfiles(this, parsed, subscriptionId = null, selectFirst = true)
         refreshProfiles()
         Toast.makeText(
             this,
-            getString(R.string.import_result_ok, parsed.size) + " · " +
-                getString(R.string.import_selected, parsed.first().name),
+            getString(R.string.import_result_ok, merged.added + merged.updated) + " · " +
+                getString(R.string.import_selected, merged.selectedProfile?.name ?: ""),
             Toast.LENGTH_SHORT,
         ).show()
     }

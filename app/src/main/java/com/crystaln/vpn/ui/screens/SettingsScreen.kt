@@ -24,19 +24,28 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.FileOpen
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.PowerSettingsNew
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Wallpaper
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -51,6 +60,8 @@ import androidx.compose.ui.unit.dp
 import com.crystaln.vpn.BuildConfig
 import com.crystaln.vpn.R
 import com.crystaln.vpn.data.SettingsStore
+import com.crystaln.vpn.data.Subscription
+import com.crystaln.vpn.data.SubscriptionsStore
 import com.crystaln.vpn.ui.LiquidBlobs
 import com.crystaln.vpn.ui.WallpaperLayer
 import com.crystaln.vpn.ui.glass.CircleGlassButton
@@ -79,6 +90,14 @@ fun SettingsScreen(
     onPaletteChange: (String) -> Unit,
     autoConnect: Boolean,
     onAutoConnectChange: (Boolean) -> Unit,
+    subscriptions: List<Subscription>,
+    subscriptionsBusy: Boolean,
+    subscriptionBusyId: String?,
+    onAddSubscription: (String) -> Unit,
+    onRefreshSubscription: (Subscription) -> Unit,
+    onRefreshAllSubscriptions: () -> Unit,
+    onToggleSubscription: (Subscription, Boolean) -> Unit,
+    onRemoveSubscription: (Subscription) -> Unit,
     wallpaperSet: Boolean,
     onPickWallpaper: () -> Unit,
     onClearWallpaper: () -> Unit,
@@ -89,6 +108,8 @@ fun SettingsScreen(
     val wallpaper = rememberWallpaper(SettingsStore.wallpaper(LocalContext.current))
     val glassDark = wallpaper?.isDark ?: isDark
     val overWallpaper = wallpaper != null
+    var addSubscriptionVisible by remember { mutableStateOf(false) }
+    var subscriptionUrl by remember { mutableStateOf("") }
 
     BoxWithConstraints(
         Modifier
@@ -237,6 +258,101 @@ fun SettingsScreen(
                         )
                     }
 
+                    // ── Subscriptions ───────────────────────────────────
+                    SectionLabel(stringResource(R.string.subscriptions_title))
+                    SettingsPanel(isDark = glassDark, overWallpaper = overWallpaper) {
+                        if (subscriptions.isEmpty()) {
+                            Text(
+                                stringResource(R.string.subscriptions_empty),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        subscriptions.forEach { sub ->
+                            GlassDivider(Modifier.padding(vertical = 12.dp))
+                            SwitchRow(
+                                title = sub.name,
+                                subtitle = subscriptionStatusText(sub),
+                                checked = sub.enabled,
+                                enabled = !subscriptionsBusy,
+                                onChange = { on -> onToggleSubscription(sub, on) },
+                            )
+                            Text(
+                                sub.url,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 2,
+                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                            )
+                            sub.lastError?.takeIf { !sub.enabled || !sub.autoRefresh || it.isNotBlank() }
+                                ?.let { error ->
+                                    Spacer(Modifier.height(4.dp))
+                                    Text(
+                                        error,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.error,
+                                        maxLines = 3,
+                                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                                    )
+                                }
+                            Spacer(Modifier.height(10.dp))
+                            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                PillButton(
+                                    text = stringResource(R.string.subscriptions_refresh),
+                                    icon = Icons.Default.Refresh,
+                                    accent = true,
+                                    isDark = glassDark,
+                                    overWallpaper = overWallpaper,
+                                    enabled = !subscriptionsBusy &&
+                                        subscriptionBusyId?.let { it != sub.id } ?: true,
+                                    onClick = { onRefreshSubscription(sub) },
+                                    modifier = Modifier.weight(1f),
+                                )
+                                PillButton(
+                                    text = stringResource(R.string.subscriptions_delete),
+                                    icon = null,
+                                    accent = false,
+                                    isDark = glassDark,
+                                    overWallpaper = overWallpaper,
+                                    enabled = !subscriptionsBusy,
+                                    onClick = { onRemoveSubscription(sub) },
+                                    modifier = Modifier.weight(1f),
+                                )
+                            }
+                        }
+                        if (subscriptions.isNotEmpty()) {
+                            Spacer(Modifier.height(14.dp))
+                            Text(
+                                stringResource(R.string.subscriptions_auto_refresh),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        Spacer(Modifier.height(12.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            PillButton(
+                                text = stringResource(R.string.subscriptions_add),
+                                icon = Icons.Default.Add,
+                                accent = true,
+                                isDark = glassDark,
+                                overWallpaper = overWallpaper,
+                                enabled = !subscriptionsBusy,
+                                onClick = { addSubscriptionVisible = true },
+                                modifier = Modifier.weight(1f),
+                            )
+                            PillButton(
+                                text = stringResource(R.string.subscriptions_refresh_all),
+                                icon = Icons.Default.Refresh,
+                                accent = false,
+                                isDark = glassDark,
+                                overWallpaper = overWallpaper,
+                                enabled = !subscriptionsBusy && subscriptions.any { it.enabled },
+                                onClick = onRefreshAllSubscriptions,
+                                modifier = Modifier.weight(1f),
+                            )
+                        }
+                    }
+
                     // ── Data ───────────────────────────────────────────
                     SectionLabel(stringResource(R.string.section_data))
                     SettingsPanel(isDark = glassDark, overWallpaper = overWallpaper) {
@@ -298,6 +414,18 @@ fun SettingsScreen(
                 }
                 }
             }
+        }
+
+        if (addSubscriptionVisible) {
+            AddSubscriptionDialog(
+                initialUrl = "",
+                busy = subscriptionsBusy,
+                onDismiss = { addSubscriptionVisible = false },
+                onAdd = { url ->
+                    addSubscriptionVisible = false
+                    onAddSubscription(url)
+                },
+            )
         }
 
         // Floating liquid-glass tab bar, iOS-style — blurs the real
@@ -379,6 +507,58 @@ private fun PalettePicker(
         stringResource(R.string.import_selected, selected.name),
         style = MaterialTheme.typography.labelMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+}
+
+@Composable
+private fun subscriptionStatusText(sub: Subscription): String = when (sub.lastResult) {
+    null -> if (sub.lastUpdated > 0L) stringResource(R.string.subscriptions_never_checked)
+    else stringResource(R.string.subscriptions_never_checked)
+    true -> stringResource(
+        R.string.subscriptions_updated,
+        java.text.DateFormat.getDateTimeInstance(
+            java.text.DateFormat.SHORT,
+            java.text.DateFormat.SHORT,
+        ).format(java.util.Date(sub.lastUpdated)),
+    )
+    false -> stringResource(R.string.subscriptions_failed)
+}
+
+@Composable
+private fun AddSubscriptionDialog(
+    initialUrl: String,
+    busy: Boolean,
+    onDismiss: () -> Unit,
+    onAdd: (String) -> Unit,
+) {
+    var url by remember(initialUrl) { mutableStateOf(initialUrl) }
+    val valid = SubscriptionsStore.normalizeUrl(url) != null
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.subscriptions_add)) },
+        text = {
+            OutlinedTextField(
+                value = url,
+                onValueChange = { url = it },
+                singleLine = true,
+                isError = url.isNotBlank() && !valid,
+                placeholder = { Text(stringResource(R.string.subscriptions_url_hint)) },
+                modifier = Modifier.fillMaxWidth(),
+            )
+        },
+        confirmButton = {
+            TextButton(
+                enabled = valid && !busy,
+                onClick = { onAdd(url) },
+            ) {
+                Text(stringResource(R.string.subscriptions_save))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.cancel))
+            }
+        },
     )
 }
 

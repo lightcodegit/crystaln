@@ -38,6 +38,8 @@ data class Profile(
     var fields: MutableMap<String, String> = mutableMapOf(),
     var wgConfig: String = "",
     var ovpnConfig: String = "",
+    /** Null for manually imported profiles; set when owned by a subscription. */
+    var subscriptionId: String? = null,
 ) {
     val isWireGuard: Boolean get() = protocol == Protocol.WIREGUARD
 
@@ -48,8 +50,33 @@ data class Profile(
     /** OpenVPN runs in its own VpnService with the native openvpn core. */
     val isOpenVpn: Boolean get() = protocol == Protocol.OPENVPN
 
-    /** Short description line shown under the profile name in lists. */
-    fun summary(): String = when (protocol) {
+    /**
+     * Stable server identity used by subscription refreshes: the same endpoint
+     * and credentials update the existing profile instead of adding a duplicate.
+     * Returns null for profiles without enough information to be identified.
+     */
+    fun identityKey(): String? {
+        val host = address.trim().lowercase()
+        if (host.isEmpty() || port !in 1..65535) return null
+        val credential = when (protocol) {
+            Protocol.VMESS, Protocol.VLESS -> fields["uuid"]
+            Protocol.TROJAN, Protocol.SHADOWSOCKS -> fields["password"]
+            Protocol.SOCKS, Protocol.HTTP -> fields["username"]?.let { "$it:${fields["password"]}" }
+            Protocol.WIREGUARD, Protocol.AMNEZIAWG ->
+                wgConfig.lineSequence()
+                    .firstOrNull { it.trim().startsWith("PublicKey", ignoreCase = true) }
+                    ?.substringAfter('=')?.trim()
+            Protocol.OPENVPN ->
+                ovpnConfig.lineSequence()
+                    .firstOrNull { it.trim().startsWith("remote ", ignoreCase = true) }
+                    ?.trim()?.lowercase()
+        } ?: return null
+        if (credential.isBlank()) return null
+        return listOf(protocol.name.lowercase(), host, port.toString(), credential)
+            .joinToString("|")
+    }
+
+    /** Short description line shown under the profile name in lists. */    fun summary(): String = when (protocol) {
         Protocol.WIREGUARD, Protocol.AMNEZIAWG ->
             wgConfig.lineSequence().firstOrNull { it.startsWith("Endpoint") }
                 ?.substringAfter('=')?.trim()?.ifEmpty { null }
@@ -89,6 +116,7 @@ data class Profile(
         put("fields", JSONObject(fields))
         put("wgConfig", wgConfig)
         put("ovpnConfig", ovpnConfig)
+        subscriptionId?.let { put("subscriptionId", it) }
     }
 
     companion object {
@@ -105,6 +133,7 @@ data class Profile(
             } ?: mutableMapOf(),
             wgConfig = o.optString("wgConfig"),
             ovpnConfig = o.optString("ovpnConfig"),
+            subscriptionId = o.optString("subscriptionId").ifEmpty { null },
         )
     }
 }
