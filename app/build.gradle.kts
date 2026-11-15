@@ -80,7 +80,7 @@ dependencies {
     // Haze — real hardware-accelerated backdrop blur / liquid glass
     // (frosted surfaces that blur the content behind them).
     implementation("dev.chrisbanes.haze:haze:1.6.4")
-    implementation("dev.chrisbanes.haze:haze-materials:1.6.4")
+    implementation("dev.chrisbanes.haze:haze-materials:1.7.3")
 
     // Xray core bindings (VMess, VLESS, Trojan, Shadowsocks, SOCKS, HTTP, ...).
     implementation(files("libs/libv2ray.aar"))
