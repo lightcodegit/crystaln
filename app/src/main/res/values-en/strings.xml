@@ -161,6 +161,14 @@
     <string name="tile_off">Tap to connect</string>
     <string name="tile_transition">Working…</string>
     <string name="tile_on">Connected: %1$s</string>
+
+    <!-- Protected export (vault) -->
+    <string name="vault_protect">Protect with a password</string>
+    <string name="vault_password">Password (min 4 chars)</string>
+    <string name="vault_confirm">Repeat the password</string>
+    <string name="vault_title">Protected export</string>
+    <string name="vault_import_hint">The file is encrypted. Enter the password it was created with.</string>
+    <string name="vault_wrong_password">Wrong password or damaged file</string>
     <string name="section_data">Profiles and data</string>
     <string name="data_info">Import: a config file (.conf / .txt / .json), vless:// trojan:// ss:// vmess:// socks5:// links or a wg-quick config.</string>
     <string name="section_about">About</string>

@@ -29,6 +29,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
@@ -38,6 +39,7 @@ import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -61,6 +63,7 @@ import androidx.lifecycle.lifecycleScope
 import com.crystaln.vpn.R
 import com.crystaln.vpn.data.Profile
 import com.crystaln.vpn.data.ProfileImporter
+import com.crystaln.vpn.data.ProfileVault
 import com.crystaln.vpn.data.ConnectionDiagnostics
 import com.crystaln.vpn.data.ProfileStore
 import com.crystaln.vpn.data.SettingsStore
@@ -118,6 +121,13 @@ class MainActivity : ComponentActivity() {
     // Connection diagnostics: null = not run yet, list = last run's results.
     private val diagResults = mutableStateOf<List<ConnectionDiagnostics.Result>?>(null)
     private val diagRunning = mutableStateOf(false)
+
+    // Protected export: password chosen in ExportDialog, consumed by fileExport.
+    private var pendingExportPassword: String? = null
+    private val exportDialogVisible = mutableStateOf(false)
+
+    // Import of a vault envelope: text held until the user enters the password.
+    private val vaultPendingText = mutableStateOf<String?>(null)
     private val pinging: MutableSet<String> =
         java.util.Collections.newSetFromMap(java.util.concurrent.ConcurrentHashMap())
 
@@ -166,13 +176,20 @@ class MainActivity : ComponentActivity() {
         registerForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
             if (uri == null) return@registerForActivityResult
             try {
-                val json = ProfileImporter.exportJson(
+                var json = ProfileImporter.exportJson(
                     ProfileStore.load(this@MainActivity).toList(), ProfileStore.selectedId,
                 )
+                // Password set by ExportDialog → write a vault envelope instead
+                // of raw credentials.
+                pendingExportPassword?.let { pw ->
+                    json = ProfileVault.encrypt(json, pw.toCharArray())
+                }
                 contentResolver.openOutputStream(uri)?.use { it.write(json.toByteArray()) }
                 Toast.makeText(this, R.string.export_done, Toast.LENGTH_SHORT).show()
             } catch (t: Throwable) {
                 Toast.makeText(this, t.message ?: t.javaClass.simpleName, Toast.LENGTH_LONG).show()
+            } finally {
+                pendingExportPassword = null
             }
         }
 
@@ -406,7 +423,7 @@ class MainActivity : ComponentActivity() {
                         },
                         onExport = {
                             importMenu.value = false
-                            fileExport.launch("crystaln_profiles.json")
+                            exportDialogVisible.value = true
                         },
                         onQr = {
                             importMenu.value = false
@@ -415,6 +432,30 @@ class MainActivity : ComponentActivity() {
                         onUrl = {
                             importMenu.value = false
                             urlDialog.value = true
+                        },
+                    )
+                }
+
+                if (exportDialogVisible.value) {
+                    ExportDialog(
+                        onDismiss = { exportDialogVisible.value = false },
+                        onExport = { password ->
+                            exportDialogVisible.value = false
+                            pendingExportPassword = password
+                            fileExport.launch(
+                                if (password == null) "crystaln_profiles.json" else "crystaln_vault.json",
+                            )
+                        },
+                    )
+                }
+
+                if (vaultPendingText.value != null) {
+                    VaultPasswordDialog(
+                        onDismiss = { vaultPendingText.value = null },
+                        onUnlock = { password ->
+                            val envelope = vaultPendingText.value
+                            vaultPendingText.value = null
+                            if (envelope != null) decryptAndImport(envelope, password)
                         },
                     )
                 }
@@ -658,6 +699,22 @@ class MainActivity : ComponentActivity() {
         Toast.makeText(this, R.string.subscription_removed, Toast.LENGTH_SHORT).show()
     }
 
+    /** Decrypts a vault envelope off the UI thread and imports the payload. */
+    private fun decryptAndImport(envelope: String, password: String) {
+        lifecycleScope.launch(Dispatchers.IO) {
+            val plain = try {
+                ProfileVault.decrypt(envelope, password.toCharArray())
+            } catch (_: ProfileVault.VaultException) {
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(this@MainActivity, R.string.vault_wrong_password, Toast.LENGTH_LONG)
+                        .show()
+                }
+                return@launch
+            }
+            withContext(Dispatchers.Main) { importText(plain) }
+        }
+    }
+
     private fun downloadText(url: String): String {
         val conn = (java.net.URL(url).openConnection() as java.net.HttpURLConnection).apply {
             connectTimeout = 10_000
@@ -680,6 +737,12 @@ class MainActivity : ComponentActivity() {
     private fun importText(text: String) {
         if (text.length > maxImportBytes) {
             Toast.makeText(this, R.string.import_too_large, Toast.LENGTH_LONG).show()
+            return
+        }
+        // Encrypted vault: ask for the password first, then re-import the
+        // decrypted payload.
+        if (ProfileVault.isVault(text)) {
+            vaultPendingText.value = text
             return
         }
         val parsed = ProfileImporter.parseText(text)
@@ -786,6 +849,112 @@ private fun UrlImportDialog(
             TextButton(
                 enabled = url.trim().startsWith("http://") || url.trim().startsWith("https://"),
                 onClick = { onOk(url.trim()) },
+            ) {
+                Text(stringResource(R.string.ok))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) }
+        },
+    )
+}
+
+/**
+ * Asks how to export: raw JSON (full fidelity, no protection) or an
+ * AES-GCM "vault" encrypted with a user password. null password = raw.
+ */
+@Composable
+private fun ExportDialog(
+    onDismiss: () -> Unit,
+    onExport: (String?) -> Unit,
+) {
+    var usePassword by remember { mutableStateOf(true) }
+    var password by remember { mutableStateOf("") }
+    var confirm by remember { mutableStateOf("") }
+    val passwordOk = usePassword &&
+        password.length >= 4 &&
+        password == confirm
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.export_action)) },
+        text = {
+            Column {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    androidx.compose.material3.Checkbox(
+                        checked = usePassword,
+                        onCheckedChange = { usePassword = it },
+                    )
+                    Text(stringResource(R.string.vault_protect))
+                }
+                if (usePassword) {
+                    Spacer(Modifier.height(6.dp))
+                    OutlinedTextField(
+                        value = password,
+                        onValueChange = { password = it },
+                        singleLine = true,
+                        visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                        label = { Text(stringResource(R.string.vault_password)) },
+                        isError = password.isNotEmpty() && password.length < 4,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = confirm,
+                        onValueChange = { confirm = it },
+                        singleLine = true,
+                        visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                        label = { Text(stringResource(R.string.vault_confirm)) },
+                        isError = confirm.isNotEmpty() && password != confirm,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                enabled = !usePassword || passwordOk,
+                onClick = { onExport(if (usePassword) password else null) },
+            ) {
+                Text(stringResource(R.string.export_action))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) }
+        },
+    )
+}
+
+/** Password prompt for importing a vault envelope. */
+@Composable
+private fun VaultPasswordDialog(
+    onDismiss: () -> Unit,
+    onUnlock: (String) -> Unit,
+) {
+    var password by remember { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.vault_title)) },
+        text = {
+            Column {
+                Text(
+                    stringResource(R.string.vault_import_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                Spacer(Modifier.height(10.dp))
+                OutlinedTextField(
+                    value = password,
+                    onValueChange = { password = it },
+                    singleLine = true,
+                    visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                    label = { Text(stringResource(R.string.vault_password)) },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                enabled = password.isNotEmpty(),
+                onClick = { onUnlock(password) },
             ) {
                 Text(stringResource(R.string.ok))
             }

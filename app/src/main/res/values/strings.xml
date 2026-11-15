@@ -161,6 +161,14 @@
     <string name="tile_off">Нажмите, чтобы подключить</string>
     <string name="tile_transition">Подключение…</string>
     <string name="tile_on">Подключено: %1$s</string>
+
+    <!-- Protected export (vault) -->
+    <string name="vault_protect">Защитить паролем</string>
+    <string name="vault_password">Пароль (минимум 4 символа)</string>
+    <string name="vault_confirm">Повторите пароль</string>
+    <string name="vault_title">Защищённый экспорт</string>
+    <string name="vault_import_hint">Файл зашифрован. Введите пароль, которым он был создан.</string>
+    <string name="vault_wrong_password">Неверный пароль или файл повреждён</string>
     <string name="section_data">Профили и данные</string>
     <string name="data_info">Импорт: файл конфигурации (.conf / .txt / .json), ссылки vless:// trojan:// ss:// vmess:// socks5:// или wg-quick конфиг.</string>
     <string name="section_about">О приложении</string>
