@@ -62,6 +62,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import com.crystaln.vpn.R
 import com.crystaln.vpn.data.Profile
+import com.crystaln.vpn.data.Backup
 import com.crystaln.vpn.data.ProfileImporter
 import com.crystaln.vpn.data.ProfileVault
 import com.crystaln.vpn.data.ConnectionDiagnostics
@@ -194,9 +195,7 @@ class MainActivity : ComponentActivity() {
         registerForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
             if (uri == null) return@registerForActivityResult
             try {
-                var json = ProfileImporter.exportJson(
-                    ProfileStore.load(this@MainActivity).toList(), ProfileStore.selectedId,
-                )
+                var json = Backup.exportFull(this@MainActivity)
                 // Password set by ExportDialog → write a vault envelope instead
                 // of raw credentials.
                 pendingExportPassword?.let { pw ->
@@ -893,6 +892,14 @@ class MainActivity : ComponentActivity() {
         // decrypted payload.
         if (ProfileVault.isVault(text)) {
             vaultPendingText.value = text
+            return
+        }
+        // Full crystaln/2 backup (settings + subscriptions + profiles) first;
+        // anything else falls through to the profile-only parser.
+        Backup.importFull(this, text)?.let { summary ->
+            refreshProfiles()
+            refreshSubscriptions()
+            Toast.makeText(this, summary, Toast.LENGTH_SHORT).show()
             return
         }
         val parsed = ProfileImporter.parseText(text)

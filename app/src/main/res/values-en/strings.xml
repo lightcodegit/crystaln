@@ -140,6 +140,9 @@
     <string name="share_title">Share profile</string>
     <string name="share_unavailable">This profile cannot be exported: no address or credentials.</string>
     <string name="share_copied">Link copied</string>
+    <string name="backup_profiles">Profiles: %1$d</string>
+    <string name="backup_subscriptions">Subscriptions: %1$d</string>
+    <string name="backup_settings_only">Settings restored</string>
     <string name="action_copy">Copy</string>
     <string name="action_share">Send</string>
     <string name="subscriptions_title">Subscriptions</string>

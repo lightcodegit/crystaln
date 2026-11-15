@@ -146,6 +146,38 @@ object SubscriptionsStore {
         url
     }
 
+    /** Backup export: the raw subscription rows. */
+    fun exportJson(context: Context): JSONArray =
+        JSONArray().apply { load(context).forEach { put(it.toJson()) } }
+
+    /**
+     * Backup import: re-adds each subscription by URL (dedupe rules of
+     * [add] apply), then restores the enabled/autoRefresh/interval flags.
+     * Returns how many rows were imported.
+     */
+    fun importJson(context: Context, arr: JSONArray): Int {
+        var count = 0
+        for (i in 0 until arr.length()) {
+            val o = arr.optJSONObject(i) ?: continue
+            val url = o.optString("url")
+            if (normalizeUrl(url) == null) continue
+            try {
+                val sub = add(context, url)
+                update(
+                    context,
+                    sub.copy(
+                        enabled = o.optBoolean("enabled", true),
+                        autoRefresh = o.optBoolean("autoRefresh", true),
+                        intervalHours = o.optInt("intervalHours", 6).coerceIn(1, 30 * 24),
+                    ),
+                )
+                count++
+            } catch (_: Exception) {
+            }
+        }
+        return count
+    }
+
     private fun fromJson(o: JSONObject): Subscription = Subscription(
         id = o.optString("id"),
         url = o.optString("url"),

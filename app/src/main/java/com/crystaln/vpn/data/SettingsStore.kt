@@ -1,7 +1,7 @@
 package com.crystaln.vpn.data
 
 import android.content.Context
-
+import org.json.JSONObject
 /** App-level settings persisted in shared prefs. */
 object SettingsStore {
     enum class ThemeMode { SYSTEM, LIGHT, DARK }
@@ -120,5 +120,31 @@ object SettingsStore {
     fun setWallpaper(context: Context, fileName: String?) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .edit().putString(KEY_WALLPAPER, fileName).apply()
+    }
+
+    /** Everything restorable from a backup. The wallpaper image is a binary
+     * asset in filesDir, not prefs — it is not carried in backups. */
+    fun exportJson(context: Context): JSONObject = JSONObject()
+        .put("themeMode", themeMode(context).name)
+        .put("dynamicColor", dynamicColor(context))
+        .put("palette", paletteId(context))
+        .put("autoConnect", autoConnect(context))
+        .put("autoFastest", autoFastest(context))
+        .put("dnsViaTunnel", dnsViaTunnel(context))
+        .put("dnsServer", dnsServer(context))
+        .put("blockAds", blockAds(context))
+
+    fun importJson(context: Context, o: JSONObject) {
+        setThemeMode(
+            context,
+            runCatching { ThemeMode.valueOf(o.optString("themeMode")) }.getOrDefault(ThemeMode.SYSTEM),
+        )
+        setDynamicColor(context, o.optBoolean("dynamicColor", false))
+        o.optString("palette").takeIf { it.isNotEmpty() }?.let { setPaletteId(context, it) }
+        setAutoConnect(context, o.optBoolean("autoConnect", false))
+        setAutoFastest(context, o.optBoolean("autoFastest", false))
+        setDnsViaTunnel(context, o.optBoolean("dnsViaTunnel", false))
+        o.optString("dnsServer").takeIf { it.isNotEmpty() }?.let { setDnsServer(context, it) }
+        setBlockAds(context, o.optBoolean("blockAds", false))
     }
 }

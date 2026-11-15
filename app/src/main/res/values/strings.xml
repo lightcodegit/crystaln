@@ -140,6 +140,9 @@
     <string name="share_title">Поделиться профилем</string>
     <string name="share_unavailable">Этот профиль нельзя экспортировать: нет адреса или учётных данных.</string>
     <string name="share_copied">Ссылка скопирована</string>
+    <string name="backup_profiles">Профили: %1$d</string>
+    <string name="backup_subscriptions">Подписки: %1$d</string>
+    <string name="backup_settings_only">Настройки восстановлены</string>
     <string name="action_copy">Копировать</string>
     <string name="action_share">Отправить</string>
     <string name="subscriptions_title">Подписки</string>
@@ -182,7 +185,6 @@
     <string name="tile_off">Нажмите, чтобы подключить</string>
     <string name="tile_transition">Подключение…</string>
     <string name="tile_on">Подключено: %1$s</string>
-
     <!-- Protected export (vault) -->
     <string name="vault_protect">Защитить паролем</string>
     <string name="vault_password">Пароль (минимум 4 символа)</string>
