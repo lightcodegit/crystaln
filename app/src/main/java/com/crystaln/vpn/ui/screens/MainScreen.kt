@@ -912,8 +912,8 @@ private fun ProfileCard(
         ) {
             Box(
                 Modifier
-                    .size(44.dp)
-                    .clip(RoundedCornerShape(15.dp))
+                    .size(40.dp)
+                    .clip(RoundedCornerShape(14.dp))
                     .background(
                         Brush.linearGradient(
                             listOf(pc.copy(alpha = 0.30f), pc.copy(alpha = 0.12f)),
@@ -925,10 +925,10 @@ private fun ProfileCard(
                     Icons.Default.Lan,
                     contentDescription = null,
                     tint = pc,
-                    modifier = Modifier.size(21.dp),
+                    modifier = Modifier.size(19.dp),
                 )
             }
-            Spacer(Modifier.width(12.dp))
+            Spacer(Modifier.width(10.dp))
             Column(Modifier.weight(1f)) {
                 Text(
                     profile.name,
@@ -937,13 +937,24 @@ private fun ProfileCard(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
-                Text(
-                    profile.summary(),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
+                // Protocol + summary share one line so the right-side actions
+                // never squeeze the text on narrow screens.
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        profile.protocol.displayName,
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = pc,
+                    )
+                    Spacer(Modifier.width(5.dp))
+                    Text(
+                        profile.summary(),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
                 totalTraffic?.takeIf { it.rx + it.tx > 0 }?.let { t ->
                     Text(
                         stringResource(
@@ -957,7 +968,7 @@ private fun ProfileCard(
                     )
                 }
             }
-            Spacer(Modifier.width(8.dp))
+            Spacer(Modifier.width(6.dp))
             if (pingable) {
                 PingChip(ping = ping, tint = pc, onPing = onPing)
                 Spacer(Modifier.width(4.dp))
@@ -977,42 +988,31 @@ private fun ProfileCard(
                         modifier = Modifier.size(14.dp),
                     )
                 }
-            } else {
-                Box(
-                    Modifier
-                        .clip(RoundedCornerShape(999.dp))
-                        .background(pc.copy(alpha = 0.16f))
-                        .padding(horizontal = 9.dp, vertical = 4.dp),
-                ) {
-                    Text(
-                        profile.protocol.displayName,
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = pc,
-                    )
-                }
+                Spacer(Modifier.width(2.dp))
             }
-            IconButton(onClick = onShare) {
+            // Compact icon buttons: the default 48dp target triples the
+            // footprint of three actions and starves the text column.
+            IconButton(onClick = onShare, modifier = Modifier.size(32.dp)) {
                 Icon(
                     Icons.Default.Share,
                     contentDescription = "Share",
-                    modifier = Modifier.size(17.dp),
+                    modifier = Modifier.size(16.dp),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            IconButton(onClick = onEdit) {
+            IconButton(onClick = onEdit, modifier = Modifier.size(32.dp)) {
                 Icon(
                     Icons.Default.Edit,
                     contentDescription = "Edit",
-                    modifier = Modifier.size(17.dp),
+                    modifier = Modifier.size(16.dp),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            IconButton(onClick = onDelete) {
+            IconButton(onClick = onDelete, modifier = Modifier.size(32.dp)) {
                 Icon(
                     Icons.Default.Delete,
                     contentDescription = "Delete",
-                    modifier = Modifier.size(17.dp),
+                    modifier = Modifier.size(16.dp),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
