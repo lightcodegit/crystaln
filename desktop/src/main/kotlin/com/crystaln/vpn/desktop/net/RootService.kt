@@ -30,6 +30,14 @@ object RootService {
     private const val SOCKET_PATH = "/run/crystaln-helper.sock"
     private const val HELPER_DIR = "/usr/lib/crystaln"
     private const val UID_FILE = "/etc/crystaln-helper.uid"
+    private const val VERSION_FILE = "/etc/crystaln-helper.version"
+
+    /**
+     * Bump when the installed helper pieces change shape (unit mode, socket
+     * path, protocol) so existing installations get repaired on next run.
+     * v2: socket mode 0666 — 0660 root:root denied unprivileged peers.
+     */
+    private const val HELPER_VERSION = "2"
     private const val SENTINEL_RESULT = "__CR_R:"
     private const val READ_TIMEOUT_MS = 120_000
     private const val INSTALL_WAIT_MS = 5_000
@@ -115,7 +123,7 @@ object RootService {
      * path in [Privileges]). Returns true when the socket is up afterwards.
      */
     fun ensureInstalled(): Boolean {
-        if (isInstalled()) return true
+        if (isInstalled() && installedVersionOk()) return true
         if (!python3Available()) return false
         val uid = currentUid() ?: return false
         val dir = try {
@@ -138,8 +146,11 @@ object RootService {
                 "install -m 644 $svc /etc/systemd/system/crystaln-helper@.service",
                 "echo $uid > $UID_FILE",
                 "chmod 600 $UID_FILE",
+                "echo $HELPER_VERSION > $VERSION_FILE",
+                "chmod 644 $VERSION_FILE",
                 "systemctl daemon-reload || true",
-                "systemctl enable --now crystaln-helper.socket || true",
+                "systemctl enable crystaln-helper.socket || true",
+                "systemctl restart crystaln-helper.socket || true",
             ).joinToString("\n", postfix = "\n") { "$it || exit 1" },
         )
         dir.toFile().deleteRecursively()
@@ -156,6 +167,13 @@ object RootService {
             }
         }
         return false
+    }
+
+    /** True when the installed helper matches [HELPER_VERSION] (or unknown). */
+    private fun installedVersionOk(): Boolean = try {
+        File(VERSION_FILE).readText().trim() == HELPER_VERSION
+    } catch (_: Throwable) {
+        false
     }
 
     private fun extractResource(name: String, target: Path): Boolean = try {

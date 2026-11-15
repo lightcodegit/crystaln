@@ -5,7 +5,7 @@ Documentation=https://github.com/lightcodegit/crystaln
 [Socket]
 ListenStream=/run/crystaln-helper.sock
 Accept=yes
-SocketMode=0660
+SocketMode=0666
 SocketUser=root
 RemoveOnStop=true
 

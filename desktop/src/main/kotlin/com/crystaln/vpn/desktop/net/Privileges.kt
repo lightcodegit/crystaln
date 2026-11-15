@@ -72,9 +72,9 @@ object Privileges {
         synchronized(lock) {
             // 1) Однажды установленный systemd-сервис: без диалогов вообще.
             RootService.exec(script)?.let { return it }
-            // 2) Сервис ещё не установлен — ставим (один раз, через pkexec),
-            //    затем повторяем через сервис.
-            if (!RootService.isInstalled() && RootService.ensureInstalled()) {
+            // 2) Сервис не установлен/сломан/старой версии — ставим или чиним
+            //    (диалог пароля один раз), затем повторяем через сервис.
+            if (RootService.ensureInstalled()) {
                 RootService.exec(script)?.let { return it }
             }
             // 3) Фолбэк: сессионный хелпер через sudo -n / pkexec.
