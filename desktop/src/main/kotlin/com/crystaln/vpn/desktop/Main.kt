@@ -1,5 +1,6 @@
 package com.crystaln.vpn.desktop
 
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -10,9 +11,11 @@ import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.res.loadImageBitmap
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Notification
 import androidx.compose.ui.window.Tray
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
+import androidx.compose.ui.window.rememberTrayState
 import androidx.compose.ui.window.rememberWindowState
 import com.crystaln.vpn.desktop.net.TunnelManager
 import com.crystaln.vpn.desktop.ui.CrystalnApp
@@ -61,6 +64,51 @@ fun main() {
         // Состояние туннеля для меню трея (Подключить/Отключить, подсказка).
         val conn by TunnelManager.ui.collectAsState()
 
+        // Windows-балун уведомления при смене состояния туннеля: подключено /
+        // отключено / ошибка подключения. Показываются, только пока жив трей.
+        val trayState = rememberTrayState()
+        var lastTrayState by remember { mutableStateOf<TunnelManager.State?>(null) }
+        LaunchedEffect(conn) {
+            val prev = lastTrayState
+            if (traySupported && prev != null && prev != conn.state) {
+                when (conn.state) {
+                    TunnelManager.State.CONNECTED ->
+                        trayState.sendNotification(
+                            Notification(
+                                "CrystalN — VPN",
+                                "Подключено: ${conn.profile?.name ?: "профиль"}",
+                                Notification.Type.Info,
+                            ),
+                        )
+                    TunnelManager.State.OFF ->
+                        if (prev == TunnelManager.State.CONNECTED ||
+                            prev == TunnelManager.State.STARTING
+                        ) {
+                            val err = conn.error
+                            if (err != null) {
+                                trayState.sendNotification(
+                                    Notification(
+                                        "CrystalN — VPN",
+                                        "Ошибка подключения: $err",
+                                        Notification.Type.Error,
+                                    ),
+                                )
+                            } else {
+                                trayState.sendNotification(
+                                    Notification(
+                                        "CrystalN — VPN",
+                                        "Отключено",
+                                        Notification.Type.Info,
+                                    ),
+                                )
+                            }
+                        }
+                    else -> {}
+                }
+            }
+            lastTrayState = conn.state
+        }
+
         Window(
             onCloseRequest = {
                 if (traySupported) windowVisible = false else exitApplication()
@@ -84,6 +132,7 @@ fun main() {
             }
             Tray(
                 icon = icon,
+                state = trayState,
                 tooltip = tooltip,
                 // Двойной клик по иконке в трее (Windows) открывает окно.
                 onAction = { windowVisible = true },
