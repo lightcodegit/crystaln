@@ -7,7 +7,11 @@ OUT=/tmp/crystaln-vpn-capture.txt
 exec >"$OUT" 2>&1
 
 echo "===== $(date) ====="
-echo "--- интерфейсы ---"
+IFACE=$(ip -br link | awk -F: '/^cn-/{gsub(/ /,"",$1); print $1; exit}')
+if [ -z "$IFACE" ]; then
+    echo "!!! Туннель cn-* НЕ НАЙДЕН — снимок сделан не во время подключения,"
+    echo "!!! либо подключение не дошло до создания интерфейса."
+fi
 ip -br link
 ip -br addr
 echo "--- правила маршрутизации ---"
@@ -16,10 +20,12 @@ echo "--- таблица 51820 ---"
 ip route show table 51820 2>&1
 echo "--- маршруты (main) ---"
 ip route show
-echo "--- счётчики туннельного интерфейса ---"
-for i in $(ip -br link | awk -F: '/^cn-/{gsub(/ /,"",$1); print $1}'); do
-    ip -s link show "$i"
-done
+echo "--- счётчики туннельного интерфейса ($IFACE) ---"
+[ -n "$IFACE" ] && ip -s link show "$IFACE"
+echo "--- таблица маршрутизации туннеля ---"
+[ -n "$IFACE" ] && ip route show table 51820 2>&1
+echo "--- параметры туннеля (awg, без root: UAPI-сокет) ---"
+[ -n "$IFACE" ] && ls -la /var/run/amneziawg/ 2>&1
 echo "--- DNS ---"
 resolvectl status 2>&1 | grep -E "Link|Current DNS|DNS Servers|Default Route" | head -40
 echo "--- ping 1.1.1.1 (через туннель, если он full-tunnel) ---"
