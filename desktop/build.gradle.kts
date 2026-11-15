@@ -42,6 +42,9 @@ compose.desktop {
             description = "Мультипротокольный VPN-клиент CrystalN"
             vendor = "CrystalN"
             modules("java.instrument", "java.management", "jdk.unsupported")
+            linux {
+                iconFile.set(rootProject.file("desktop/src/main/resources/crystaln/icon.png"))
+            }
         }
     }
 }

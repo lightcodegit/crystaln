@@ -1,27 +1,72 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Crystal shard centered in the adaptive-icon safe zone (66/108 inner circle). -->
+<!-- Purple faceted crystal gem, centered in the adaptive-icon safe zone (66/108). -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
     <group
-        android:scaleX="0.58"
-        android:scaleY="0.58"
+        android:scaleX="0.7"
+        android:scaleY="0.7"
         android:pivotX="54"
-        android:pivotY="54">
+        android:pivotY="53">
         <path
-            android:fillColor="#4F6AF6"
-            android:pathData="M54,10 L88,32 L88,76 L54,98 L20,76 L20,32 Z" />
+            android:fillColor="#C9B4FF"
+            android:pathData="M54,14 L84,38 L54,56 Z" />
         <path
-            android:fillColor="#7A90FF"
-            android:pathData="M54,10 L88,32 L54,44 Z" />
+            android:fillColor="#8B5CF6"
+            android:pathData="M84,38 L76,76 L54,56 Z" />
         <path
-            android:fillColor="#2F49C4"
-            android:pathData="M54,44 L88,32 L70,72 L54,98 L38,72 Z" />
+            android:fillColor="#6D28D9"
+            android:pathData="M76,76 L54,92 L54,56 Z" />
         <path
-            android:fillColor="#FFFFFF"
-            android:fillAlpha="0.85"
-            android:pathData="M54,44 L38,72 L54,66 Z" />
+            android:fillColor="#5B21B6"
+            android:pathData="M54,92 L32,76 L54,56 Z" />
+        <path
+            android:fillColor="#A78BFA"
+            android:pathData="M32,76 L24,38 L54,56 Z" />
+        <path
+            android:fillColor="#B49BF9"
+            android:pathData="M24,38 L54,14 L54,56 Z" />
+        <!-- Facet edges -->
+        <path
+            android:strokeColor="#EDE4FF"
+            android:strokeAlpha="0.28"
+            android:strokeWidth="0.55"
+            android:pathData="M54,56 L54,14" />
+        <path
+            android:strokeColor="#EDE4FF"
+            android:strokeAlpha="0.18"
+            android:strokeWidth="0.55"
+            android:pathData="M54,56 L84,38" />
+        <path
+            android:strokeColor="#EDE4FF"
+            android:strokeAlpha="0.22"
+            android:strokeWidth="0.55"
+            android:pathData="M54,56 L76,76" />
+        <path
+            android:strokeColor="#EDE4FF"
+            android:strokeAlpha="0.28"
+            android:strokeWidth="0.55"
+            android:pathData="M54,56 L54,92" />
+        <path
+            android:strokeColor="#EDE4FF"
+            android:strokeAlpha="0.18"
+            android:strokeWidth="0.55"
+            android:pathData="M54,56 L32,76" />
+        <path
+            android:strokeColor="#EDE4FF"
+            android:strokeAlpha="0.22"
+            android:strokeWidth="0.55"
+            android:pathData="M54,56 L24,38" />
+        <!-- Sparkles -->
+        <path
+            android:fillColor="#F5EFFF"
+            android:fillAlpha="0.92"
+            android:pathData="M63,25 L69,33 L63,41 L57,33 Z" />
+        <path
+            android:fillColor="#F5EFFF"
+            android:fillAlpha="0.75"
+            android:pathData="M46,61.5 L49.5,66 L46,70.5 L42.5,66 Z" />
     </group>
 </vector>

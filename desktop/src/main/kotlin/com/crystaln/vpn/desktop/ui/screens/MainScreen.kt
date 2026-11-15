@@ -89,6 +89,7 @@ import com.crystaln.vpn.desktop.ui.glass.GlassTab
 import com.crystaln.vpn.desktop.ui.glass.GlassTabBar
 import com.crystaln.vpn.desktop.ui.glass.PillButton
 import com.crystaln.vpn.desktop.ui.glass.liquidGlass
+import com.crystaln.vpn.desktop.resourcePainter
 import com.crystaln.vpn.desktop.ui.theme.LocalCrystalPalette
 import com.crystaln.vpn.desktop.ui.theme.StatusConnected
 import com.crystaln.vpn.desktop.ui.theme.StatusConnecting
@@ -444,7 +445,16 @@ private fun Header(state: TunnelManager.UiState, dark: Boolean) {
                 .background(Brush.linearGradient(LocalCrystalPalette.current.gradient(dark))),
             contentAlignment = Alignment.Center,
         ) {
-            Text("C", color = Color.White, fontWeight = FontWeight.Black, style = MaterialTheme.typography.titleLarge)
+            val mark = remember { resourcePainter("crystaln/icon-mark.png") }
+            if (mark != null) {
+                Image(
+                    painter = mark,
+                    contentDescription = null,
+                    modifier = Modifier.size(28.dp),
+                )
+            } else {
+                Text("C", color = Color.White, fontWeight = FontWeight.Black, style = MaterialTheme.typography.titleLarge)
+            }
         }
         Spacer(Modifier.width(11.dp))
         Text(
