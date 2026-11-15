@@ -33,7 +33,35 @@ echo "--- таблица маршрутизации туннеля ---"
 echo "--- параметры туннеля (awg, без root: UAPI-сокет) ---"
 [ -n "$IFACE" ] && ls -la /var/run/amneziawg/ 2>&1
 echo "--- DNS ---"
-resolvectl status 2>&1 | grep -E "Link|Current DNS|DNS Servers|Default Route" | head -40
+resolvectl status 2>&1 | grep -E "Link |Current DNS|DNS Servers|Default Route|DNS Domain" | head -40
+echo "--- резолв заблокированных имён (проверка подмены) ---"
+for n in youtube.com www.youtube.com instagram.com; do
+    printf "%s -> " "$n"; getent hosts "$n" 2>/dev/null | head -1 || echo "(не резолвится)"
+done
+echo "--- сравнение: DNS провайдера vs туннельный ---"
+python3 - <<'EOF'
+import socket, struct
+def query(server, name):
+    try:
+        q = b''.join(bytes([len(p)]) + p.encode() for p in name.split('.')) + b'\x00'
+        pkt = struct.pack('>HHHHHH', 0x1234, 0x0100, 1, 0, 0, 0) + q + struct.pack('>HH', 1, 1)
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM); s.settimeout(3)
+        s.sendto(pkt, (server, 53))
+        data, _ = s.recvfrom(512)
+        ips = []
+        i = len(pkt)
+        while i + 16 <= len(data):
+            t, c, _, _, l = struct.unpack('>HHBBH', data[i:i+10])
+            if t == 1 and l == 4:
+                ips.append('.'.join(str(b) for b in data[i+10:i+14]))
+            i += 10 + l
+        return ips[:2] or ['(без A-записей)']
+    except Exception as e:
+        return [f'(ошибка: {e})']
+for name in ('youtube.com', 'www.google.com'):
+    for srv in ('192.168.1.1', '1.1.1.1'):
+        print(f'{name} via {srv}: {query(srv, name)}')
+EOF
 echo "--- ping 1.1.1.1 (через туннель, если он full-tunnel) ---"
 ping -c 3 -W 3 1.1.1.1 2>&1 | tail -4
 echo "--- TCP 1.1.1.1:443 ---"
