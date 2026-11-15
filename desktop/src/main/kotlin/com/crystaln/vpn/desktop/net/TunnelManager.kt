@@ -214,7 +214,7 @@ object TunnelManager {
         val conf = p.wgConfig.ifBlank {
             throw IllegalStateException("В профиле нет конфигурации WireGuard")
         }
-        val name = "crystaln-${p.id.take(8)}"
+        val name = ifaceName(p)
         val path = "/etc/wireguard/$name.conf"
         logLine("Подключение wg-quick ($name)…")
         // wg-quick needs the config file inside /etc/wireguard with strict perms.
@@ -250,7 +250,7 @@ object TunnelManager {
             throw IllegalStateException("В профиле нет конфигурации ${if (mode == "awg") "AmneziaWG" else "WireGuard"}")
         }
         val parsed = WgSetconf.build(p.wgConfig, p.fields)
-        val iface = "crystaln-${p.id.take(8)}"
+        val iface = ifaceName(p)
         val bin = AppDirs.binDir()
         val goBin = ChildProcess.bin(bin, Binaries.AWG_GO)
         val awgBin = ChildProcess.bin(bin, Binaries.AWG)
@@ -485,10 +485,16 @@ object TunnelManager {
      * minute plus once at session end). Proxy mode has no visible device, so
      * only the session duration accumulates there.
      */
+    /**
+     * Имя интерфейса ≤15 символов (IFNAMSIZ): "crystaln-<8>" даёт 17 и падает
+     * в TUNSETIFF/wg-quick с EINVAL, поэтому префикс короткий.
+     */
+    private fun ifaceName(p: Profile) = "cn-${p.id.take(8)}"
+
     private fun startTrafficPoller(p: Profile, mode: String) {
         val dev = when (mode) {
             "tun" -> "crystaln0"
-            "wg", "awg" -> "crystaln-${p.id.take(8)}"
+            "wg", "awg" -> ifaceName(p)
             "openvpn" -> "crystaln0"
             else -> null // proxy: no network device to measure
         }
