@@ -233,3 +233,9 @@ net/           (desktop) TunnelManager, привилегированный root-
 CrystalN · v0.1.0 · без аналитики, без телеметрии
 
 </div>
+
+## Лицензия
+
+Код проекта — [MIT](LICENSE). Сторонние ядра и библиотеки (Xray, tun2socks,
+amneziawg, OpenVPN, Compose) распространяются под своими лицензиями —
+см. [NOTICE.md](NOTICE.md).
