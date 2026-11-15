@@ -74,6 +74,39 @@ tools/fetch_cores.sh          # windows: bash tools/fetch_cores.sh
 и лёгкие per-ABI варианты (`app-arm64-v8a-debug.apk` и т.д.). Для телефона
 обычно нужен arm64-v8a.
 
+## Linux-версия
+
+Desktop-вариант в модуле `desktop` — то же ядро (профили, парсеры, генератор
+конфигов Xray) под чистым JVM, Compose Desktop GUI, раннеры внешних процессов.
+
+- **Режимы:** локальный прокси (SOCKS+HTTP, без root) и полный TUN через
+  tun2socks (нужны права root один раз при подключении — скрипт выполняется
+  через `sudo -n` или `pkexec`; само приложение root-прав не требует).
+- **Протоколы:** Xray-семейство (VMess/VLESS/Trojan/Shadowsocks/SOCKS/HTTP)
+  через официальный xray-core, WireGuard через системный `wg-quick`
+  (пакет `wireguard-tools`), OpenVPN через системный `openvpn`.
+  AmneziaWG на Linux пока не поддерживается (нужен модуль ядра).
+- **Бинарники** (`xray`, `tun2socks`, `geosite.dat`) скачиваются в
+  `~/.local/share/crystaln/bin` кнопкой «Обновить бинарники» или при первом
+  использовании.
+- **Данные:** конфиги в `~/.config/crystaln` (profiles.json, subscriptions.json,
+  settings.json — форматы как на Android), журнал в
+  `~/.local/share/crystaln/logs`. При закрытии окна дочерние процессы
+  останавливаются автоматически.
+
+```sh
+export JAVA_HOME=/путь/к/jdk-21
+
+# Тесты и сборка
+./gradlew :desktop:test :desktop:build
+
+# Запуск окна
+./gradlew :desktop:run
+
+# deb-пакет (нужен dpkg-deb; на Fedora только в CI)
+./gradlew :desktop:packageDistributionForCurrentOS
+```
+
 ## Импорт серверов
 
 - Кнопка «импорт» внизу справа: читает буфер обмена и парсит построчно
