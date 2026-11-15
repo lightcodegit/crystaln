@@ -79,6 +79,7 @@ import com.crystaln.vpn.ui.screens.SettingsScreen
 import com.crystaln.vpn.ui.theme.CrystalNTheme
 import java.io.File
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -103,6 +104,7 @@ class MainActivity : ComponentActivity() {
     private val dynamicColor = mutableStateOf(false)
     private val paletteId = mutableStateOf("indigo")
     private val autoConnect = mutableStateOf(false)
+    private val autoFastest = mutableStateOf(false)
     private val importMenu = mutableStateOf(false)
     private val urlDialog = mutableStateOf(false)
     private val wallpaperPath = mutableStateOf<String?>(null)
@@ -117,6 +119,7 @@ class MainActivity : ComponentActivity() {
 
     /** Measured TCP ping per profile id (ms), -1 = unreachable. */
     private val pingResults = mutableStateMapOf<String, Long>()
+    private val pingAllRunning = mutableStateOf(false)
 
     // Connection diagnostics: null = not run yet, list = last run's results.
     private val diagResults = mutableStateOf<List<ConnectionDiagnostics.Result>?>(null)
@@ -225,6 +228,7 @@ class MainActivity : ComponentActivity() {
         dynamicColor.value = SettingsStore.dynamicColor(this)
         paletteId.value = SettingsStore.paletteId(this)
         autoConnect.value = SettingsStore.autoConnect(this)
+        autoFastest.value = SettingsStore.autoFastest(this)
         refreshProfiles()
         refreshSubscriptions()
         refreshWallpaper()
@@ -264,6 +268,11 @@ class MainActivity : ComponentActivity() {
                         if (SettingsStore.autoConnect(this@MainActivity) &&
                             VpnManager.current().state == VpnManager.State.OFF
                         ) {
+                            // Auto-select: measure first, take the fastest live server.
+                            if (SettingsStore.autoFastest(this@MainActivity)) {
+                                pingAll()
+                                while (pingAllRunning.value) delay(100)
+                            }
                             val p = ProfileStore.selected(this@MainActivity)
                                 ?: ProfileStore.load(this@MainActivity).firstOrNull()
                             if (p != null) {
@@ -327,6 +336,8 @@ class MainActivity : ComponentActivity() {
                         onSettings = { nav.value = Nav.SETTINGS },
                         pingResults = pingResults,
                         onPing = { p -> pingProfile(p) },
+                        pingAllRunning = pingAllRunning.value,
+                        onPingAll = { pingAll() },
                     )
 
                     Nav.SETTINGS -> SettingsScreen(
@@ -350,6 +361,11 @@ class MainActivity : ComponentActivity() {
                         onAutoConnectChange = { on ->
                             autoConnect.value = on
                             SettingsStore.setAutoConnect(this@MainActivity, on)
+                        },
+                        autoFastest = autoFastest.value,
+                        onAutoFastestChange = { on ->
+                            autoFastest.value = on
+                            SettingsStore.setAutoFastest(this@MainActivity, on)
                         },
                         subscriptions = subscriptions.value,
                         subscriptionsBusy = subscriptionsBusy.value,
@@ -550,11 +566,49 @@ class MainActivity : ComponentActivity() {
     }
 
     /** Measures the profile's server reachability on demand (TCP connect). */
-    private fun pingProfile(profile: Profile) {        if (!pinging.add(profile.id)) return
+    private fun pingProfile(profile: Profile) {
+        if (!pinging.add(profile.id)) return
         lifecycleScope.launch(Dispatchers.IO) {
             val ms = tcpPing(profile.address, profile.port)
             pingResults[profile.id] = ms
             pinging.remove(profile.id)
+        }
+    }
+
+    /**
+     * Pings every profile in parallel (a few dozen sockets are cheap) and,
+     * when auto-select is enabled while the tunnel is down, moves the
+     * selection to the fastest reachable server.
+     */
+    private fun pingAll() {
+        if (pingAllRunning.value) return
+        val list = ProfileStore.load(this)
+        if (list.isEmpty()) return
+        lifecycleScope.launch(Dispatchers.IO) {
+            pingAllRunning.value = true
+            try {
+                coroutineScope {
+                    list.forEach { p ->
+                        launch { pingResults[p.id] = tcpPing(p.address, p.port) }
+                    }
+                }
+                withContext(Dispatchers.Main) { maybeAutoSelectFastest() }
+            } finally {
+                pingAllRunning.value = false
+            }
+        }
+    }
+
+    /** Picks the lowest-latency reachable profile when auto-select is on. */
+    private fun maybeAutoSelectFastest() {
+        if (!autoFastest.value) return
+        if (VpnManager.isRunning()) return
+        val best = profiles.value
+            .filter { (pingResults[it.id] ?: -1L) >= 0 }
+            .minByOrNull { pingResults[it.id] ?: Long.MAX_VALUE } ?: return
+        if (best.id != selectedId.value) {
+            ProfileStore.select(this, best.id)
+            refreshProfiles()
         }
     }
 

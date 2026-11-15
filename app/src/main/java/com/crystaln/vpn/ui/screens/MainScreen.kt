@@ -110,6 +110,8 @@ fun MainScreen(
     /** Measured TCP ping per profile id (ms), -1 = unreachable, absent = not measured. */
     pingResults: Map<String, Long> = emptyMap(),
     onPing: (Profile) -> Unit = {},
+    pingAllRunning: Boolean = false,
+    onPingAll: () -> Unit = {},
 ) {
     val wallpaper = rememberWallpaper(wallpaperPath)
     val overWallpaper = wallpaper != null
@@ -164,6 +166,8 @@ fun MainScreen(
                     overWallpaper = overWallpaper,
                     onImport = onImport,
                     onAdd = onAdd,
+                    pingAllRunning = pingAllRunning,
+                    onPingAll = onPingAll,
                 )
 
                 Spacer(Modifier.height(10.dp))
@@ -581,6 +585,8 @@ private fun ProfilesHeader(
     overWallpaper: Boolean,
     onImport: () -> Unit,
     onAdd: () -> Unit,
+    pingAllRunning: Boolean = false,
+    onPingAll: () -> Unit = {},
 ) {
     Row(
         Modifier.fillMaxWidth(),
@@ -594,6 +600,16 @@ private fun ProfilesHeader(
         Spacer(Modifier.width(8.dp))
         CountBadge(count)
         Spacer(Modifier.weight(1f))
+        CircleGlassButton(
+            icon = Icons.Default.NetworkCheck,
+            contentDescription = "Ping all servers",
+            isDark = isDark,
+            overWallpaper = overWallpaper,
+            onClick = onPingAll,
+            size = 40.dp,
+            enabled = count > 0 && !pingAllRunning,
+        )
+        Spacer(Modifier.width(8.dp))
         CircleGlassButton(
             icon = Icons.Default.FileOpen,
             contentDescription = "Import from file",

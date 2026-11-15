@@ -224,11 +224,13 @@ fun CircleGlassButton(
     modifier: Modifier = Modifier,
     overWallpaper: Boolean = false,
     accent: Boolean = false,
+    enabled: Boolean = true,
     size: androidx.compose.ui.unit.Dp = 42.dp,
 ) {
     val palette = LocalCrystalPalette.current
     Box(
         modifier
+            .graphicsLayer { this.alpha = if (enabled) 1f else 0.45f }
             .size(size)
             .clip(CircleShape)
             .then(
@@ -239,7 +241,7 @@ fun CircleGlassButton(
                         .liquidGlass(CircleShape, Glass.tintSoft(isDark, overWallpaper), isDark, flat = true)
                 },
             )
-            .clickable(onClick = onClick),
+            .clickable(enabled = enabled, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         Icon(

@@ -11,6 +11,7 @@ object SettingsStore {
     private const val KEY_DYNAMIC = "dynamic_color"
     private const val KEY_PALETTE = "palette"
     private const val KEY_AUTOCONNECT = "auto_connect"
+    private const val KEY_AUTO_FASTEST = "auto_fastest"
     private const val KEY_WALLPAPER = "wallpaper"
 
     /** Named accent palette id (see ui.theme.CrystalPalettes). */
@@ -52,6 +53,20 @@ object SettingsStore {
     fun setAutoConnect(context: Context, value: Boolean) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .edit().putBoolean(KEY_AUTOCONNECT, value).apply()
+    }
+
+    /**
+     * Before connecting (app launch / auto-connect), ping every profile and
+     * select the reachable one with the lowest latency instead of the last
+     * manually selected profile.
+     */
+    fun autoFastest(context: Context): Boolean =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getBoolean(KEY_AUTO_FASTEST, false)
+
+    fun setAutoFastest(context: Context, value: Boolean) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit().putBoolean(KEY_AUTO_FASTEST, value).apply()
     }
 
     /**

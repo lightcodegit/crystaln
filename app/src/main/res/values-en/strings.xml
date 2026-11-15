@@ -121,6 +121,8 @@
     <string name="section_connection">Connection</string>
     <string name="autoconnect_title">Auto-connect</string>
     <string name="autoconnect_sub">Connect the selected profile when the app starts</string>
+    <string name="auto_fastest_title">Auto-select the fastest server</string>
+    <string name="auto_fastest_sub">Before connecting, ping the servers and take the most responsive live one</string>
     <string name="subscriptions_title">Subscriptions</string>
     <string name="subscriptions_empty">No subscriptions. Add a URL to keep servers updated automatically.</string>
     <string name="subscriptions_add">Add subscription</string>

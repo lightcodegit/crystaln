@@ -91,6 +91,8 @@ fun SettingsScreen(
     onPaletteChange: (String) -> Unit,
     autoConnect: Boolean,
     onAutoConnectChange: (Boolean) -> Unit,
+    autoFastest: Boolean,
+    onAutoFastestChange: (Boolean) -> Unit,
     subscriptions: List<Subscription>,
     subscriptionsBusy: Boolean,
     subscriptionBusyId: String?,
@@ -257,6 +259,13 @@ fun SettingsScreen(
                             subtitle = stringResource(R.string.autoconnect_sub),
                             checked = autoConnect,
                             onChange = onAutoConnectChange,
+                        )
+                        GlassDivider(Modifier.padding(vertical = 14.dp))
+                        SwitchRow(
+                            title = stringResource(R.string.auto_fastest_title),
+                            subtitle = stringResource(R.string.auto_fastest_sub),
+                            checked = autoFastest,
+                            onChange = onAutoFastestChange,
                         )
                         GlassDivider(Modifier.padding(vertical = 14.dp))
                         PillButton(

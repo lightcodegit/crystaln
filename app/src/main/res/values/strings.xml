@@ -121,6 +121,8 @@
     <string name="section_connection">Подключение</string>
     <string name="autoconnect_title">Автоподключение</string>
     <string name="autoconnect_sub">Соединять выбранный профиль при запуске приложения</string>
+    <string name="auto_fastest_title">Автовыбор самого быстрого</string>
+    <string name="auto_fastest_sub">Перед подключением проверять серверы и брать самый отзывчивый живой</string>
     <string name="subscriptions_title">Подписки</string>
     <string name="subscriptions_empty">Нет подписок. Добавьте ссылку, чтобы серверы обновлялись автоматически.</string>
     <string name="subscriptions_add">Добавить подписку</string>
