@@ -3,6 +3,10 @@ package com.crystaln.vpn.service
 import android.content.Context
 import android.content.Intent
 import android.app.PendingIntent
+import android.net.ConnectivityManager
+import android.net.Network
+import android.net.NetworkCapabilities
+import android.net.NetworkRequest
 import androidx.core.content.ContextCompat
 import com.crystaln.vpn.R
 import com.crystaln.vpn.data.Profile
@@ -47,6 +51,12 @@ object VpnManager {
     /** Rate limit for automatic reconnects. */
     private const val RECONNECT_MIN_INTERVAL_MS = 60_000L
 
+    /** Grace period after a network switch before restarting the tunnel. */
+    private const val NETWORK_CHANGE_DELAY_MS = 4_000L
+
+    /** Rate limit for network-change reconnects (Wi-Fi ↔ mobile bouncing). */
+    private const val NETWORK_CHANGE_MIN_INTERVAL_MS = 30_000L
+
     enum class State { OFF, STARTING, CONNECTED, STOPPING }
 
     data class UiState(
@@ -90,6 +100,10 @@ object VpnManager {
     @Volatile
     private var awgTunnel: AwgTunnel? = null
 
+    /** Registered only once per process; guarded by the CONNECTED state. */
+    @Volatile
+    private var netCallback: ConnectivityManager.NetworkCallback? = null
+
     fun current(): UiState = _ui.value
 
     fun isRunning(): Boolean = _ui.value.state == State.STARTING ||
@@ -108,6 +122,7 @@ object VpnManager {
         // status notification here as well (stop() is idempotent).
         VpnStatusNotification.stop()
         ensurePoller()
+        ensureNetworkWatch()
         when {
             profile.isWireGuardFamily -> if (profile.protocol == Protocol.WIREGUARD) {
                 startWireGuard(context.applicationContext, profile, myGeneration)
@@ -417,11 +432,63 @@ object VpnManager {
     }
 
     /**
+     * Registers a connectivity watcher (once per process) so the Xray-family
+     * tunnel can be restarted after the device switches networks — their
+     * sockets silently die on Wi-Fi ↔ mobile transitions, while WireGuard
+     * detects the same condition via its own stale-handshake watchdog.
+     */
+    private fun ensureNetworkWatch() {
+        if (netCallback != null) return
+        val ctx = appContext ?: return
+        val cm = ctx.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
+        val request = NetworkRequest.Builder()
+            .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+            .addTransportType(NetworkCapabilities.TRANSPORT_WIFI)
+            .addTransportType(NetworkCapabilities.TRANSPORT_CELLULAR)
+            .addTransportType(NetworkCapabilities.TRANSPORT_ETHERNET)
+            .build()
+        val cb = object : ConnectivityManager.NetworkCallback() {
+            override fun onAvailable(network: Network) {
+                scheduleNetworkChangeReconnect()
+            }
+        }
+        try {
+            cm?.registerNetworkCallback(request, cb)
+            netCallback = cb
+        } catch (_: Throwable) {
+            // Connectivity watching is best-effort; the WireGuard watchdog
+            // and the user's manual reconnect remain available.
+        }
+    }
+
+    /**
+     * Debounced full restart of the live Xray-family session after a network
+     * switch. Generation check: a stop() or newer connect() that happened
+     * while we waited must win.
+     */
+    private fun scheduleNetworkChangeReconnect() {
+        val st = _ui.value
+        if (st.state != State.CONNECTED) return
+        val p = st.profile ?: return
+        if (p.isWireGuardFamily) return
+        val now = System.currentTimeMillis()
+        if (now - lastReconnectAt < NETWORK_CHANGE_MIN_INTERVAL_MS) return
+        lastReconnectAt = now
+        val myGeneration = generation.get()
+        engineScope.launch {
+            delay(NETWORK_CHANGE_DELAY_MS)
+            val ctx = appContext ?: return@launch
+            val cur = _ui.value
+            if (cur.state != State.CONNECTED || generation.get() != myGeneration) return@launch
+            connect(ctx, cur.profile ?: p)
+        }
+    }
+
+    /**
      * Restarts the tunnel when the WireGuard handshake has been silent for
      * [HANDSHAKE_STALE_MS] — typically after the device changed networks
      * (Wi-Fi ↔ mobile) or the server went away.
-     */    private fun reconnectIfWireGuardStale(st: UiState) {
-        val p = st.profile ?: return
+     */    private fun reconnectIfWireGuardStale(st: UiState) {        val p = st.profile ?: return
         if (!p.isWireGuardFamily) return
         val handshake = awgTunnel?.lastHandshakeAt()
             ?: wgTunnel?.lastHandshakeAt()
