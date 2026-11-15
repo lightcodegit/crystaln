@@ -268,9 +268,9 @@ object TunnelManager {
             "install -m 600 ${tmp.absolutePath} $confFile",
             // -f is important: without it amneziawg-go re-execs itself and $!
             // would point at the short-lived parent, not the actual daemon.
-            "nohup $goBin -f $iface >/dev/null 2>&1 & echo \\$! > ${pidFile.absolutePath}",
-            "for i in \\$(seq 1 50); do [ -S $socket ] && break; sleep 0.1; done",
-            "[ -S $socket ] || { kill \\$(cat ${pidFile.absolutePath}); exit 1; }",
+            "nohup $goBin -f $iface >/dev/null 2>&1 & echo \$! > ${pidFile.absolutePath}",
+            "for i in $(seq 1 50); do [ -S $socket ] && break; sleep 0.1; done",
+            "[ -S $socket ] || { kill $(cat ${pidFile.absolutePath}); exit 1; }",
             "$awgBin setconf $iface $confFile",
             "ip link set $iface mtu ${parsed.mtu} up",
         )
@@ -313,7 +313,7 @@ object TunnelManager {
     }
 
     private fun awgDownCommands(iface: String, pidFile: File, confFile: String, socket: String) = listOf(
-        "kill \\$(cat ${pidFile.absolutePath}) || true",
+        "kill $(cat ${pidFile.absolutePath}) || true",
         "rm -f ${pidFile.absolutePath}",
         "ip -4 rule del table main suppress_prefixlength 0 || true",
         "ip -4 rule del not fwmark 51820 table 51820 || true",
@@ -359,7 +359,7 @@ object TunnelManager {
             "rm -f ${pidFile.absolutePath}",
             "sh -c 'openvpn --config ${file.absolutePath.replace("\'", "\\'")} " +
                 (authFile?.let { "--auth-user-pass ${it.absolutePath} " } ?: "") +
-                "--dev crystaln0 --script-security 2 & echo \\$! > ${pidFile.absolutePath}'",
+                "--dev crystaln0 --script-security 2 & echo \$! > ${pidFile.absolutePath}'",
         )
         val res = Privileges.runScript("ovpn-up", script)
         if (res != Privileges.Result.Ok) {
