@@ -48,3 +48,12 @@ compose.desktop {
         }
     }
 }
+
+// Portable AppImage (any Linux, no install): builds on top of
+// createDistributable; see tools/make_appimage.sh.
+tasks.register<Exec>("packageAppImage") {
+    group = "compose desktop"
+    dependsOn("createDistributable")
+    commandLine("bash", rootProject.file("tools/make_appimage.sh").absolutePath)
+    environment("VERSION", compose.desktop.application.nativeDistributions.packageVersion ?: "1.0.0")
+}

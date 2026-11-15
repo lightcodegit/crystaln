@@ -45,6 +45,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.crystaln.vpn.data.Backup
 import com.crystaln.vpn.data.ConnectionDiagnostics
+import com.crystaln.vpn.data.UpdateChecker
 import com.crystaln.vpn.data.Profile
 import com.crystaln.vpn.data.ProfileImporter
 import com.crystaln.vpn.data.ProfileStore
@@ -59,6 +60,7 @@ import com.crystaln.vpn.desktop.AppDirs
 import com.crystaln.vpn.desktop.net.Binaries
 import com.crystaln.vpn.desktop.net.TunnelManager
 import com.crystaln.vpn.desktop.ui.screens.DiagnosticsScreen
+import com.crystaln.vpn.desktop.ui.screens.OnboardingScreen
 import com.crystaln.vpn.desktop.ui.screens.EditorScreen
 import com.crystaln.vpn.desktop.ui.screens.MainScreen
 import com.crystaln.vpn.desktop.ui.screens.SettingsScreen
@@ -66,12 +68,16 @@ import com.crystaln.vpn.desktop.ui.theme.CrystalNTheme
 import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /** Max size of an imported config, protects against OOM from a hostile file. */
 private const val MAX_IMPORT_BYTES = 512 * 1024
+
+/** App version; must match packageVersion in desktop/build.gradle.kts. */
+private const val APP_VERSION = "1.0.0"
 
 /**
  * Root composable: theme + navigation + all the wiring (dialogs, ping,
@@ -129,8 +135,12 @@ fun CrystalnApp() {
     var diagResults by remember { mutableStateOf<List<ConnectionDiagnostics.Result>?>(null) }
     var diagRunning by remember { mutableStateOf(false) }
 
+    // ── first-run wizard + update check ──────────────────────────────
+    var onboardingStep by remember { mutableStateOf(0) }
+    var updateRelease by remember { mutableStateOf<UpdateChecker.Release?>(null) }
+
     // ── navigation + dialogs ────────────────────────────────────────────
-    var nav by remember { mutableStateOf(Nav.MAIN) }
+    var nav by remember { mutableStateOf(if (SettingsStore.onboarded(cfg)) Nav.MAIN else Nav.ONBOARDING) }
     var importMenu by remember { mutableStateOf(false) }
     var urlDialog by remember { mutableStateOf(false) }
     var exportDialogVisible by remember { mutableStateOf(false) }
@@ -145,6 +155,14 @@ fun CrystalnApp() {
 
     fun refreshSubscriptions() {
         subscriptions = SubscriptionsStore.load(cfg)
+    }
+
+    /** Ends the first-run wizard: any successful import or "skip" counts. */
+    fun completeOnboarding() {
+        if (!SettingsStore.onboarded(cfg)) {
+            SettingsStore.setOnboarded(cfg, true)
+            if (nav == Nav.ONBOARDING) nav = Nav.MAIN
+        }
     }
 
     /** The profile the diagnostics screen is aimed at. */
@@ -224,6 +242,27 @@ fun CrystalnApp() {
         }
     }
 
+    fun refreshBinaries() {
+        if (binariesBusy) return
+        binariesBusy = true
+        scope.launch(Dispatchers.IO) {
+            try {
+                Binaries.downloadAll(needGeosite = blockAds) { step ->
+                    notice = step
+                }
+                withContext(Dispatchers.Main) {
+                    binariesStatus = binStatus()
+                    notice = "Бинарники готовы: $binariesStatus"
+                }
+            } catch (t: Throwable) {
+                withContext(Dispatchers.Main) {
+                    notice = "Ошибка загрузки: ${t.message ?: t.javaClass.simpleName}"
+                }
+            }
+            binariesBusy = false
+        }
+    }
+
     fun importText(text: String) {
         if (text.length > MAX_IMPORT_BYTES) {
             notice = "Файл слишком велик для конфига"
@@ -238,6 +277,7 @@ fun CrystalnApp() {
         // Full crystaln/2 backup (settings + subscriptions + profiles) first;
         // anything else falls through to the profile-only parser.
         Backup.importFull(cfg, text)?.let { summary ->
+            completeOnboarding()
             refreshProfiles()
             refreshSubscriptions()
             notice = summary
@@ -249,6 +289,7 @@ fun CrystalnApp() {
             return
         }
         // Re-imports update the same server instead of stacking duplicates.
+        completeOnboarding()
         val merged = ProfileStore.mergeProfiles(cfg, parsed, subscriptionId = null, selectFirst = true)
         refreshProfiles()
         notice = "Импортировано: ${merged.added + merged.updated} · Выбрано: ${merged.selectedProfile?.name ?: ""}"
@@ -464,6 +505,14 @@ fun CrystalnApp() {
         }
     }
 
+    // One-time update check against GitHub releases (best-effort, silent on
+    // any network error). APP_VERSION must match packageVersion in
+    // desktop/build.gradle.kts.
+    LaunchedEffect(Unit) {
+        val release = scope.async(Dispatchers.IO) { UpdateChecker.check(APP_VERSION) }.await()
+        updateRelease = release
+    }
+
     // Background subscription refresh every 6 hours (Android: WorkManager).
     LaunchedEffect(Unit) {
         while (true) {
@@ -498,6 +547,29 @@ fun CrystalnApp() {
                 label = "nav",
             ) { screen ->
                 when (screen) {
+                    Nav.ONBOARDING -> OnboardingScreen(
+                        isDark = dark,
+                        step = onboardingStep,
+                        onStep = { onboardingStep = it },
+                        binariesReady = Binaries.status().awgReady,
+                        binariesBusy = binariesBusy,
+                        binariesStatus = binariesStatus,
+                        onUpdateBinaries = { refreshBinaries() },
+                        onImportClipboard = {
+                            completeOnboarding()
+                            importClipboard()
+                        },
+                        onImportFile = {
+                            completeOnboarding()
+                            importFile()
+                        },
+                        onImportUrl = {
+                            completeOnboarding()
+                            urlDialog = true
+                        },
+                        onFinish = { completeOnboarding() },
+                    )
+
                     Nav.MAIN -> MainScreen(
                         isDark = dark,
                         state = conn,
@@ -589,27 +661,7 @@ fun CrystalnApp() {
                             httpPort = v
                             v.toIntOrNull()?.let { SettingsStore.setHttpPort(cfg, it) }
                         },
-                        onRefreshBinaries = {
-                            if (!binariesBusy) {
-                                binariesBusy = true
-                                scope.launch(Dispatchers.IO) {
-                                    try {
-                                        Binaries.downloadAll(needGeosite = blockAds) { step ->
-                                            notice = step
-                                        }
-                                        withContext(Dispatchers.Main) {
-                                            binariesStatus = binStatus()
-                                            notice = "Бинарники готовы: $binariesStatus"
-                                        }
-                                    } catch (t: Throwable) {
-                                        withContext(Dispatchers.Main) {
-                                            notice = "Ошибка загрузки: ${t.message ?: t.javaClass.simpleName}"
-                                        }
-                                    }
-                                    binariesBusy = false
-                                }
-                            }
-                        },
+                        onRefreshBinaries = { refreshBinaries() },
                         binariesBusy = binariesBusy,
                         binariesStatus = binariesStatus,
                         subscriptions = subscriptions,
@@ -749,10 +801,53 @@ fun CrystalnApp() {
                 },
             )
         }
+
+        if (updateRelease != null) {
+            UpdateDialog(
+                release = updateRelease,
+                currentVersion = APP_VERSION,
+                onOpen = {
+                    val url = updateRelease?.url ?: UpdateChecker.RELEASES_URL
+                    updateRelease = null
+                    try {
+                        if (java.awt.Desktop.isDesktopSupported()) {
+                            java.awt.Desktop.getDesktop().browse(java.net.URI(url))
+                        } else {
+                            ProcessBuilder("xdg-open", url).start()
+                        }
+                    } catch (t: Throwable) {
+                        notice = t.message ?: t.javaClass.simpleName
+                    }
+                },
+                onDismiss = { updateRelease = null },
+            )
+        }
     }
 }
 
-private enum class Nav { MAIN, SETTINGS, DIAGNOSTICS, EDITOR }
+/** "New release available" → opens the GitHub releases page. */
+@Composable
+private fun UpdateDialog(
+    release: UpdateChecker.Release?,
+    currentVersion: String,
+    onOpen: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    if (release == null) return
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Доступна новая версия") },
+        text = { Text("Установлена версия $currentVersion. Свежая — ${release.version}. Откройте страницу релизов, чтобы скачать.") },
+        confirmButton = {
+            androidx.compose.material3.TextButton(onClick = onOpen) { Text("Открыть релизы") }
+        },
+        dismissButton = {
+            androidx.compose.material3.TextButton(onClick = onDismiss) { Text("Позже") }
+        },
+    )
+}
+
+private enum class Nav { MAIN, SETTINGS, DIAGNOSTICS, EDITOR, ONBOARDING }
 
 private fun tcpPing(host: String, port: Int): Long = try {
     val started = System.nanoTime()

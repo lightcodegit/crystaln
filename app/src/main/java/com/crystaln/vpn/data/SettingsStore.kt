@@ -16,6 +16,17 @@ object SettingsStore {
     private const val KEY_DNS_SERVER = "dns_server"
     private const val KEY_BLOCK_ADS = "block_ads"
     private const val KEY_WALLPAPER = "wallpaper"
+    private const val KEY_ONBOARDED = "onboarded"
+
+    /** First-run wizard completed (or explicitly skipped). */
+    fun onboarded(context: Context): Boolean =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getBoolean(KEY_ONBOARDED, false)
+
+    fun setOnboarded(context: Context, value: Boolean) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit().putBoolean(KEY_ONBOARDED, value).apply()
+    }
 
     /** Named accent palette id (see ui.theme.CrystalPalettes). */
     fun paletteId(context: Context): String =

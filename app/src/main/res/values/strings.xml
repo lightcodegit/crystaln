@@ -174,6 +174,7 @@
     <string name="diag_not_run">Проверки ещё не запускались</string>
     <string name="diag_dns">DNS-резолв адреса</string>
     <string name="diag_tcp">TCP-подключение к серверу</string>
+    <string name="diag_icmp">Доступность сервера (ping)</string>
     <string name="diag_config">Полнота конфигурации</string>
     <string name="diag_status_ok">OK</string>
     <string name="diag_status_fail">Ошибка</string>
@@ -210,4 +211,24 @@
     <string name="ovpn_auth_failed">OpenVPN: ошибка авторизации (неверный логин/пароль)</string>
     <string name="ovpn_timeout">OpenVPN: истекло время ожидания подключения</string>
     <string name="ovpn_exited">Процесс OpenVPN неожиданно завершился</string>
+
+    <!-- First-run onboarding -->
+    <string name="onboarding_title">Добро пожаловать в CrystalN</string>
+    <string name="onboarding_welcome_body">Мультипротокольный VPN-клиент: подключение к серверам в пару касаний, умный выбор самого быстрого сервера, статистика трафика и защита от рекламы.</string>
+    <string name="onboarding_protocols">Протоколы: Xray (VLESS / VMess / Trojan / Shadowsocks / SOCKS / HTTP), WireGuard, AmneziaWG, OpenVPN.</string>
+    <string name="onboarding_privacy">Приватность</string>
+    <string name="onboarding_privacy_body">Приложение работает только с серверами, которые вы добавили сами. Аналитики нет, телеметрии нет.</string>
+    <string name="onboarding_import_title">Добавьте первый сервер</string>
+    <string name="onboarding_import_body">Импортируйте конфиг или ссылку от вашего провайдера VPN. Позже это можно сделать в любой момент кнопкой импорта.</string>
+    <string name="onboarding_done_title">Всё готово</string>
+    <string name="onboarding_done_body">Можно подключаться!</string>
+    <string name="onboarding_done_hint">Нажмите на большой круг на главном экране, чтобы включить VPN. Автоподключение и другие настройки — в «Настройках».</string>
+    <string name="onboarding_next">Далее</string>
+    <string name="onboarding_skip">Пропустить</string>
+
+    <!-- Update check -->
+    <string name="update_title">Доступна новая версия</string>
+    <string name="update_body">Установлена версия %1$s. Свежая — %2$s. Откройте страницу релизов, чтобы скачать.</string>
+    <string name="update_open">Открыть релизы</string>
+    <string name="update_later">Позже</string>
 </resources>

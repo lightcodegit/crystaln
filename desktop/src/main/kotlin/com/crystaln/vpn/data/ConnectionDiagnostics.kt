@@ -12,7 +12,7 @@ import java.net.Socket
  */
 object ConnectionDiagnostics {
 
-    enum class Kind { DNS, TCP, CONFIG }
+    enum class Kind { DNS, TCP, ICMP, CONFIG }
 
     data class Result(
         val kind: Kind,
@@ -25,6 +25,7 @@ object ConnectionDiagnostics {
 
     private const val DNS_TIMEOUT_MS = 8_000
     private const val TCP_TIMEOUT_MS = 6_000
+    private const val ICMP_TIMEOUT_MS = 5_000
 
     /** Runs every check for [profile]; network parts must run off the UI thread. */
     fun run(profile: Profile): List<Result> {
@@ -32,8 +33,22 @@ object ConnectionDiagnostics {
         results += staticChecks(profile)
         if (profile.address.isNotBlank() && profile.port in 1..65535) {
             results += dnsCheck(profile.address)
-            // TCP only makes sense when the name resolved.
-            if (results.last().ok) results += tcpCheck(profile.address, profile.port)
+            // TCP only makes sense when the name resolved — and only for
+            // TCP-based protocols. WireGuard/AWG (and OpenVPN in udp mode)
+            // never accept TCP connections on the tunnel port: probing it
+            // would always report a false failure, so ping (ICMP) is used.
+            val udpOnly = when (profile.protocol) {
+                Protocol.WIREGUARD, Protocol.AMNEZIAWG -> true
+                Protocol.OPENVPN -> !profile.ovpnConfig.contains("proto tcp", ignoreCase = true)
+                else -> false
+            }
+            if (results.last().ok) {
+                results += if (udpOnly) {
+                    icmpCheck(profile.address)
+                } else {
+                    tcpCheck(profile.address, profile.port)
+                }
+            }
         }
         return results
     }
@@ -62,6 +77,31 @@ object ConnectionDiagnostics {
         Result(Kind.TCP, ok = true, ms = ms, detail = "")
     } catch (t: Throwable) {
         Result(Kind.TCP, ok = false, ms = -1, detail = t.message ?: t.javaClass.simpleName)
+    }
+
+
+    /**
+     * UDP-based protocols (WireGuard/AWG, OpenVPN/udp) never accept TCP on
+     * the tunnel port, so reachability is checked with an ICMP ping instead.
+     * A failed ping is not proof of outage — some hosts drop ICMP — the
+     * detail line says so explicitly.
+     */
+    fun icmpCheck(host: String): Result = try {
+        val started = System.nanoTime()
+        val reachable = InetAddress.getByName(host).isReachable(ICMP_TIMEOUT_MS)
+        val ms = (System.nanoTime() - started) / 1_000_000
+        Result(
+            kind = Kind.ICMP,
+            ok = reachable,
+            ms = if (reachable) ms else -1,
+            detail = if (reachable) {
+                "UDP-протокол: TCP-проба не применяется, доступность подтверждена ping'ом"
+            } else {
+                "ping (ICMP) не проходит — сервер может запрещать ICMP, VPN по UDP всё равно может работать"
+            },
+        )
+    } catch (t: Throwable) {
+        Result(Kind.ICMP, ok = false, ms = -1, detail = t.message ?: t.javaClass.simpleName)
     }
 
     /**
@@ -97,11 +137,6 @@ object ConnectionDiagnostics {
                 if (!cfg.contains("PrivateKey", ignoreCase = true)) problems += "PrivateKey"
                 if (!cfg.contains("PublicKey", ignoreCase = true)) problems += "peer PublicKey"
                 if (!cfg.contains("Endpoint", ignoreCase = true)) problems += "Endpoint"
-                if (profile.protocol == Protocol.AMNEZIAWG &&
-                    listOf("jc", "jmin", "jmax", "s1", "s2").any { profile.fields[it].isNullOrBlank() }
-                ) {
-                    // Zero/empty obfuscation is allowed (plain WG fallback).
-                }
             }
 
             Protocol.OPENVPN -> {

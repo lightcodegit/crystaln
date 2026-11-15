@@ -14,6 +14,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.ComponentActivity
+import androidx.activity.OnBackPressedCallback
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.ExperimentalAnimationApi
@@ -70,6 +71,7 @@ import com.crystaln.vpn.data.ProfileStore
 import com.crystaln.vpn.data.SettingsStore
 import com.crystaln.vpn.data.TrafficStats
 import com.crystaln.vpn.data.TrafficStatsStore
+import com.crystaln.vpn.data.UpdateChecker
 import com.crystaln.vpn.data.Subscription
 import com.crystaln.vpn.data.SubscriptionRefresher
 import com.crystaln.vpn.data.SubscriptionsStore
@@ -77,6 +79,7 @@ import com.crystaln.vpn.data.SubscriptionSyncScheduler
 import com.crystaln.vpn.service.VpnManager
 import com.crystaln.vpn.ui.screens.DiagnosticsScreen
 import com.crystaln.vpn.ui.screens.EditorScreen
+import com.crystaln.vpn.ui.screens.OnboardingScreen
 import com.crystaln.vpn.ui.screens.MainScreen
 import com.crystaln.vpn.ui.screens.SettingsScreen
 import com.crystaln.vpn.ui.theme.CrystalNTheme
@@ -104,9 +107,21 @@ class MainActivity : ComponentActivity() {
     private val maxWallpaperBytes = 25L * 1024 * 1024
 
     // Simple in-process navigation state.
-    private enum class Nav { MAIN, SETTINGS, DIAGNOSTICS, EDITOR }
+    private enum class Nav { MAIN, SETTINGS, DIAGNOSTICS, EDITOR, ONBOARDING }
 
     private val nav = mutableStateOf(Nav.MAIN)
+    /** Back stack for the hardware/gesture back button. */
+    private val navHistory = mutableListOf<Nav>()
+
+    private fun goto(target: Nav) {
+        if (nav.value == target) return
+        navHistory.add(nav.value)
+        nav.value = target
+    }
+
+    private fun goBack() {
+        nav.value = navHistory.removeLastOrNull() ?: Nav.MAIN
+    }
     private val editing = mutableStateOf<Profile?>(null)
     private val themeMode = mutableStateOf(SettingsStore.ThemeMode.SYSTEM)
     private val dynamicColor = mutableStateOf(false)
@@ -126,6 +141,12 @@ class MainActivity : ComponentActivity() {
     private val profileStats = mutableStateOf<Map<String, TrafficStats>>(emptyMap())
     private val searchQuery = mutableStateOf("")
     private val shareProfile = mutableStateOf<Profile?>(null)
+
+    // First-run wizard step (0..2).
+    private val onboardingStep = mutableStateOf(0)
+
+    // New GitHub release detected at startup (null = up to date / offline).
+    private val updateRelease = mutableStateOf<UpdateChecker.Release?>(null)
 
     // Subscription rows and their refresh progress.
     private val subscriptions = mutableStateOf<List<Subscription>>(emptyList())
@@ -164,6 +185,17 @@ class MainActivity : ComponentActivity() {
 
     private fun refreshWallpaper() {
         wallpaperPath.value = SettingsStore.wallpaper(this)
+    }
+
+    /** Ends the first-run wizard: any successful import or "skip" counts. */
+    private fun completeOnboarding() {
+        if (!SettingsStore.onboarded(this)) {
+            SettingsStore.setOnboarded(this, true)
+            if (nav.value == Nav.ONBOARDING) {
+                navHistory.clear()
+                nav.value = Nav.MAIN
+            }
+        }
     }
 
     private val vpnPermission =
@@ -249,6 +281,20 @@ class MainActivity : ComponentActivity() {
         refreshProfiles()
         refreshSubscriptions()
         refreshWallpaper()
+        if (!SettingsStore.onboarded(this)) {
+            navHistory.clear()
+            nav.value = Nav.ONBOARDING
+        }
+
+        // Hardware/gesture back walks the in-app history instead of leaving.
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                when (nav.value) {
+                    Nav.MAIN, Nav.ONBOARDING -> finish()
+                    else -> goBack()
+                }
+            }
+        })
 
         handleViewIntent(intent)
 
@@ -284,6 +330,23 @@ class MainActivity : ComponentActivity() {
                     VpnManager.ui.collect {
                         if (++ticks % 10 == 0 && VpnManager.isRunning()) {
                             profileStats.value = TrafficStatsStore.all(this@MainActivity)
+                        }
+                    }
+                }
+
+                // One-time update check against GitHub releases (best-effort).
+                LaunchedEffect(Unit) {
+                    if (!freshLaunch) return@LaunchedEffect
+                    lifecycleScope.launch(Dispatchers.IO) {
+                        val current = try {
+                            packageManager
+                                .getPackageInfo(packageName, 0).versionName.orEmpty()
+                        } catch (_: Throwable) {
+                            ""
+                        }
+                        val release = UpdateChecker.check(current)
+                        if (release != null) {
+                            withContext(Dispatchers.Main) { updateRelease.value = release }
                         }
                     }
                 }
@@ -331,6 +394,29 @@ class MainActivity : ComponentActivity() {
                     label = "nav",
                 ) { screen ->
                     when (screen) {
+                    Nav.ONBOARDING -> OnboardingScreen(
+                        isDark = dark,
+                        step = onboardingStep.value,
+                        onStep = { onboardingStep.value = it },
+                        onImportClipboard = {
+                            completeOnboarding()
+                            importClipboard()
+                        },
+                        onImportFile = {
+                            completeOnboarding()
+                            fileImport.launch(arrayOf("*/*"))
+                        },
+                        onImportQr = {
+                            completeOnboarding()
+                            qrScan.launch(Intent(this@MainActivity, ScannerActivity::class.java))
+                        },
+                        onImportUrl = {
+                            completeOnboarding()
+                            urlDialog.value = true
+                        },
+                        onFinish = { completeOnboarding() },
+                    )
+
                     Nav.MAIN -> MainScreen(
                         isDark = dark,
                         state = uiState,
@@ -343,7 +429,7 @@ class MainActivity : ComponentActivity() {
                         },
                         onEdit = { p ->
                             editing.value = p
-                            nav.value = Nav.EDITOR
+                            goto(Nav.EDITOR)
                         },
                         onDelete = { p ->
                             // Stop the tunnel first if this profile is live.
@@ -355,11 +441,11 @@ class MainActivity : ComponentActivity() {
                         },
                         onAdd = {
                             editing.value = null
-                            nav.value = Nav.EDITOR
+                            goto(Nav.EDITOR)
                         },
                         onImport = { importMenu.value = true },
                         onConnect = { onConnectClicked() },
-                        onSettings = { nav.value = Nav.SETTINGS },
+                        onSettings = { goto(Nav.SETTINGS) },
                         pingResults = pingResults,
                         onPing = { p -> pingProfile(p) },
                         pingAllRunning = pingAllRunning.value,
@@ -442,9 +528,9 @@ class MainActivity : ComponentActivity() {
                         },
                         onDiagnostics = {
                             diagResults.value = null
-                            nav.value = Nav.DIAGNOSTICS
+                            goto(Nav.DIAGNOSTICS)
                         },
-                        onBack = { nav.value = Nav.MAIN },
+                        onBack = { goBack() },
                     )
 
                     Nav.DIAGNOSTICS -> DiagnosticsScreen(
@@ -456,7 +542,7 @@ class MainActivity : ComponentActivity() {
                         results = diagResults.value,
                         running = diagRunning.value,
                         onRun = { runDiagnostics() },
-                        onBack = { nav.value = Nav.SETTINGS },
+                        onBack = { goBack() },
                     )
 
                     Nav.EDITOR -> EditorScreen(
@@ -465,9 +551,10 @@ class MainActivity : ComponentActivity() {
                         onSave = { p ->
                             ProfileStore.upsert(this@MainActivity, p)
                             refreshProfiles()
+                            navHistory.clear()
                             nav.value = Nav.MAIN
                         },
-                        onBack = { nav.value = Nav.MAIN },
+                        onBack = { goBack() },
                     )
                     }
                 }
@@ -531,8 +618,33 @@ class MainActivity : ComponentActivity() {
                         },
                     )
                 }
+
+                if (updateRelease.value != null) {
+                    val release = updateRelease.value
+                    UpdateDialog(
+                        release = release,
+                        currentVersion = currentVersionName(),
+                        onOpen = {
+                            updateRelease.value = null
+                            try {
+                                startActivity(
+                                    Intent(Intent.ACTION_VIEW, android.net.Uri.parse(release!!.url)),
+                                )
+                            } catch (t: Throwable) {
+                                Toast.makeText(this, t.message ?: t.javaClass.simpleName, Toast.LENGTH_LONG).show()
+                            }
+                        },
+                        onDismiss = { updateRelease.value = null },
+                    )
+                }
             }
         }
+    }
+
+    private fun currentVersionName(): String = try {
+        packageManager.getPackageInfo(packageName, 0).versionName ?: ""
+    } catch (_: Throwable) {
+        ""
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -897,6 +1009,7 @@ class MainActivity : ComponentActivity() {
         // Full crystaln/2 backup (settings + subscriptions + profiles) first;
         // anything else falls through to the profile-only parser.
         Backup.importFull(this, text)?.let { summary ->
+            completeOnboarding()
             refreshProfiles()
             refreshSubscriptions()
             Toast.makeText(this, summary, Toast.LENGTH_SHORT).show()
@@ -908,6 +1021,7 @@ class MainActivity : ComponentActivity() {
             return
         }
         // Re-imports update the same server instead of stacking duplicates.
+        completeOnboarding()
         val merged = ProfileStore.mergeProfiles(this, parsed, subscriptionId = null, selectFirst = true)
         refreshProfiles()
         Toast.makeText(
@@ -1118,6 +1232,28 @@ private fun VaultPasswordDialog(
         },
         dismissButton = {
             TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) }
+        },
+    )
+}
+
+/** "New release available" → opens the GitHub releases page. */
+@Composable
+private fun UpdateDialog(
+    release: com.crystaln.vpn.data.UpdateChecker.Release?,
+    currentVersion: String,
+    onOpen: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    if (release == null) return
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.update_title)) },
+        text = { Text(stringResource(R.string.update_body, currentVersion, release.version)) },
+        confirmButton = {
+            TextButton(onClick = onOpen) { Text(stringResource(R.string.update_open)) }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.update_later)) }
         },
     )
 }

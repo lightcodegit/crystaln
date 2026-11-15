@@ -133,6 +133,31 @@ export JAVA_HOME=/путь/к/jdk-21
 (jpackage регистрирует ярлык через `xdg-desktop-menu`); в комплекте
 свой JRE-runtime, системный JDK не нужен.
 
+## AppImage (любой Linux без установки)
+
+```sh
+./gradlew :desktop:packageAppImage
+```
+
+Готовый файл: `desktop/build/compose/binaries/main/appimage/
+crystaln-1.0.0-x86_64.AppImage`. Запуск: `chmod +x *.AppImage &&
+./crystaln-1.0.0-x86_64.AppImage`. Нужен только libfuse2 (или запуск с
+переменной `APPIMAGE_EXTRACT_AND_RUN=1` без FUSE). Требуется `mksquashfs`
+(пакет squashfs-tools; Fedora: `sudo dnf install squashfs-tools`).
+
+## Первая настройка
+
+При первом запуске (Android и Linux) показывается короткий мастер:
+описание → скачивание ядер протоколов (Linux) и импорт первого профиля
+(буфер/файл/QR/ссылка) → готово. Мастер можно пропустить; импорт любого
+профиля завершает его автоматически.
+
+## Проверка обновлений
+
+При запуске приложение сверяется с GitHub-релизами `lightcodegit/crystaln`
+(раз в сессию, молча; без сети — без сообщений). Если вышла более новая
+версия, предлагается открыть страницу GitHub Releases.
+
 ## Импорт серверов
 
 - Кнопка «импорт» внизу справа: читает буфер обмена и парсит построчно

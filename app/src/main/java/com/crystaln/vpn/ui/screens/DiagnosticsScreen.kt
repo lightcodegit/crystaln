@@ -240,5 +240,6 @@ fun DiagnosticsScreen(
 private fun checkTitle(kind: ConnectionDiagnostics.Kind): String = when (kind) {
     ConnectionDiagnostics.Kind.DNS -> stringResource(R.string.diag_dns)
     ConnectionDiagnostics.Kind.TCP -> stringResource(R.string.diag_tcp)
+    ConnectionDiagnostics.Kind.ICMP -> stringResource(R.string.diag_icmp)
     ConnectionDiagnostics.Kind.CONFIG -> stringResource(R.string.diag_config)
 }

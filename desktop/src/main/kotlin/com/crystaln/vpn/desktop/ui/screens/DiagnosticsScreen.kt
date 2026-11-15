@@ -210,5 +210,6 @@ fun DiagnosticsScreen(
 private fun checkTitle(kind: ConnectionDiagnostics.Kind): String = when (kind) {
     ConnectionDiagnostics.Kind.DNS -> "DNS-резолв адреса"
     ConnectionDiagnostics.Kind.TCP -> "TCP-подключение к серверу"
+    ConnectionDiagnostics.Kind.ICMP -> "Доступность сервера (ping)"
     ConnectionDiagnostics.Kind.CONFIG -> "Полнота конфигурации"
 }

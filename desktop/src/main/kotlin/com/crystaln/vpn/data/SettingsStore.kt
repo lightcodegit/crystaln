@@ -119,6 +119,11 @@ object SettingsStore {
     fun setPaletteId(dataDir: File, id: String) = mutate(dataDir) { it.put("palette", id) }
 
     /** Before connecting, ping all servers and pick the fastest alive one. */
+    /** First-run wizard completed (or explicitly skipped). */
+    fun onboarded(dataDir: File): Boolean = load(dataDir).optBoolean("onboarded", false)
+
+    fun setOnboarded(dataDir: File, v: Boolean) = mutate(dataDir) { it.put("onboarded", v) }
+
     fun autoFastest(dataDir: File): Boolean = load(dataDir).optBoolean("autoFastest", false)
 
     fun setAutoFastest(dataDir: File, v: Boolean) = mutate(dataDir) { it.put("autoFastest", v) }
