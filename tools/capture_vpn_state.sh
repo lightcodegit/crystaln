@@ -7,11 +7,17 @@ OUT=/tmp/crystaln-vpn-capture.txt
 exec >"$OUT" 2>&1
 
 echo "===== $(date) ====="
-IFACE=$(ip -br link | awk -F: '/^cn-/{gsub(/ /,"",$1); print $1; exit}')
+IFACE=""
+echo "Жду появления туннеля cn-* (до 120 с) — включите соединение в приложении…"
+for i in $(seq 1 240); do
+    IFACE=$(ip -br link | awk -F: '/^cn-/{gsub(/ /,"",$1); print $1; exit}')
+    [ -n "$IFACE" ] && break
+    sleep 0.5
+done
 if [ -z "$IFACE" ]; then
-    echo "!!! Туннель cn-* НЕ НАЙДЕН — снимок сделан не во время подключения,"
-    echo "!!! либо подключение не дошло до создания интерфейса."
+    echo "!!! Туннель cn-* так и не появился — снимок снят в отключённом состоянии."
 fi
+echo "Туннель: ${IFACE:-нет}. Снимаю состояние."
 ip -br link
 ip -br addr
 echo "--- правила маршрутизации ---"
