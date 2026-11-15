@@ -87,7 +87,8 @@ Desktop-вариант в модуле `desktop` — то же ядро (про�
   через `sudo -n` или `pkexec`; само приложение root-прав не требует).
 - **Протоколы:** Xray-семейство (VMess/VLESS/Trojan/Shadowsocks/SOCKS/HTTP)
   через официальный xray-core, WireGuard через системный `wg-quick`
-  (пакет `wireguard-tools`), OpenVPN через системный `openvpn`.
+  (пакет `wireguard-tools`) либо, при его отсутствии, через тот же
+  WireGuard-совместимый `amneziawg-go`. OpenVPN через системный `openvpn`.
   AmneziaWG работает в userspace через `amneziawg-go` и `awg setconf`
   (модуль ядра не нужен); поддерживаются junk-параметры, DNS и AllowedIPs.
 - **Бинарники** (`xray`, `tun2socks`, `amneziawg-go`, `awg`, `geosite.dat`)

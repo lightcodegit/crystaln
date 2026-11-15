@@ -202,7 +202,14 @@ object TunnelManager {
 
     private fun connectWireGuard(p: Profile) {
         if (!ChildProcess.commandExists("wg-quick")) {
-            throw IllegalStateException("wg-quick не установлен (пакет wireguard-tools)")
+            if (Binaries.status().awgReady) {
+                logLine("wg-quick не установлен — использую amneziawg-go в режиме WireGuard…")
+                connectAwgBackend(p, "wg")
+                return
+            }
+            throw IllegalStateException(
+                "wg-quick не установлен (пакет wireguard-tools) и нет amneziawg-go — нажмите «Обновить бинарники»",
+            )
         }
         val conf = p.wgConfig.ifBlank {
             throw IllegalStateException("В профиле нет конфигурации WireGuard")
@@ -230,14 +237,17 @@ object TunnelManager {
         markConnected(p, "wg")
     }
 
-    private fun connectAmneziaWg(p: Profile) {
+    private fun connectAmneziaWg(p: Profile) = connectAwgBackend(p, "awg")
+
+    /** Userspace WireGuard-compatible backend used by AWG and as a wg-quick fallback. */
+    private fun connectAwgBackend(p: Profile, mode: String) {
         if (!Binaries.status().awgReady) {
             throw IllegalStateException(
                 "Бинарники AmneziaWG не найдены — Настройки → Система → «Обновить бинарники»",
             )
         }
         if (p.wgConfig.isBlank()) {
-            throw IllegalStateException("В профиле нет конфигурации AmneziaWG")
+            throw IllegalStateException("В профиле нет конфигурации ${if (mode == "awg") "AmneziaWG" else "WireGuard"}")
         }
         val parsed = WgSetconf.build(p.wgConfig, p.fields)
         val iface = "crystaln-${p.id.take(8)}"
@@ -299,7 +309,7 @@ object TunnelManager {
             )
         }
         awgIface = iface
-        markConnected(p, "awg")
+        markConnected(p, mode)
     }
 
     private fun awgDownCommands(iface: String, pidFile: File, confFile: String, socket: String) = listOf(
@@ -397,21 +407,10 @@ object TunnelManager {
                     stoppedSomething = true
                 }
                 wgConfPath = null
+                if (teardownAwgTunnel()) stoppedSomething = true
             }
             "awg" -> {
-                awgIface?.let { iface ->
-                    Privileges.runScript(
-                        "awg-down",
-                        awgDownCommands(
-                            iface,
-                            File(AppDirs.dataDir(), "amneziawg.pid"),
-                            "/var/run/amneziawg/$iface.conf",
-                            "/var/run/amneziawg/$iface.sock",
-                        ),
-                    )
-                    stoppedSomething = true
-                }
-                awgIface = null
+                if (teardownAwgTunnel()) stoppedSomething = true
             }
             "openvpn" -> {
                 val pidFile = File(AppDirs.dataDir(), "openvpn.pid")
@@ -433,6 +432,21 @@ object TunnelManager {
         xray?.stop()
         xray = null
         if (stoppedSomething) logLine("Туннель остановлен")
+    }
+
+    private fun teardownAwgTunnel(): Boolean {
+        val iface = awgIface ?: return false
+        Privileges.runScript(
+            "awg-down",
+            awgDownCommands(
+                iface,
+                File(AppDirs.dataDir(), "amneziawg.pid"),
+                "/var/run/amneziawg/$iface.conf",
+                "/var/run/amneziawg/$iface.sock",
+            ),
+        )
+        awgIface = null
+        return true
     }
 
     private fun teardownTunQuietly() {
