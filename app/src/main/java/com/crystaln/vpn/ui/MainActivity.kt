@@ -438,6 +438,10 @@ class MainActivity : ComponentActivity() {
                             editing.value = p
                             goto(Nav.EDITOR)
                         },
+                        onToggleFavorite = { p ->
+                            ProfileStore.upsert(this@MainActivity, p.copy(favorite = !p.favorite))
+                            refreshProfiles()
+                        },
                         onDelete = { p ->
                             // Stop the tunnel first if this profile is live.
                             if (VpnManager.current().profile?.id == p.id) {

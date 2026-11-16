@@ -143,6 +143,8 @@ object ProfileStore {
                 list[idx] = fresh.copy(
                     id = old.id,
                     subscriptionId = old.subscriptionId,
+                    // The user's pin survives subscription refreshes.
+                    favorite = old.favorite,
                 )
                 updated++
                 touched += list[idx]

@@ -40,6 +40,8 @@ data class Profile(
     var ovpnConfig: String = "",
     /** Null for manually imported profiles; set when owned by a subscription. */
     var subscriptionId: String? = null,
+    /** Pinned to the top of the profile list ("favorites"). */
+    var favorite: Boolean = false,
 ) {
     val isWireGuard: Boolean get() = protocol == Protocol.WIREGUARD
 
@@ -117,6 +119,7 @@ data class Profile(
         put("wgConfig", wgConfig)
         put("ovpnConfig", ovpnConfig)
         subscriptionId?.let { put("subscriptionId", it) }
+        if (favorite) put("favorite", true)
     }
 
     companion object {
@@ -134,6 +137,7 @@ data class Profile(
             wgConfig = o.optString("wgConfig"),
             ovpnConfig = o.optString("ovpnConfig"),
             subscriptionId = o.optString("subscriptionId").ifEmpty { null },
+            favorite = o.optBoolean("favorite", false),
         )
     }
 }

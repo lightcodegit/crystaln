@@ -46,6 +46,8 @@ import androidx.compose.material.icons.filled.PowerSettingsNew
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -143,6 +145,8 @@ fun MainScreen(
     subscriptionTitles: Map<String, String> = emptyMap(),
     /** Open the share dialog (link + QR) for a profile. */
     onShare: (Profile) -> Unit = {},
+    /** Toggle the "favorites" pin (pinned to the top of the list). */
+    onToggleFavorite: (Profile) -> Unit = {},
     shareProfile: Profile? = null,
     onDismissShare: () -> Unit = {},
 ) {
@@ -151,6 +155,9 @@ fun MainScreen(
     // Glass adapts to the photo: dark wallpaper gets dark glass with a
     // light rim, light wallpaper gets frosted white glass.
     val glassDark = wallpaper?.isDark ?: isDark
+    // Favorites first; a stable sort keeps the original order within each
+    // group (plain alphabetical/reverse not needed — pinned just float up).
+    val ordered = remember(profiles) { profiles.sortedByDescending { it.favorite } }
 
     BoxWithConstraints(
         Modifier
@@ -194,7 +201,7 @@ fun MainScreen(
                 Spacer(Modifier.height(14.dp))
 
                 ProfilesHeader(
-                    count = profiles.size,
+                    count = ordered.size,
                     isDark = glassDark,
                     overWallpaper = overWallpaper,
                     onImport = onImport,
@@ -205,7 +212,7 @@ fun MainScreen(
 
                 Spacer(Modifier.height(10.dp))
 
-                if (profiles.isNotEmpty()) {
+                if (ordered.isNotEmpty()) {
                     OutlinedTextField(
                         value = searchQuery,
                         onValueChange = onSearchChange,
@@ -230,7 +237,7 @@ fun MainScreen(
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                     contentPadding = PaddingValues(bottom = 170.dp),
                 ) {
-                    if (profiles.isEmpty()) {
+                    if (ordered.isEmpty()) {
                         item {
                             EmptyProfiles(
                                 isDark = glassDark,
@@ -248,7 +255,7 @@ fun MainScreen(
                                 p.protocol.displayName.contains(query, ignoreCase = true)
                         }
                         if (query.isNotEmpty()) {
-                            items(profiles.filter(matched), key = { it.id }) { p ->
+                            items(ordered.filter(matched), key = { it.id }) { p ->
                                 ProfileCard(
                                     profile = p,
                                     selected = p.id == selectedId,
@@ -261,15 +268,17 @@ fun MainScreen(
                                     onEdit = { onEdit(p) },
                                     onDelete = { onDelete(p) },
                                     onShare = { onShare(p) },
+                                    favorite = p.favorite,
+                                    onToggleFavorite = { onToggleFavorite(p) },
                                     totalTraffic = trafficStats[p.id],
                                 )
                             }
                         } else if (subscriptionTitles.isNotEmpty()) {
                             // Grouped: subscription groups first, then manual profiles.
                             val groups = subscriptionTitles.entries
-                                .map { entry -> entry.key to profiles.filter { it.subscriptionId == entry.key } }
+                                .map { entry -> entry.key to ordered.filter { it.subscriptionId == entry.key } }
                                 .filter { it.second.isNotEmpty() }
-                            val manual = profiles.filter { it.subscriptionId == null }
+                            val manual = ordered.filter { it.subscriptionId == null }
                             groups.forEach { (title, list) ->
                                 item(key = "group-$title") { SectionHeader(title) }
                                 items(list, key = { it.id }) { p ->
@@ -285,6 +294,8 @@ fun MainScreen(
                                         onEdit = { onEdit(p) },
                                         onDelete = { onDelete(p) },
                                         onShare = { onShare(p) },
+                                        favorite = p.favorite,
+                                        onToggleFavorite = { onToggleFavorite(p) },
                                         totalTraffic = trafficStats[p.id],
                                     )
                                 }
@@ -306,12 +317,14 @@ fun MainScreen(
                                         onEdit = { onEdit(p) },
                                         onDelete = { onDelete(p) },
                                         onShare = { onShare(p) },
+                                        favorite = p.favorite,
+                                        onToggleFavorite = { onToggleFavorite(p) },
                                         totalTraffic = trafficStats[p.id],
                                     )
                                 }
                             }
                         } else {
-                            items(profiles.filter(matched), key = { it.id }) { p ->
+                            items(ordered.filter(matched), key = { it.id }) { p ->
                                 ProfileCard(
                                     profile = p,
                                     selected = p.id == selectedId,
@@ -324,6 +337,8 @@ fun MainScreen(
                                     onEdit = { onEdit(p) },
                                     onDelete = { onDelete(p) },
                                     onShare = { onShare(p) },
+                                    favorite = p.favorite,
+                                    onToggleFavorite = { onToggleFavorite(p) },
                                     totalTraffic = trafficStats[p.id],
                                 )
                             }
@@ -883,6 +898,9 @@ private fun ProfileCard(
     onEdit: () -> Unit,
     onDelete: () -> Unit,
     onShare: () -> Unit = {},
+    /** "Favorites" pin state + toggle (star icon button). */
+    favorite: Boolean = false,
+    onToggleFavorite: () -> Unit = {},
     totalTraffic: TrafficStats? = null,
 ) {
     val pc = protocolColor(profile.protocol)
@@ -992,6 +1010,14 @@ private fun ProfileCard(
             }
             // Compact icon buttons: the default 48dp target triples the
             // footprint of three actions and starves the text column.
+            IconButton(onClick = onToggleFavorite, modifier = Modifier.size(32.dp)) {
+                Icon(
+                    if (favorite) Icons.Default.Star else Icons.Default.StarBorder,
+                    contentDescription = "Favorite",
+                    modifier = Modifier.size(16.dp),
+                    tint = if (favorite) Color(0xFFFFC94A) else MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
             IconButton(onClick = onShare, modifier = Modifier.size(32.dp)) {
                 Icon(
                     Icons.Default.Share,
