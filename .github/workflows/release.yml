@@ -1,8 +1,8 @@
 name: Release
 
-# Публикует релиз по тегу v*: APK (Android), AppImage/rpm/deb (Linux).
-# Приложение проверяет api.github.com/.../releases/latest — без релизов
-# проверка обновлений всегда молчит.
+# Публикует релиз по тегу v*: APK (Android), AppImage/rpm/deb (Linux),
+# MSI (Windows). Приложение проверяет api.github.com/.../releases/latest —
+# без релизов проверка обновлений всегда молчит.
 on:
   push:
     tags: ["v*"]
@@ -101,8 +101,35 @@ jobs:
           path: dist/*
           if-no-files-found: error
 
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: gradle/actions/setup-gradle@v6
+      - name: Build Windows installer (msi)
+        shell: bash
+        run: ./gradlew --no-daemon :desktop:packageMsi --console=plain
+      - name: Collect package
+        shell: bash
+        run: |
+          mkdir -p dist
+          ver="${GITHUB_REF_NAME#v}"
+          # Имя файла = версия тега (внутри MSI версия из appVersion).
+          cp desktop/build/compose/binaries/main/msi/*.msi "dist/crystaln-${ver}.msi"
+          ls -la dist
+      - uses: actions/upload-artifact@v7
+        with:
+          name: windows-package
+          path: dist/*
+          if-no-files-found: error
+
   publish:
-    needs: [android, linux]
+    needs: [android, linux, windows]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -128,6 +155,7 @@ jobs:
             `crystaln-VERSION-<abi>-debug.apk` (послабленные, под конкретный ABI)
             и `crystaln-VERSION-<abi>-release.apk` (подписаны release-ключом, если он настроен)
             **Linux:** `crystaln-*.AppImage` (универсально), `*.rpm` (Fedora/openSUSE), `*.deb` (Debian/Ubuntu)
+            **Windows:** `crystaln-VERSION.msi` (ставится в Program Files, ярлык в меню «Пуск»)
 
             AppImage: `chmod +x crystaln-*.AppImage && ./crystaln-*.AppImage`
             Меню приложений: Gear Lever или `tools/setup.sh install`

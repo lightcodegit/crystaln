@@ -155,6 +155,7 @@ fun CrystalnApp() {
     // ── first-run wizard + update check ──────────────────────────────
     var onboardingStep by remember { mutableStateOf(0) }
     var updateRelease by remember { mutableStateOf<UpdateChecker.Release?>(null) }
+    var updatesBusy by remember { mutableStateOf(false) }
 
     // ── navigation + dialogs ────────────────────────────────────────────
     var nav by remember { mutableStateOf(if (SettingsStore.onboarded(cfg)) Nav.MAIN else Nav.ONBOARDING) }
@@ -172,6 +173,24 @@ fun CrystalnApp() {
 
     fun refreshSubscriptions() {
         subscriptions = SubscriptionsStore.load(cfg)
+    }
+
+    // Ручная проверка обновлений (Настройки → О приложении). Найдена новая
+    // версия — открывается тот же диалог; не найдена/ошибка сети — notice.
+    fun checkUpdates() {
+        if (updatesBusy) return
+        updatesBusy = true
+        scope.launch(Dispatchers.IO) {
+            val release = UpdateChecker.check(APP_VERSION)
+            withContext(Dispatchers.Main) {
+                updatesBusy = false
+                if (release != null) {
+                    updateRelease = release
+                } else {
+                    notice = "Обновлений нет (или GitHub недоступен)"
+                }
+            }
+        }
     }
 
     /** Ends the first-run wizard: any successful import or "skip" counts. */
@@ -725,6 +744,9 @@ fun CrystalnApp() {
                             importMenu = false
                             exportDialogVisible = true
                         },
+                        onCheckUpdates = { checkUpdates() },
+                        updatesBusy = updatesBusy,
+                        updateAvailable = updateRelease?.version,
                         onDiagnostics = {
                             diagResults = null
                             nav = Nav.DIAGNOSTICS

@@ -110,6 +110,9 @@ fun SettingsScreen(
     onRemoveSubscription: (Subscription) -> Unit,
     onImport: () -> Unit,
     onExport: () -> Unit,
+    onCheckUpdates: () -> Unit,
+    updatesBusy: Boolean,
+    updateAvailable: String?,
     onDiagnostics: () -> Unit,
     onBack: () -> Unit,
 ) {
@@ -456,6 +459,25 @@ fun SettingsScreen(
                             "Ядра: Xray (VMess/VLESS/Trojan/Shadowsocks/SOCKS/HTTP), WireGuard и AmneziaWG (amneziawg-go, junk-параметры Jc/Jmin/Jmax/S1/S2/H1–H4).",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        updateAvailable?.let { version ->
+                            Spacer(Modifier.height(4.dp))
+                            Text(
+                                "Доступна новая версия: $version",
+                                style = MaterialTheme.typography.bodySmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                        }
+                        Spacer(Modifier.height(10.dp))
+                        PillButton(
+                            text = "Проверить обновления",
+                            icon = Icons.Default.Refresh,
+                            accent = false,
+                            isDark = glassDark,
+                            enabled = !updatesBusy,
+                            onClick = onCheckUpdates,
+                            modifier = Modifier.fillMaxWidth(),
                         )
                     }
 

@@ -6,6 +6,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Canvas
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.painter.BitmapPainter
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.res.loadImageBitmap
@@ -32,6 +37,58 @@ fun resourcePainter(name: String): Painter? = try {
 }
 
 private val windowIcon: Painter? by lazy { resourcePainter("crystaln/icon.png") }
+
+/**
+ * Status icons for the tray: the base icon with a colored dot in the
+ * bottom-right corner — gray when off, orange while starting/stopping,
+ * green when the VPN is up. Computed once from the bundled icon.
+ */
+private val statusIcons: Map<TunnelManager.State, Painter?> by lazy {
+    try {
+        val base = baseBitmap() ?: return@lazy emptyMap()
+        mapOf(
+            TunnelManager.State.OFF to dotPainter(base, Color(0xFF98A2AE)),
+            TunnelManager.State.STARTING to dotPainter(base, Color(0xFFFFB020)),
+            TunnelManager.State.STOPPING to dotPainter(base, Color(0xFFFFB020)),
+            TunnelManager.State.CONNECTED to dotPainter(base, Color(0xFF35D07F)),
+        )
+    } catch (_: Throwable) {
+        emptyMap()
+    }
+}
+
+/** The bundled icon as a raw bitmap (for compositing status dots). */
+private fun baseBitmap(): ImageBitmap? = try {
+    val stream = TunnelManager::class.java.classLoader
+        .getResourceAsStream("crystaln/icon.png")
+    stream?.use { loadImageBitmap(it) }
+} catch (_: Throwable) {
+    null
+}
+
+/** Base icon with a colored status dot (white ring for contrast). */
+private fun dotPainter(base: ImageBitmap, dot: Color): Painter {
+    val w = base.width
+    val h = base.height
+    val bmp = ImageBitmap(w, h)
+    val canvas = Canvas(bmp)
+    canvas.drawImage(base, topLeftOffset = Offset.Zero, paint = Paint())
+    val radius = minOf(w, h) * 0.19f
+    val cx = w - radius * 1.45f
+    val cy = h - radius * 1.45f
+    val paint = Paint()
+    paint.color = Color(0xFFFFFFFF)
+    canvas.drawCircle(Offset(cx, cy), radius * 1.18f, paint)
+    paint.color = dot
+    canvas.drawCircle(Offset(cx, cy), radius, paint)
+    return BitmapPainter(bmp)
+}
+
+/** Tray icon matching the current tunnel state (falls back to base icon). */
+private fun iconFor(state: TunnelManager.State): Painter? {
+    val icons = statusIcons
+    return icons[state] ?: windowIcon
+}
 
 /** Tray support: Windows only (Wayland/GNOME sessions are unreliable anyway). */
 private val traySupported: Boolean by lazy {
@@ -131,7 +188,7 @@ fun main() {
                 else -> "CrystalN — отключено"
             }
             Tray(
-                icon = icon,
+                icon = iconFor(conn.state) ?: icon,
                 state = trayState,
                 tooltip = tooltip,
                 // Двойной клик по иконке в трее (Windows) открывает окно.
