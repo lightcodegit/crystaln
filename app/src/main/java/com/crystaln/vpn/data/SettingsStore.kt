@@ -17,6 +17,7 @@ object SettingsStore {
     private const val KEY_BLOCK_ADS = "block_ads"
     private const val KEY_WALLPAPER = "wallpaper"
     private const val KEY_ONBOARDED = "onboarded"
+    private const val KEY_GYRO = "gyro_background"
 
     /** First-run wizard completed (or explicitly skipped). */
     fun onboarded(context: Context): Boolean =
@@ -131,6 +132,20 @@ object SettingsStore {
     fun setWallpaper(context: Context, fileName: String?) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .edit().putString(KEY_WALLPAPER, fileName).apply()
+    }
+
+    /**
+     * Parallax background: the color blobs shift with the phone's movement
+     * (gyroscope). Off by default — it keeps a sensor active while the app
+     * is open.
+     */
+    fun gyroBackground(context: Context): Boolean =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getBoolean(KEY_GYRO, false)
+
+    fun setGyroBackground(context: Context, value: Boolean) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit().putBoolean(KEY_GYRO, value).apply()
     }
 
     /** Everything restorable from a backup. The wallpaper image is a binary

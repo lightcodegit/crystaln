@@ -118,6 +118,8 @@
     <string name="dynamic_color_title">Цвета системы</string>
     <string name="dynamic_color_sub">Material You — палитра из обоев. Android 12+</string>
     <string name="palette_label">Палитра</string>
+    <string name="gyro_title">Гироскоп фон</string>
+    <string name="gyro_sub">Цветные круги на фоне двигаются под наклон телефона (параллакс)</string>
     <string name="wallpaper_title">Свои обои</string>
     <string name="wallpaper_set">Обои установлены — размытая копия служит фоном стекла</string>
     <string name="wallpaper_unset">Обои не выбраны — фон собирается из палитры</string>

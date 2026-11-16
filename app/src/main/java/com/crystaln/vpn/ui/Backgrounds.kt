@@ -19,6 +19,8 @@ import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.crystaln.vpn.ui.glass.rememberBreath
@@ -26,12 +28,20 @@ import com.crystaln.vpn.ui.glass.rememberBreath
 /**
  * Soft color blobs slowly drifting behind the content, like light in
  * liquid. Used on every screen that has no custom wallpaper.
+ *
+ * When the "Гироскоп фон" setting is on, the blobs additionally shift with
+ * the phone's movement (parallax) — see [rememberGyroDrift].
  */
 @Composable
 fun LiquidBlobs(isDark: Boolean) {
     val blob = MaterialTheme.colorScheme.primary.copy(alpha = if (isDark) 0.50f else 0.26f)
     val blob2 = MaterialTheme.colorScheme.secondary.copy(alpha = if (isDark) 0.38f else 0.20f)
     val blob3 = MaterialTheme.colorScheme.tertiary.copy(alpha = if (isDark) 0.34f else 0.18f)
+
+    val gyro = LocalGyroBackground.current
+    val drift = if (gyro) rememberGyroDrift(true).value else Offset.Zero
+    val gx = with(LocalDensity.current) { drift.x.toDp() }
+    val gy = with(LocalDensity.current) { drift.y.toDp() }
 
     val t = rememberInfiniteTransition(label = "blobs")
     val drift1 by t.animateFloat(
@@ -51,14 +61,14 @@ fun LiquidBlobs(isDark: Boolean) {
     )
     val breathe = rememberBreath(4200)
 
-    Blob(blob, 460.dp, (-160 + drift1).dp, (-200 + drift1 * 0.6f).dp)
-    Blob(blob2, 400.dp, (260 + drift2).dp, (160 - drift2 * 0.8f).dp)
-    Blob(blob3, 340.dp, (-110 - drift3).dp, (620 + drift3).dp)
+    Blob(blob, 460.dp, (-160 + drift1).dp + gx, (-200 + drift1 * 0.6f).dp + gy)
+    Blob(blob2, 400.dp, (260 + drift2).dp - gx, (160 - drift2 * 0.8f).dp - gy)
+    Blob(blob3, 340.dp, (-110 - drift3).dp + gx * 0.7f, (620 + drift3).dp + gy * 0.7f)
     Blob(
         blob.copy(alpha = blob.alpha * 0.75f),
         (380 + breathe * 50).dp,
-        (70 + drift2 * 0.5f).dp,
-        (960 - drift1 * 0.4f).dp,
+        (70 + drift2 * 0.5f).dp - gx * 0.5f,
+        (960 - drift1 * 0.4f).dp - gy * 0.5f,
     )
 }
 

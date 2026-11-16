@@ -118,6 +118,8 @@
     <string name="dynamic_color_title">System colors</string>
     <string name="dynamic_color_sub">Material You — palette from the wallpaper. Android 12+</string>
     <string name="palette_label">Palette</string>
+    <string name="gyro_title">Gyroscope background</string>
+    <string name="gyro_sub">Background color circles shift as you tilt the phone (parallax)</string>
     <string name="wallpaper_title">Custom wallpaper</string>
     <string name="wallpaper_set">Wallpaper set — a blurred copy backs the glass</string>
     <string name="wallpaper_unset">No wallpaper — the background is built from the palette</string>

@@ -48,6 +48,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
@@ -126,6 +127,7 @@ class MainActivity : ComponentActivity() {
     private val themeMode = mutableStateOf(SettingsStore.ThemeMode.SYSTEM)
     private val dynamicColor = mutableStateOf(false)
     private val paletteId = mutableStateOf("indigo")
+    private val gyroBackground = mutableStateOf(false)
     private val autoConnect = mutableStateOf(false)
     private val autoFastest = mutableStateOf(false)
     private val dnsViaTunnel = mutableStateOf(false)
@@ -273,6 +275,7 @@ class MainActivity : ComponentActivity() {
         themeMode.value = SettingsStore.themeMode(this)
         dynamicColor.value = SettingsStore.dynamicColor(this)
         paletteId.value = SettingsStore.paletteId(this)
+        gyroBackground.value = SettingsStore.gyroBackground(this)
         autoConnect.value = SettingsStore.autoConnect(this)
         autoFastest.value = SettingsStore.autoFastest(this)
         dnsViaTunnel.value = SettingsStore.dnsViaTunnel(this)
@@ -309,6 +312,7 @@ class MainActivity : ComponentActivity() {
                 dynamicColor = dynamicColor.value,
                 paletteId = paletteId.value,
             ) {
+                CompositionLocalProvider(LocalGyroBackground provides gyroBackground.value) {
                 val uiState by VpnManager.ui.collectAsStateWithLifecycle()
 
                 LaunchedEffect(Unit) {
@@ -476,6 +480,11 @@ class MainActivity : ComponentActivity() {
                             paletteId.value = id
                             SettingsStore.setPaletteId(this@MainActivity, id)
                         },
+                        gyroBackground = gyroBackground.value,
+                        onGyroBackgroundChange = { on ->
+                            gyroBackground.value = on
+                            SettingsStore.setGyroBackground(this@MainActivity, on)
+                        },
                         autoConnect = autoConnect.value,
                         onAutoConnectChange = { on ->
                             autoConnect.value = on
@@ -637,6 +646,7 @@ class MainActivity : ComponentActivity() {
                         onDismiss = { updateRelease.value = null },
                     )
                 }
+                } // LocalGyroBackground
             }
         }
     }
