@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Status dot of a profile row in the 4x2 list widget.
+     The color is tinted at runtime (RemoteViews "setColorFilter"). -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="oval">
+    <solid android:color="@color/widget_btn_off" />
+</shape>

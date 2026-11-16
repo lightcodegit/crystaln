@@ -18,6 +18,7 @@ import com.crystaln.vpn.wg.AwgTunnel
 import com.crystaln.vpn.wg.WgErrorText
 import com.crystaln.vpn.wg.WireGuardTunnel
 import com.crystaln.vpn.widget.CrystalWidget
+import com.crystaln.vpn.widget.CrystalListWidget
 import java.util.concurrent.atomic.AtomicLong
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -431,6 +432,10 @@ object VpnManager {
         val ctx = appContext ?: return
         try {
             CrystalWidget.updateAll(ctx)
+        } catch (_: Throwable) {
+        }
+        try {
+            CrystalListWidget.updateAll(ctx)
         } catch (_: Throwable) {
         }
     }

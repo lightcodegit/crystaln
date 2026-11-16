@@ -129,6 +129,8 @@
     <string name="lock_locked">Доступ защищён</string>
     <string name="lock_unlock">Разблокировать</string>
     <string name="lock_cancel">Отмена</string>
+    <string name="widget_list_description">Список профилей — подключение прямо с рабочего стола</string>
+    <string name="widget_item_connected">подключён</string>
     <string name="wallpaper_title">Свои обои</string>
     <string name="wallpaper_set">Обои установлены — размытая копия служит фоном стекла</string>
     <string name="wallpaper_unset">Обои не выбраны — фон собирается из палитры</string>

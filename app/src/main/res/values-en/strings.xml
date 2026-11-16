@@ -129,6 +129,8 @@
     <string name="lock_locked">Access protected</string>
     <string name="lock_unlock">Unlock</string>
     <string name="lock_cancel">Cancel</string>
+    <string name="widget_list_description">Profile list — connect right from the home screen</string>
+    <string name="widget_item_connected">connected</string>
     <string name="wallpaper_title">Custom wallpaper</string>
     <string name="wallpaper_set">Wallpaper set — a blurred copy backs the glass</string>
     <string name="wallpaper_unset">No wallpaper — the background is built from the palette</string>

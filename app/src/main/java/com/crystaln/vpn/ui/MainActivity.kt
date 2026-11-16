@@ -86,6 +86,7 @@ import com.crystaln.vpn.data.SubscriptionRefresher
 import com.crystaln.vpn.data.SubscriptionsStore
 import com.crystaln.vpn.data.SubscriptionSyncScheduler
 import com.crystaln.vpn.service.VpnManager
+import com.crystaln.vpn.widget.CrystalListWidget
 import com.crystaln.vpn.ui.screens.DiagnosticsScreen
 import com.crystaln.vpn.ui.screens.EditorScreen
 import com.crystaln.vpn.ui.screens.OnboardingScreen
@@ -191,6 +192,11 @@ class MainActivity : FragmentActivity() {
         profiles.value = ProfileStore.load(this).toList()
         selectedId.value = ProfileStore.selectedId
         profileStats.value = TrafficStatsStore.all(this)
+        // The 4x2 list widget re-reads the store when its data changes.
+        try {
+            CrystalListWidget.notifyDataChanged(this)
+        } catch (_: Throwable) {
+        }
     }
 
     private fun refreshSubscriptions() {
