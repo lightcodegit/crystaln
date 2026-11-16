@@ -178,65 +178,60 @@ fun MainScreen(
             // dark theme gets light text, a light one dark text. Glass itself
             // still adapts to the wallpaper via glassDark.
             CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onBackground) {
-                Column(
+                // The whole screen scrolls as one: header, hero, search and
+                // the profile list live in a single LazyColumn.
+                LazyColumn(
                     Modifier
                         .fillMaxSize()
                         .systemBarsPadding()
                         .padding(horizontal = 24.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    contentPadding = PaddingValues(top = 10.dp, bottom = 170.dp),
                 ) {
-                Spacer(Modifier.height(10.dp))
+                item { Header(state = state, dark = glassDark) }
 
-                Header(state = state, dark = glassDark)
-
-                Spacer(Modifier.height(8.dp))
-
-                HeroStatus(
-                    state = state,
-                    selected = profiles.firstOrNull { it.id == (state.profile?.id ?: selectedId) },
-                    isDark = glassDark,
-                    overWallpaper = overWallpaper,
-                    onConnect = onConnect,
-                )
-
-                Spacer(Modifier.height(14.dp))
-
-                ProfilesHeader(
-                    count = ordered.size,
-                    isDark = glassDark,
-                    overWallpaper = overWallpaper,
-                    onImport = onImport,
-                    onAdd = onAdd,
-                    pingAllRunning = pingAllRunning,
-                    onPingAll = onPingAll,
-                )
-
-                Spacer(Modifier.height(10.dp))
-
-                if (ordered.isNotEmpty()) {
-                    OutlinedTextField(
-                        value = searchQuery,
-                        onValueChange = onSearchChange,
-                        singleLine = true,
-                        placeholder = { Text(stringResource(R.string.search_hint)) },
-                        leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-                        trailingIcon = {
-                            if (searchQuery.isNotEmpty()) {
-                                IconButton(onClick = { onSearchChange("") }) {
-                                    Icon(Icons.Default.Close, contentDescription = "Clear")
-                                }
-                            }
-                        },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(bottom = 10.dp),
+                item {
+                    HeroStatus(
+                        state = state,
+                        selected = profiles.firstOrNull { it.id == (state.profile?.id ?: selectedId) },
+                        isDark = glassDark,
+                        overWallpaper = overWallpaper,
+                        onConnect = onConnect,
                     )
                 }
 
-                LazyColumn(
-                    Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
-                    contentPadding = PaddingValues(bottom = 170.dp),
-                ) {
+                item {
+                    ProfilesHeader(
+                        count = ordered.size,
+                        isDark = glassDark,
+                        overWallpaper = overWallpaper,
+                        onImport = onImport,
+                        onAdd = onAdd,
+                        pingAllRunning = pingAllRunning,
+                        onPingAll = onPingAll,
+                    )
+                }
+
+                if (ordered.isNotEmpty()) {
+                    item {
+                        OutlinedTextField(
+                            value = searchQuery,
+                            onValueChange = onSearchChange,
+                            singleLine = true,
+                            placeholder = { Text(stringResource(R.string.search_hint)) },
+                            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                            trailingIcon = {
+                                if (searchQuery.isNotEmpty()) {
+                                    IconButton(onClick = { onSearchChange("") }) {
+                                        Icon(Icons.Default.Close, contentDescription = "Clear")
+                                    }
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
+                }
+
                     if (ordered.isEmpty()) {
                         item {
                             EmptyProfiles(
@@ -345,7 +340,6 @@ fun MainScreen(
                         }
                     }
                 }
-            }
             }
         }
 
