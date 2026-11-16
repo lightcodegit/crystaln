@@ -120,6 +120,8 @@
     <string name="palette_label">Палитра</string>
     <string name="gyro_title">Гироскоп фон</string>
     <string name="gyro_sub">Цветные круги на фоне двигаются под наклон телефона (параллакс)</string>
+    <string name="liquid_title">Фон-жидкость</string>
+    <string name="liquid_sub">Шары на фоне как настоящая жидкость: стекают под наклон и всплёскиваются от движения</string>
     <string name="amoled_title">AMOLED-режим</string>
     <string name="amoled_sub">Чисто чёрный фон в тёмной теме — экономит батарею на OLED-экранах</string>
     <string name="applock_title">Блокировка приложения</string>

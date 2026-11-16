@@ -141,6 +141,7 @@ class MainActivity : FragmentActivity() {
     private val appLock = mutableStateOf(false)
     /** True while the biometric lock is armed and not yet passed. */
     private val locked = mutableStateOf(false)
+    private val liquidBackground = mutableStateOf(false)
     private val autoConnect = mutableStateOf(false)
     private val autoFastest = mutableStateOf(false)
     private val dnsViaTunnel = mutableStateOf(false)
@@ -297,6 +298,7 @@ class MainActivity : FragmentActivity() {
         amoledMode.value = SettingsStore.amoledMode(this)
         appLock.value = SettingsStore.appLock(this)
         locked.value = appLock.value
+        liquidBackground.value = SettingsStore.liquidBackground(this)
         autoConnect.value = SettingsStore.autoConnect(this)
         autoFastest.value = SettingsStore.autoFastest(this)
         dnsViaTunnel.value = SettingsStore.dnsViaTunnel(this)
@@ -338,7 +340,10 @@ class MainActivity : FragmentActivity() {
                     LockScreen(onUnlock = { showBiometricPrompt() })
                     return@CrystalNTheme
                 }
-                CompositionLocalProvider(LocalGyroBackground provides gyroBackground.value) {
+                CompositionLocalProvider(
+                    LocalGyroBackground provides gyroBackground.value,
+                    LocalLiquidBackground provides liquidBackground.value,
+                ) {
                 val uiState by VpnManager.ui.collectAsStateWithLifecycle()
 
                 LaunchedEffect(Unit) {
@@ -514,6 +519,11 @@ class MainActivity : FragmentActivity() {
                         onGyroBackgroundChange = { on ->
                             gyroBackground.value = on
                             SettingsStore.setGyroBackground(this@MainActivity, on)
+                        },
+                        liquidBackground = liquidBackground.value,
+                        onLiquidBackgroundChange = { on ->
+                            liquidBackground.value = on
+                            SettingsStore.setLiquidBackground(this@MainActivity, on)
                         },
                         amoledMode = amoledMode.value,
                         onAmoledModeChange = { on ->

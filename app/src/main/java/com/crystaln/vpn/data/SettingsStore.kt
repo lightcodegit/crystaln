@@ -20,6 +20,7 @@ object SettingsStore {
     private const val KEY_GYRO = "gyro_background"
     private const val KEY_AMOLED = "amoled_mode"
     private const val KEY_APP_LOCK = "app_lock"
+    private const val KEY_LIQUID = "liquid_background"
 
     /** First-run wizard completed (or explicitly skipped). */
     fun onboarded(context: Context): Boolean =
@@ -175,6 +176,20 @@ object SettingsStore {
     fun setAppLock(context: Context, value: Boolean) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .edit().putBoolean(KEY_APP_LOCK, value).apply()
+    }
+
+    /**
+     * Liquid mode: the background color blobs behave like real liquid —
+     * they pool toward the tilted side, slosh from shakes and wobble.
+     * Implies gyroscope reaction.
+     */
+    fun liquidBackground(context: Context): Boolean =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getBoolean(KEY_LIQUID, false)
+
+    fun setLiquidBackground(context: Context, value: Boolean) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit().putBoolean(KEY_LIQUID, value).apply()
     }
 
     /** Everything restorable from a backup. The wallpaper image is a binary

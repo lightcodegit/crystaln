@@ -91,6 +91,8 @@ fun SettingsScreen(
     onPaletteChange: (String) -> Unit,
     gyroBackground: Boolean,
     onGyroBackgroundChange: (Boolean) -> Unit,
+    liquidBackground: Boolean,
+    onLiquidBackgroundChange: (Boolean) -> Unit,
     amoledMode: Boolean,
     onAmoledModeChange: (Boolean) -> Unit,
     appLock: Boolean,
@@ -235,6 +237,13 @@ fun SettingsScreen(
                             subtitle = stringResource(R.string.gyro_sub),
                             checked = gyroBackground,
                             onChange = onGyroBackgroundChange,
+                        )
+                        GlassDivider(Modifier.padding(vertical = 14.dp))
+                        SwitchRow(
+                            title = stringResource(R.string.liquid_title),
+                            subtitle = stringResource(R.string.liquid_sub),
+                            checked = liquidBackground,
+                            onChange = onLiquidBackgroundChange,
                         )
                         GlassDivider(Modifier.padding(vertical = 14.dp))
                         SwitchRow(

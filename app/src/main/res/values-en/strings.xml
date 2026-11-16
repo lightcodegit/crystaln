@@ -120,6 +120,8 @@
     <string name="palette_label">Palette</string>
     <string name="gyro_title">Gyroscope background</string>
     <string name="gyro_sub">Background color circles shift as you tilt the phone (parallax)</string>
+    <string name="liquid_title">Liquid background</string>
+    <string name="liquid_sub">Background blobs behave like real liquid: pool on tilt and slosh on movement</string>
     <string name="amoled_title">AMOLED mode</string>
     <string name="amoled_sub">True black background in the dark theme — saves battery on OLED screens</string>
     <string name="applock_title">App lock</string>
