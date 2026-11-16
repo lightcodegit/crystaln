@@ -26,6 +26,8 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
@@ -78,6 +80,17 @@ object VpnManager {
     // main thread or the VpnService onCreate future deadlocks.
     private val engineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
+    init {
+        // Safety net: every state-field change (from any publish site) is
+        // mirrored onto the home-screen widget, so it can never go stale
+        // showing "Подключение…" while the tunnel is actually up.
+        engineScope.launch {
+            _ui.map { it.state }.distinctUntilChanged().collect {
+                pushWidgetUpdate()
+            }
+        }
+    }
+
     /** Single 1 Hz poller for traffic counters and handshake staleness. */
     private val pollScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val pollLock = Any()
@@ -126,6 +139,7 @@ object VpnManager {
             lastSampleTx = 0
             generation.incrementAndGet()
         }
+        pushWidgetUpdate()
         // A superseded async shutdown may never publish OFF, so drop the old
         // status notification here as well (stop() is idempotent).
         VpnStatusNotification.stop()
@@ -169,6 +183,7 @@ object VpnManager {
         val st = _ui.value
         if (st.state == State.OFF || st.state == State.STOPPING) return
         _ui.value = st.copy(state = State.STOPPING)
+        pushWidgetUpdate()
         // Persist usage totals collected by the poller before anything tears down.
         try {
             TrafficStatsStore.flush(context)
@@ -181,6 +196,7 @@ object VpnManager {
                 } catch (_: Throwable) {
                     // The service may already be gone; treat it as stopped.
                     _ui.value = UiState(State.OFF, st.profile)
+                    pushWidgetUpdate()
                 }
             }
 
@@ -194,6 +210,7 @@ object VpnManager {
                 } catch (_: Throwable) {
                     // The service may already be gone; treat it as stopped.
                     _ui.value = UiState(State.OFF, st.profile)
+                    pushWidgetUpdate()
                 }
             }
         }
@@ -334,6 +351,7 @@ object VpnManager {
         synchronized(lifecycleLock) {
             if (generation.get() != myGeneration) return null
             _ui.value = compute()
+            pushWidgetUpdate()
             _ui.value
         }
 
@@ -343,6 +361,7 @@ object VpnManager {
             if (generation.get() != myGeneration) return
             _ui.value = UiState(State.OFF, profile, error = message)
         }
+        pushWidgetUpdate()
         VpnStatusNotification.stop()
     }
 
@@ -365,6 +384,7 @@ object VpnManager {
             synchronized(lifecycleLock) {
                 if (generation.get() == myGeneration) {
                     _ui.value = UiState(State.OFF, _ui.value.profile)
+                    pushWidgetUpdate()
                     VpnStatusNotification.stop()
                 }
             }
