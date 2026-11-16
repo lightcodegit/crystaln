@@ -206,9 +206,11 @@ private class LiquidPhysics {
 
     fun step(dt: Float, out: MutableState<Drift>) {
         // Target: liquid pools toward the physically lower side of the
-        // screen. Screen-up flat → g1 ≈ +9.8 → target stays centered.
-        val tx = (g0 / 9.81f).coerceIn(-1f, 1f) * LIQUID_TILT_MAX_PX
-        val ty = -(g1 / 9.81f).coerceIn(-1f, 1f) * LIQUID_TILT_MAX_PX
+        // screen. Accelerometer reads proper acceleration = -gravity:
+        // right edge down → g0 < 0, top edge down → g1 < 0 (screen-up
+        // flat ≈ g1 = +9.8 → target stays centered).
+        val tx = -(g0 / 9.81f).coerceIn(-1f, 1f) * LIQUID_TILT_MAX_PX
+        val ty = (g1 / 9.81f).coerceIn(-1f, 1f) * LIQUID_TILT_MAX_PX
 
         // Slosh kick from rotation (liquid inertia opposes rotation).
         vx += -ry * dt * LIQUID_KICK

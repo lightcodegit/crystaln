@@ -47,7 +47,10 @@ float field(float2 p, float2 c, float r, float2 v) {
     float along = dot(d, dir);
     float across = dot(d, float2(-dir.y, dir.x));
     float2 q = float2(along / (r * s), across / r);
-    return 1.0 / (dot(q, q) + 0.1);
+    // Fourth-power falloff keeps each blob local: second-power fields
+    // with these radii blanket the whole screen.
+    float n = dot(q, q);
+    return 1.0 / (n * n + 0.1);
 }
 
 half4 main(float2 fragCoord) {
