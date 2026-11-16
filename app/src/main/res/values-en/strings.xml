@@ -122,6 +122,13 @@
     <string name="gyro_sub">Background color circles shift as you tilt the phone (parallax)</string>
     <string name="amoled_title">AMOLED mode</string>
     <string name="amoled_sub">True black background in the dark theme — saves battery on OLED screens</string>
+    <string name="applock_title">App lock</string>
+    <string name="applock_sub">Unlock the app with your fingerprint</string>
+    <string name="lock_title">CrystalN is locked</string>
+    <string name="lock_sub">Confirm your fingerprint to continue</string>
+    <string name="lock_locked">Access protected</string>
+    <string name="lock_unlock">Unlock</string>
+    <string name="lock_cancel">Cancel</string>
     <string name="wallpaper_title">Custom wallpaper</string>
     <string name="wallpaper_set">Wallpaper set — a blurred copy backs the glass</string>
     <string name="wallpaper_unset">No wallpaper — the background is built from the palette</string>

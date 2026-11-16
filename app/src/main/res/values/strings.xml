@@ -122,6 +122,13 @@
     <string name="gyro_sub">Цветные круги на фоне двигаются под наклон телефона (параллакс)</string>
     <string name="amoled_title">AMOLED-режим</string>
     <string name="amoled_sub">Чисто чёрный фон в тёмной теме — экономит батарею на OLED-экранах</string>
+    <string name="applock_title">Блокировка приложения</string>
+    <string name="applock_sub">Открывать приложение по отпечатку пальца</string>
+    <string name="lock_title">CrystalN заблокирован</string>
+    <string name="lock_sub">Подтвердите отпечаток, чтобы продолжить</string>
+    <string name="lock_locked">Доступ защищён</string>
+    <string name="lock_unlock">Разблокировать</string>
+    <string name="lock_cancel">Отмена</string>
     <string name="wallpaper_title">Свои обои</string>
     <string name="wallpaper_set">Обои установлены — размытая копия служит фоном стекла</string>
     <string name="wallpaper_unset">Обои не выбраны — фон собирается из палитры</string>

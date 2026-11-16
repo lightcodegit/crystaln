@@ -16,6 +16,14 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.ComponentActivity
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.enableEdgeToEdge
+import androidx.biometric.BiometricManager
+import androidx.biometric.BiometricPrompt
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.filled.Lock
+import androidx.fragment.app.FragmentActivity
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -93,7 +101,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-class MainActivity : ComponentActivity() {
+class MainActivity : FragmentActivity() {
 
     /** v2fly domain list for the ad-block routing rule (dlc.dat = geosite.dat). */
     private val geositeUrl =
@@ -129,6 +137,9 @@ class MainActivity : ComponentActivity() {
     private val paletteId = mutableStateOf("indigo")
     private val gyroBackground = mutableStateOf(false)
     private val amoledMode = mutableStateOf(false)
+    private val appLock = mutableStateOf(false)
+    /** True while the biometric lock is armed and not yet passed. */
+    private val locked = mutableStateOf(false)
     private val autoConnect = mutableStateOf(false)
     private val autoFastest = mutableStateOf(false)
     private val dnsViaTunnel = mutableStateOf(false)
@@ -278,6 +289,8 @@ class MainActivity : ComponentActivity() {
         paletteId.value = SettingsStore.paletteId(this)
         gyroBackground.value = SettingsStore.gyroBackground(this)
         amoledMode.value = SettingsStore.amoledMode(this)
+        appLock.value = SettingsStore.appLock(this)
+        locked.value = appLock.value
         autoConnect.value = SettingsStore.autoConnect(this)
         autoFastest.value = SettingsStore.autoFastest(this)
         dnsViaTunnel.value = SettingsStore.dnsViaTunnel(this)
@@ -315,6 +328,10 @@ class MainActivity : ComponentActivity() {
                 paletteId = paletteId.value,
                 amoledMode = amoledMode.value,
             ) {
+                if (appLock.value && locked.value) {
+                    LockScreen(onUnlock = { showBiometricPrompt() })
+                    return@CrystalNTheme
+                }
                 CompositionLocalProvider(LocalGyroBackground provides gyroBackground.value) {
                 val uiState by VpnManager.ui.collectAsStateWithLifecycle()
 
@@ -497,6 +514,11 @@ class MainActivity : ComponentActivity() {
                             amoledMode.value = on
                             SettingsStore.setAmoledMode(this@MainActivity, on)
                         },
+                        appLock = appLock.value,
+                        onAppLockChange = { on ->
+                            appLock.value = on
+                            SettingsStore.setAppLock(this@MainActivity, on)
+                        },
                         autoConnect = autoConnect.value,
                         onAutoConnectChange = { on ->
                             autoConnect.value = on
@@ -672,6 +694,47 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         handleViewIntent(intent)
+    }
+
+    override fun onStop() {
+        super.onStop()
+        // Relock on every exit (home button, app switch, screen off).
+        if (appLock.value) locked.value = true
+    }
+
+    /** Shows the system biometric dialog; success clears [locked]. */
+    private fun showBiometricPrompt() {
+        val manager = BiometricManager.from(this)
+        val canAuth = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            manager.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_WEAK)
+        } else {
+            @Suppress("DEPRECATION")
+            manager.canAuthenticate()
+        }
+        if (canAuth != BiometricManager.BIOMETRIC_SUCCESS) {
+            // No fingerprint enrolled — there is nothing to check against,
+            // so do not hard-lock the user out of the app.
+            locked.value = false
+            return
+        }
+        val prompt = BiometricPrompt(
+            this,
+            ContextCompat.getMainExecutor(this),
+            object : BiometricPrompt.AuthenticationCallback() {
+                override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
+                    locked.value = false
+                }
+                // onAuthenticationError/Failed: stay locked, the LockScreen
+                // keeps the "Unlock" button available.
+            },
+        )
+        prompt.authenticate(
+            BiometricPrompt.PromptInfo.Builder()
+                .setTitle(getString(R.string.lock_title))
+                .setSubtitle(getString(R.string.lock_sub))
+                .setNegativeButtonText(getString(R.string.lock_cancel))
+                .build(),
+        )
     }
 
     /** Opening a config file from a file manager (VIEW intent). */
@@ -1292,6 +1355,45 @@ private fun ImportAction(icon: ImageVector, label: String, onClick: () -> Unit) 
             )
             Spacer(Modifier.width(10.dp))
             Text(label)
+        }
+    }
+}
+
+/**
+ * Full-screen lock overlay shown while the biometric lock is armed. The
+ * system prompt auto-fires once; the button re-shows it after a cancel.
+ */
+@Composable
+private fun LockScreen(onUnlock: () -> Unit) {
+    LaunchedEffect(Unit) { onUnlock() }
+    Box(
+        Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background),
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Icon(
+                Icons.Default.Lock,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(52.dp),
+            )
+            Spacer(Modifier.height(18.dp))
+            Text(
+                stringResource(R.string.lock_locked),
+                style = MaterialTheme.typography.titleMedium,
+            )
+            Spacer(Modifier.height(6.dp))
+            Text(
+                stringResource(R.string.lock_sub),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(22.dp))
+            TextButton(onClick = onUnlock) {
+                Text(stringResource(R.string.lock_unlock))
+            }
         }
     }
 }

@@ -19,6 +19,7 @@ object SettingsStore {
     private const val KEY_ONBOARDED = "onboarded"
     private const val KEY_GYRO = "gyro_background"
     private const val KEY_AMOLED = "amoled_mode"
+    private const val KEY_APP_LOCK = "app_lock"
 
     /** First-run wizard completed (or explicitly skipped). */
     fun onboarded(context: Context): Boolean =
@@ -161,6 +162,19 @@ object SettingsStore {
     fun setAmoledMode(context: Context, value: Boolean) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .edit().putBoolean(KEY_AMOLED, value).apply()
+    }
+
+    /**
+     * App lock: the profile list is sensitive, so ask for a fingerprint (or
+     * device credential) before showing anything.
+     */
+    fun appLock(context: Context): Boolean =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getBoolean(KEY_APP_LOCK, false)
+
+    fun setAppLock(context: Context, value: Boolean) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit().putBoolean(KEY_APP_LOCK, value).apply()
     }
 
     /** Everything restorable from a backup. The wallpaper image is a binary

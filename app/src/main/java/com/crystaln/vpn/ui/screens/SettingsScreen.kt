@@ -93,6 +93,8 @@ fun SettingsScreen(
     onGyroBackgroundChange: (Boolean) -> Unit,
     amoledMode: Boolean,
     onAmoledModeChange: (Boolean) -> Unit,
+    appLock: Boolean,
+    onAppLockChange: (Boolean) -> Unit,
     autoConnect: Boolean,
     onAutoConnectChange: (Boolean) -> Unit,
     autoFastest: Boolean,
@@ -240,6 +242,13 @@ fun SettingsScreen(
                             subtitle = stringResource(R.string.amoled_sub),
                             checked = amoledMode,
                             onChange = onAmoledModeChange,
+                        )
+                        GlassDivider(Modifier.padding(vertical = 14.dp))
+                        SwitchRow(
+                            title = stringResource(R.string.applock_title),
+                            subtitle = stringResource(R.string.applock_sub),
+                            checked = appLock,
+                            onChange = onAppLockChange,
                         )
                         GlassDivider(Modifier.padding(vertical = 14.dp))
                         Text(
