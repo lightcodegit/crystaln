@@ -1,6 +1,7 @@
 package com.crystaln.vpn.ui
 
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.AnimationVector2D
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.VectorConverter
@@ -17,13 +18,16 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
+import android.os.Build
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
@@ -35,9 +39,9 @@ import com.crystaln.vpn.ui.glass.rememberBreath
  * liquid. Used on every screen that has no custom wallpaper.
  *
  * Motion modes:
- * - "Жидкость" ([LocalLiquidBackground]): blobs are a real liquid —
- *   they pool toward the tilted side, slosh from shakes and wobble
- *   (see [rememberLiquidDrift]);
+ * - "Жидкость" ([LocalLiquidBackground]): on API 33+ the blobs are
+ *   rendered as a real fluid by [LiquidSurface] — metaballs that merge,
+ *   neck and stretch; older devices use springy circles;
  * - "Гироскоп фон" ([LocalGyroBackground]): plain parallax from the
  *   device movement (see [rememberGyroDrift]).
  *
@@ -47,6 +51,13 @@ import com.crystaln.vpn.ui.glass.rememberBreath
  */
 @Composable
 fun LiquidBlobs(isDark: Boolean) {
+    if (LocalLiquidBackground.current &&
+        Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+        metaballsSupported()
+    ) {
+        LiquidSurface(isDark)
+        return
+    }
     val blob = MaterialTheme.colorScheme.primary.copy(alpha = if (isDark) 0.50f else 0.26f)
     val blob2 = MaterialTheme.colorScheme.secondary.copy(alpha = if (isDark) 0.38f else 0.20f)
     val blob3 = MaterialTheme.colorScheme.tertiary.copy(alpha = if (isDark) 0.34f else 0.18f)
@@ -61,10 +72,10 @@ fun LiquidBlobs(isDark: Boolean) {
     }
 
     // Layered lag: light blob follows fast, heavy blob drags behind.
-    val d1 = rememberLagged(drift, 110f)
-    val d2 = rememberLagged(drift, 65f)
-    val d3 = rememberLagged(drift, 40f)
-    val d4 = rememberLagged(drift, 80f)
+    val d1 = rememberLagged(drift, 110f).value
+    val d2 = rememberLagged(drift, 65f).value
+    val d3 = rememberLagged(drift, 40f).value
+    val d4 = rememberLagged(drift, 80f).value
     val gx1 = with(LocalDensity.current) { d1.x.toDp() }
     val gy1 = with(LocalDensity.current) { d1.y.toDp() }
     val gx2 = with(LocalDensity.current) { d2.x.toDp() }
@@ -114,14 +125,17 @@ fun LiquidBlobs(isDark: Boolean) {
 
 /** Springy trail of the raw drift: each layer lags differently. */
 @Composable
-private fun rememberLagged(target: Offset, stiffness: Float): Offset {
+internal fun rememberLagged(
+    target: Offset,
+    stiffness: Float,
+): Animatable<Offset, AnimationVector2D> {
     val anim = remember(stiffness) { Animatable(Offset.Zero, Offset.VectorConverter) }
     LaunchedEffect(target, stiffness) {
         if (anim.value != target) {
             anim.animateTo(target, spring(stiffness = stiffness, dampingRatio = 0.85f))
         }
     }
-    return anim.value
+    return anim
 }
 
 @Composable
