@@ -128,6 +128,7 @@ class MainActivity : ComponentActivity() {
     private val dynamicColor = mutableStateOf(false)
     private val paletteId = mutableStateOf("indigo")
     private val gyroBackground = mutableStateOf(false)
+    private val amoledMode = mutableStateOf(false)
     private val autoConnect = mutableStateOf(false)
     private val autoFastest = mutableStateOf(false)
     private val dnsViaTunnel = mutableStateOf(false)
@@ -276,6 +277,7 @@ class MainActivity : ComponentActivity() {
         dynamicColor.value = SettingsStore.dynamicColor(this)
         paletteId.value = SettingsStore.paletteId(this)
         gyroBackground.value = SettingsStore.gyroBackground(this)
+        amoledMode.value = SettingsStore.amoledMode(this)
         autoConnect.value = SettingsStore.autoConnect(this)
         autoFastest.value = SettingsStore.autoFastest(this)
         dnsViaTunnel.value = SettingsStore.dnsViaTunnel(this)
@@ -311,6 +313,7 @@ class MainActivity : ComponentActivity() {
                 darkTheme = dark,
                 dynamicColor = dynamicColor.value,
                 paletteId = paletteId.value,
+                amoledMode = amoledMode.value,
             ) {
                 CompositionLocalProvider(LocalGyroBackground provides gyroBackground.value) {
                 val uiState by VpnManager.ui.collectAsStateWithLifecycle()
@@ -484,6 +487,11 @@ class MainActivity : ComponentActivity() {
                         onGyroBackgroundChange = { on ->
                             gyroBackground.value = on
                             SettingsStore.setGyroBackground(this@MainActivity, on)
+                        },
+                        amoledMode = amoledMode.value,
+                        onAmoledModeChange = { on ->
+                            amoledMode.value = on
+                            SettingsStore.setAmoledMode(this@MainActivity, on)
                         },
                         autoConnect = autoConnect.value,
                         onAutoConnectChange = { on ->

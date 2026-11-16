@@ -18,6 +18,7 @@ object SettingsStore {
     private const val KEY_WALLPAPER = "wallpaper"
     private const val KEY_ONBOARDED = "onboarded"
     private const val KEY_GYRO = "gyro_background"
+    private const val KEY_AMOLED = "amoled_mode"
 
     /** First-run wizard completed (or explicitly skipped). */
     fun onboarded(context: Context): Boolean =
@@ -146,6 +147,20 @@ object SettingsStore {
     fun setGyroBackground(context: Context, value: Boolean) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .edit().putBoolean(KEY_GYRO, value).apply()
+    }
+
+    /**
+     * AMOLED mode: pure-black background and surfaces in the dark theme
+     * (pixels are fully off — battery savings on OLED panels). No effect
+     * in the light theme.
+     */
+    fun amoledMode(context: Context): Boolean =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getBoolean(KEY_AMOLED, false)
+
+    fun setAmoledMode(context: Context, value: Boolean) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit().putBoolean(KEY_AMOLED, value).apply()
     }
 
     /** Everything restorable from a backup. The wallpaper image is a binary

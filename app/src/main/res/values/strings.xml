@@ -120,6 +120,8 @@
     <string name="palette_label">Палитра</string>
     <string name="gyro_title">Гироскоп фон</string>
     <string name="gyro_sub">Цветные круги на фоне двигаются под наклон телефона (параллакс)</string>
+    <string name="amoled_title">AMOLED-режим</string>
+    <string name="amoled_sub">Чисто чёрный фон в тёмной теме — экономит батарею на OLED-экранах</string>
     <string name="wallpaper_title">Свои обои</string>
     <string name="wallpaper_set">Обои установлены — размытая копия служит фоном стекла</string>
     <string name="wallpaper_unset">Обои не выбраны — фон собирается из палитры</string>
