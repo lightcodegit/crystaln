@@ -68,6 +68,7 @@ import com.crystaln.vpn.ui.theme.LocalCrystalPalette
 fun EditorScreen(
     existing: Profile?,
     isDark: Boolean,
+    groups: List<String> = emptyList(),
     onSave: (Profile) -> Unit,
     onBack: () -> Unit,
 ) {
@@ -76,6 +77,7 @@ fun EditorScreen(
     var tls by remember(protocol) { mutableStateOf(existing?.fields?.get("tls") == "true") }
     var reality by remember(protocol) { mutableStateOf(existing?.fields?.get("reality") == "true") }
     var insecure by remember(protocol) { mutableStateOf(existing?.fields?.get("allowInsecure") == "true") }
+    var selectedGroup by remember { mutableStateOf(existing?.group) }
 
     fun set(key: String, value: String) {
         values[key] = value
@@ -158,8 +160,31 @@ fun EditorScreen(
 
                     Spacer(Modifier.height(8.dp))
 
+                    // ── Group picker ───────────────────────────────────
+                    SectionLabel(stringResource(R.string.editor_group_section))
+                    GlassPanel(isDark = isDark) {
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            val none = stringResource(R.string.group_none)
+                            ProtocolTextChip(
+                                label = none,
+                                selected = selectedGroup == null,
+                                onClick = { selectedGroup = null },
+                            )
+                            groups.forEach { g ->
+                                ProtocolTextChip(
+                                    label = g,
+                                    selected = selectedGroup == g,
+                                    onClick = { selectedGroup = g },
+                                )
+                            }
+                        }
+                    }
+
                     SaveButton(onClick = {
-                        onSave(buildProfile(existing, protocol, values, tls, reality, insecure))
+                        onSave(buildProfile(existing, protocol, values, tls, reality, insecure, selectedGroup))
                     })
 
                     Spacer(Modifier.height(24.dp))
@@ -226,12 +251,14 @@ private fun buildProfile(
     tls: Boolean,
     reality: Boolean,
     insecure: Boolean,
+    group: String?,
 ): Profile {
     fun v(key: String) = values[key]?.trim().orEmpty()
     val name = v("name").ifEmpty { existing?.name ?: "${protocol.displayName} ${v("address")}" }
     val p = existing?.copy() ?: Profile(name = name, protocol = protocol)
     p.name = name
     p.protocol = protocol
+    p.group = group?.trim()?.takeIf { it.isNotEmpty() }
 
     if (protocol == Protocol.WIREGUARD || protocol == Protocol.AMNEZIAWG) {
         p.wgConfig = v("wgConfig")

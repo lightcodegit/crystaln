@@ -29,6 +29,7 @@ import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.FileOpen
 import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.NetworkCheck
 import androidx.compose.material.icons.filled.PowerSettingsNew
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
@@ -46,6 +47,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.Alignment
@@ -63,6 +65,7 @@ import com.crystaln.vpn.R
 import com.crystaln.vpn.data.SettingsStore
 import com.crystaln.vpn.data.Subscription
 import com.crystaln.vpn.data.SubscriptionsStore
+import com.crystaln.vpn.net.TcpPing
 import com.crystaln.vpn.ui.LiquidBlobs
 import com.crystaln.vpn.ui.WallpaperLayer
 import com.crystaln.vpn.ui.glass.CircleGlassButton
@@ -72,6 +75,7 @@ import com.crystaln.vpn.ui.glass.GlassSegmented
 import com.crystaln.vpn.ui.glass.GlassTab
 import com.crystaln.vpn.ui.glass.GlassTabBar
 import com.crystaln.vpn.ui.glass.PillButton
+import kotlinx.coroutines.launch
 import com.crystaln.vpn.ui.glass.SectionLabel
 import com.crystaln.vpn.ui.glass.liquidGlass
 import com.crystaln.vpn.ui.rememberWallpaper
@@ -446,6 +450,10 @@ fun SettingsScreen(
                         }
                     }
 
+                    // ── Tools: standalone ping test ────────────────────
+                    SectionLabel(stringResource(R.string.section_tools))
+                    PingToolPanel(isDark = glassDark, overWallpaper = overWallpaper)
+
                     // ── Data ───────────────────────────────────────────
                     SectionLabel(stringResource(R.string.section_data))
                     SettingsPanel(isDark = glassDark, overWallpaper = overWallpaper) {
@@ -689,5 +697,79 @@ private fun SwitchRow(
             enabled = enabled,
             modifier = Modifier.alpha(if (enabled) 1f else 0.5f),
         )
+    }
+}
+
+/**
+ * Standalone ping tool: type any site or IP (optionally host:port) and get
+ * the TCP-connect latency. Runs on Dispatchers.IO, independent of the VPN
+ * state and of any profile.
+ */
+@Composable
+private fun PingToolPanel(isDark: Boolean, overWallpaper: Boolean) {
+    var input by remember { mutableStateOf("") }
+    var running by remember { mutableStateOf(false) }
+    /** Measured latency + port, or null while idle; -1 = unreachable. */
+    var result by remember { mutableStateOf<Pair<Long, Int>?>(null) }
+    val scope = rememberCoroutineScope()
+
+    SettingsPanel(isDark = isDark, overWallpaper = overWallpaper) {
+        OutlinedTextField(
+            value = input,
+            onValueChange = { input = it },
+            singleLine = true,
+            placeholder = { Text(stringResource(R.string.ping_tool_hint)) },
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Spacer(Modifier.height(10.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            PillButton(
+                text = stringResource(R.string.ping_tool_run),
+                icon = Icons.Default.NetworkCheck,
+                accent = true,
+                isDark = isDark,
+                enabled = input.isNotBlank() && !running,
+                onClick = {
+                    val target = TcpPing.parse(input) ?: return@PillButton
+                    running = true
+                    result = null
+                    scope.launch {
+                        val ms = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                            TcpPing.measure(target.first, target.second)
+                        }
+                        result = ms to target.second
+                        running = false
+                    }
+                },
+            )
+            Spacer(Modifier.width(12.dp))
+            when {
+                running -> Text(
+                    stringResource(R.string.ping_tool_running),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+
+                result != null && result!!.first < 0 -> Text(
+                    stringResource(R.string.ping_tool_fail),
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.error,
+                )
+
+                result != null -> Text(
+                    stringResource(R.string.ping_tool_ok, result!!.first, result!!.second),
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+
+                else -> Text(
+                    stringResource(R.string.ping_tool_idle),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
     }
 }

@@ -7,7 +7,6 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -27,36 +26,20 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.ContentCopy
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.FileOpen
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Lan
-import androidx.compose.material.icons.filled.NetworkCheck
 import androidx.compose.material.icons.filled.PowerSettingsNew
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Share
-import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.filled.StarBorder
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
@@ -68,37 +51,22 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.platform.LocalClipboardManager
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import android.content.Intent
-import android.graphics.Bitmap
-import android.widget.Toast
 import com.crystaln.vpn.R
 import com.crystaln.vpn.data.Profile
-import com.crystaln.vpn.data.ProfileShareLink
 import com.crystaln.vpn.data.Protocol
-import com.crystaln.vpn.data.TrafficStats
-import com.google.zxing.BarcodeFormat
-import com.google.zxing.EncodeHintType
-import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel
-import com.google.zxing.qrcode.QRCodeWriter
 import com.crystaln.vpn.service.VpnManager
 import com.crystaln.vpn.ui.LiquidBlobs
 import com.crystaln.vpn.ui.WallpaperLayer
-import com.crystaln.vpn.ui.glass.CircleGlassButton
-import com.crystaln.vpn.ui.glass.CountBadge
 import com.crystaln.vpn.ui.glass.Glass
 import com.crystaln.vpn.ui.glass.GlassTab
 import com.crystaln.vpn.ui.glass.GlassTabBar
-import com.crystaln.vpn.ui.glass.PillButton
+import com.crystaln.vpn.ui.glass.CountBadge
 import com.crystaln.vpn.ui.glass.liquidGlass
 import dev.chrisbanes.haze.hazeSource
 import dev.chrisbanes.haze.rememberHazeState
@@ -107,57 +75,37 @@ import com.crystaln.vpn.ui.theme.LocalCrystalPalette
 
 fun protocolColor(p: Protocol): Color = when (p) {
     Protocol.VMESS -> Color(0xFF4F6AF6)
-    Protocol.VLESS -> Color(0xFF7C4FF6)
-    Protocol.TROJAN -> Color(0xFFE85A6A)
-    Protocol.SHADOWSOCKS -> Color(0xFF38B6E8)
-    Protocol.SOCKS -> Color(0xFF2BB673)
+    Protocol.VLESS -> Color(0xFF6C4FF6)
+    Protocol.TROJAN -> Color(0xFFE85454)
+    Protocol.SHADOWSOCKS -> Color(0xFF3FBF7F)
+    Protocol.SOCKS -> Color(0xFF8A93A6)
     Protocol.HTTP, Protocol.HTTPS -> Color(0xFFE8A238)
-    Protocol.WIREGUARD -> Color(0xFFE8622C)
-    Protocol.AMNEZIAWG -> Color(0xFFD04FF6)
-    Protocol.OPENVPN -> Color(0xFF4F9E58)
+    Protocol.WIREGUARD -> Color(0xFFE86A4B)
+    Protocol.AMNEZIAWG -> Color(0xFFC95E3F)
+    Protocol.OPENVPN -> Color(0xFFC9A23F)
 }
 
+/**
+ * The "Connect" tab: header, the big status hero with the connect ring and
+ * a glass entry card into the profiles tab. The profile list itself lives
+ * in [ProfilesScreen].
+ */
 @Composable
 fun MainScreen(
     isDark: Boolean,
     state: VpnManager.UiState,
-    profiles: List<Profile>,
-    selectedId: String?,
+    profileCount: Int,
+    selected: Profile?,
     wallpaperPath: String? = null,
-    onSelect: (Profile) -> Unit,
-    onEdit: (Profile) -> Unit,
-    onDelete: (Profile) -> Unit,
-    onAdd: () -> Unit,
-    onImport: () -> Unit,
     onConnect: () -> Unit,
     onSettings: () -> Unit,
-    /** Measured TCP ping per profile id (ms), -1 = unreachable, absent = not measured. */
-    pingResults: Map<String, Long> = emptyMap(),
-    onPing: (Profile) -> Unit = {},
-    pingAllRunning: Boolean = false,
-    onPingAll: () -> Unit = {},
-    /** Accumulated per-profile usage, id → totals. */
-    trafficStats: Map<String, TrafficStats> = emptyMap(),
-    /** Profile search filter. */
-    searchQuery: String = "",
-    onSearchChange: (String) -> Unit = {},
-    /** Subscription id → display name, for grouping. */
-    subscriptionTitles: Map<String, String> = emptyMap(),
-    /** Open the share dialog (link + QR) for a profile. */
-    onShare: (Profile) -> Unit = {},
-    /** Toggle the "favorites" pin (pinned to the top of the list). */
-    onToggleFavorite: (Profile) -> Unit = {},
-    shareProfile: Profile? = null,
-    onDismissShare: () -> Unit = {},
+    onProfiles: () -> Unit,
 ) {
     val wallpaper = rememberWallpaper(wallpaperPath)
     val overWallpaper = wallpaper != null
     // Glass adapts to the photo: dark wallpaper gets dark glass with a
     // light rim, light wallpaper gets frosted white glass.
     val glassDark = wallpaper?.isDark ?: isDark
-    // Favorites first; a stable sort keeps the original order within each
-    // group (plain alphabetical/reverse not needed — pinned just float up).
-    val ordered = remember(profiles) { profiles.sortedByDescending { it.favorite } }
 
     BoxWithConstraints(
         Modifier
@@ -178,8 +126,6 @@ fun MainScreen(
             // dark theme gets light text, a light one dark text. Glass itself
             // still adapts to the wallpaper via glassDark.
             CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onBackground) {
-                // The whole screen scrolls as one: header, hero, search and
-                // the profile list live in a single LazyColumn.
                 LazyColumn(
                     Modifier
                         .fillMaxSize()
@@ -193,7 +139,7 @@ fun MainScreen(
                 item {
                     HeroStatus(
                         state = state,
-                        selected = profiles.firstOrNull { it.id == (state.profile?.id ?: selectedId) },
+                        selected = selected,
                         isDark = glassDark,
                         overWallpaper = overWallpaper,
                         onConnect = onConnect,
@@ -201,144 +147,13 @@ fun MainScreen(
                 }
 
                 item {
-                    ProfilesHeader(
-                        count = ordered.size,
+                    ProfilesEntry(
+                        count = profileCount,
                         isDark = glassDark,
                         overWallpaper = overWallpaper,
-                        onImport = onImport,
-                        onAdd = onAdd,
-                        pingAllRunning = pingAllRunning,
-                        onPingAll = onPingAll,
+                        onClick = onProfiles,
                     )
                 }
-
-                if (ordered.isNotEmpty()) {
-                    item {
-                        OutlinedTextField(
-                            value = searchQuery,
-                            onValueChange = onSearchChange,
-                            singleLine = true,
-                            placeholder = { Text(stringResource(R.string.search_hint)) },
-                            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-                            trailingIcon = {
-                                if (searchQuery.isNotEmpty()) {
-                                    IconButton(onClick = { onSearchChange("") }) {
-                                        Icon(Icons.Default.Close, contentDescription = "Clear")
-                                    }
-                                }
-                            },
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                    }
-                }
-
-                    if (ordered.isEmpty()) {
-                        item {
-                            EmptyProfiles(
-                                isDark = glassDark,
-                                overWallpaper = overWallpaper,
-                                onImport = onImport,
-                                onAdd = onAdd,
-                            )
-                        }
-                    } else {
-                        val query = searchQuery.trim()
-                        val matched = { p: Profile ->
-                            query.isEmpty() ||
-                                p.name.contains(query, ignoreCase = true) ||
-                                p.address.contains(query, ignoreCase = true) ||
-                                p.protocol.displayName.contains(query, ignoreCase = true)
-                        }
-                        if (query.isNotEmpty()) {
-                            items(ordered.filter(matched), key = { it.id }) { p ->
-                                ProfileCard(
-                                    profile = p,
-                                    selected = p.id == selectedId,
-                                    isDark = glassDark,
-                                    overWallpaper = overWallpaper,
-                                    ping = pingResults[p.id],
-                                    pingable = isPingable(p),
-                                    onPing = { onPing(p) },
-                                    onSelect = { onSelect(p) },
-                                    onEdit = { onEdit(p) },
-                                    onDelete = { onDelete(p) },
-                                    onShare = { onShare(p) },
-                                    favorite = p.favorite,
-                                    onToggleFavorite = { onToggleFavorite(p) },
-                                    totalTraffic = trafficStats[p.id],
-                                )
-                            }
-                        } else if (subscriptionTitles.isNotEmpty()) {
-                            // Grouped: subscription groups first, then manual profiles.
-                            val groups = subscriptionTitles.entries
-                                .map { entry -> entry.key to ordered.filter { it.subscriptionId == entry.key } }
-                                .filter { it.second.isNotEmpty() }
-                            val manual = ordered.filter { it.subscriptionId == null }
-                            groups.forEach { (title, list) ->
-                                item(key = "group-$title") { SectionHeader(title) }
-                                items(list, key = { it.id }) { p ->
-                                    ProfileCard(
-                                        profile = p,
-                                        selected = p.id == selectedId,
-                                        isDark = glassDark,
-                                        overWallpaper = overWallpaper,
-                                        ping = pingResults[p.id],
-                                        pingable = isPingable(p),
-                                        onPing = { onPing(p) },
-                                        onSelect = { onSelect(p) },
-                                        onEdit = { onEdit(p) },
-                                        onDelete = { onDelete(p) },
-                                        onShare = { onShare(p) },
-                                        favorite = p.favorite,
-                                        onToggleFavorite = { onToggleFavorite(p) },
-                                        totalTraffic = trafficStats[p.id],
-                                    )
-                                }
-                            }
-                            if (manual.isNotEmpty()) {
-                                item(key = "group-manual") {
-                                    SectionHeader(stringResource(R.string.group_manual))
-                                }
-                                items(manual, key = { it.id }) { p ->
-                                    ProfileCard(
-                                        profile = p,
-                                        selected = p.id == selectedId,
-                                        isDark = glassDark,
-                                        overWallpaper = overWallpaper,
-                                        ping = pingResults[p.id],
-                                        pingable = isPingable(p),
-                                        onPing = { onPing(p) },
-                                        onSelect = { onSelect(p) },
-                                        onEdit = { onEdit(p) },
-                                        onDelete = { onDelete(p) },
-                                        onShare = { onShare(p) },
-                                        favorite = p.favorite,
-                                        onToggleFavorite = { onToggleFavorite(p) },
-                                        totalTraffic = trafficStats[p.id],
-                                    )
-                                }
-                            }
-                        } else {
-                            items(ordered.filter(matched), key = { it.id }) { p ->
-                                ProfileCard(
-                                    profile = p,
-                                    selected = p.id == selectedId,
-                                    isDark = glassDark,
-                                    overWallpaper = overWallpaper,
-                                    ping = pingResults[p.id],
-                                    pingable = isPingable(p),
-                                    onPing = { onPing(p) },
-                                    onSelect = { onSelect(p) },
-                                    onEdit = { onEdit(p) },
-                                    onDelete = { onDelete(p) },
-                                    onShare = { onShare(p) },
-                                    favorite = p.favorite,
-                                    onToggleFavorite = { onToggleFavorite(p) },
-                                    totalTraffic = trafficStats[p.id],
-                                )
-                            }
-                        }
-                    }
                 }
             }
         }
@@ -351,150 +166,102 @@ fun MainScreen(
             overWallpaper = overWallpaper,
             tabs = listOf(
                 GlassTab(Icons.Default.PowerSettingsNew, stringResource(R.string.tab_connect)),
+                GlassTab(Icons.Default.Lan, stringResource(R.string.tab_profiles)),
                 GlassTab(Icons.Default.Settings, stringResource(R.string.tab_settings)),
             ),
             selected = 0,
-            onSelect = { index -> if (index == 1) onSettings() },
+            onSelect = { index ->
+                when (index) {
+                    1 -> onProfiles()
+                    2 -> onSettings()
+                }
+            },
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .navigationBarsPadding()
                 .padding(horizontal = 28.dp, vertical = 12.dp),
         )
-
-        shareProfile?.let { profile ->
-            ShareProfileDialog(profile = profile, onDismiss = onDismissShare)
-        }
     }
 }
 
-/** Small grey caption above a profile group. */
+/** Glass card that opens the profiles tab: icon, title, count badge, chevron. */
 @Composable
-private fun SectionHeader(title: String) {
-    Text(
-        title.uppercase(),
-        style = MaterialTheme.typography.labelMedium,
-        fontWeight = FontWeight.Bold,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(start = 4.dp, top = 2.dp),
-    )
-}
-
-/**
- * Share dialog: QR code (for scanning into another device) plus the raw
- * share text with copy / system-share actions. Profiles without shareable
- * content (e.g. a WG config that was never filled) say so instead.
- */
-@Composable
-private fun ShareProfileDialog(
-    profile: Profile,
-    onDismiss: () -> Unit,
+private fun ProfilesEntry(
+    count: Int,
+    isDark: Boolean,
+    overWallpaper: Boolean,
+    onClick: () -> Unit,
 ) {
-    val context = LocalContext.current
-    val clipboard = LocalClipboardManager.current
-    val text = remember(profile.id) { ProfileShareLink.shareText(profile) }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.share_title)) },
-        text = {
-            Column {
-                if (text == null) {
-                    Text(
-                        stringResource(R.string.share_unavailable),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                } else {
-                    if (text.length <= QR_MAX_TEXT) {
-                        val qr = remember(text) { qrBitmap(text) }
-                        Image(
-                            bitmap = qr.asImageBitmap(),
-                            contentDescription = "QR code",
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(bottom = 12.dp),
-                        )
-                    }
-                    OutlinedTextField(
-                        value = text,
-                        onValueChange = {},
-                        readOnly = true,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                }
-            }
-        },
-        confirmButton = {
-            if (text != null) {
-                Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-                    TextButton(onClick = {
-                        clipboard.setText(AnnotatedString(text))
-                        Toast.makeText(context, R.string.share_copied, Toast.LENGTH_SHORT).show()
-                    }) {
-                        Icon(
-                            Icons.Default.ContentCopy,
-                            contentDescription = null,
-                            modifier = Modifier.size(16.dp),
-                        )
-                        Spacer(Modifier.width(4.dp))
-                        Text(stringResource(R.string.action_copy))
-                    }
-                    TextButton(onClick = {
-                        val intent = Intent(Intent.ACTION_SEND).apply {
-                            type = "text/plain"
-                            putExtra(Intent.EXTRA_TEXT, text)
-                        }
-                        context.startActivity(Intent.createChooser(intent, null))
-                    }) {
-                        Text(stringResource(R.string.action_share))
-                    }
-                }
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.cancel))
-            }
-        },
-    )
-}
-
-/** Beyond this, QR density stops being scannable; fall back to text-only. */
-private const val QR_MAX_TEXT = 2000
-
-/** Black-on-white QR of [content], quiet zone 1 module. */
-private fun qrBitmap(content: String): Bitmap {
-    val size = 780
-    val hints = mapOf(
-        EncodeHintType.MARGIN to 1,
-        EncodeHintType.ERROR_CORRECTION to ErrorCorrectionLevel.M,
-    )
-    val matrix = QRCodeWriter().encode(content, BarcodeFormat.QR_CODE, size, size, hints)
-    val pixels = IntArray(size * size) { i ->
-        if (matrix.get(i % size, i / size)) android.graphics.Color.BLACK
-        else android.graphics.Color.WHITE
+    val shape = RoundedCornerShape(22.dp)
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .liquidGlass(shape, Glass.tint(isDark, overWallpaper), isDark)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            Modifier
+                .size(40.dp)
+                .clip(RoundedCornerShape(14.dp))
+                .background(
+                    Brush.linearGradient(
+                        listOf(
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.30f),
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                        ),
+                    ),
+                ),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                Icons.Default.Lan,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(19.dp),
+            )
+        }
+        Spacer(Modifier.width(10.dp))
+        Text(
+            stringResource(R.string.tab_profiles),
+            style = MaterialTheme.typography.bodyLarge,
+            fontWeight = FontWeight.SemiBold,
+        )
+        Spacer(Modifier.width(8.dp))
+        CountBadge(count)
+        Spacer(Modifier.weight(1f))
+        Icon(
+            Icons.Default.ChevronRight,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(20.dp),
+        )
     }
-    return Bitmap.createBitmap(pixels, size, size, Bitmap.Config.ARGB_8888)
 }
 
 /** App identity row: gradient logo mark, name, live status chip. */
 @Composable
 private fun Header(state: VpnManager.UiState, dark: Boolean) {
-    Row(
-        Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
+    val palette = LocalCrystalPalette.current
+    Row(verticalAlignment = Alignment.CenterVertically) {
         Box(
             Modifier
-                .size(42.dp)
-                .clip(RoundedCornerShape(14.dp))
-                .background(Brush.linearGradient(LocalCrystalPalette.current.gradient(dark))),
+                .size(34.dp)
+                .clip(RoundedCornerShape(11.dp))
+                .background(Brush.linearGradient(palette.gradient(dark))),
             contentAlignment = Alignment.Center,
         ) {
-            Text("C", color = Color.White, fontWeight = FontWeight.Black, style = MaterialTheme.typography.titleLarge)
+            Icon(
+                Icons.Default.Lan,
+                contentDescription = null,
+                tint = Color.White,
+                modifier = Modifier.size(17.dp),
+            )
         }
-        Spacer(Modifier.width(11.dp))
+        Spacer(Modifier.width(9.dp))
         Text(
-            "CrystalN",
+            stringResource(R.string.app_name),
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.Black,
         )
@@ -503,14 +270,17 @@ private fun Header(state: VpnManager.UiState, dark: Boolean) {
     }
 }
 
-/** Compact status indicator in the header. */
+/** Small colored dot + label for the tunnel state. */
 @Composable
 private fun StatusChip(state: VpnManager.UiState) {
     val (label, color) = when (state.state) {
-        VpnManager.State.OFF -> stringResource(R.string.state_short_off) to com.crystaln.vpn.ui.theme.StatusOff
-        VpnManager.State.STARTING -> stringResource(R.string.state_short_starting) to com.crystaln.vpn.ui.theme.StatusConnecting
+        VpnManager.State.OFF ->
+            stringResource(R.string.state_short_off) to com.crystaln.vpn.ui.theme.StatusOff
+        VpnManager.State.STARTING ->
+            stringResource(R.string.state_short_starting) to com.crystaln.vpn.ui.theme.StatusConnecting
         VpnManager.State.CONNECTED -> "VPN" to com.crystaln.vpn.ui.theme.StatusConnected
-        VpnManager.State.STOPPING -> stringResource(R.string.state_short_stopping) to com.crystaln.vpn.ui.theme.StatusConnecting
+        VpnManager.State.STOPPING ->
+            stringResource(R.string.state_short_stopping) to com.crystaln.vpn.ui.theme.StatusConnecting
     }
     Row(
         Modifier
@@ -532,8 +302,8 @@ private fun StatusChip(state: VpnManager.UiState) {
 }
 
 /**
- * The hero: a large status ring with the power button in the middle, the
- * headline below it, the selected profile chip and live traffic stats.
+ * The hero block: the connect ring, the headline state, the selected
+ * profile pill and live traffic stat cards while connected.
  */
 @Composable
 private fun HeroStatus(
@@ -826,341 +596,6 @@ private fun StatCard(
     }
 }
 
-/** Section header with the count badge and the add / import buttons. */
-@Composable
-private fun ProfilesHeader(
-    count: Int,
-    isDark: Boolean,
-    overWallpaper: Boolean,
-    onImport: () -> Unit,
-    onAdd: () -> Unit,
-    pingAllRunning: Boolean = false,
-    onPingAll: () -> Unit = {},
-) {
-    Row(
-        Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            stringResource(R.string.profiles_title),
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
-        )
-        Spacer(Modifier.width(8.dp))
-        CountBadge(count)
-        Spacer(Modifier.weight(1f))
-        CircleGlassButton(
-            icon = Icons.Default.NetworkCheck,
-            contentDescription = "Ping all servers",
-            isDark = isDark,
-            overWallpaper = overWallpaper,
-            onClick = onPingAll,
-            size = 40.dp,
-            enabled = count > 0 && !pingAllRunning,
-        )
-        Spacer(Modifier.width(8.dp))
-        CircleGlassButton(
-            icon = Icons.Default.FileOpen,
-            contentDescription = "Import from file",
-            isDark = isDark,
-            overWallpaper = overWallpaper,
-            onClick = onImport,
-            size = 40.dp,
-        )
-        Spacer(Modifier.width(8.dp))
-        CircleGlassButton(
-            icon = Icons.Default.Add,
-            contentDescription = "Add profile",
-            isDark = isDark,
-            accent = true,
-            onClick = onAdd,
-            size = 40.dp,
-        )
-    }
-}
-
-@Composable
-private fun ProfileCard(
-    profile: Profile,
-    selected: Boolean,
-    isDark: Boolean,
-    overWallpaper: Boolean,
-    ping: Long?,
-    pingable: Boolean,
-    onPing: () -> Unit,
-    onSelect: () -> Unit,
-    onEdit: () -> Unit,
-    onDelete: () -> Unit,
-    onShare: () -> Unit = {},
-    /** "Favorites" pin state + toggle (star icon button). */
-    favorite: Boolean = false,
-    onToggleFavorite: () -> Unit = {},
-    totalTraffic: TrafficStats? = null,
-) {
-    val pc = protocolColor(profile.protocol)
-    val shape = RoundedCornerShape(22.dp)
-    Box(
-        Modifier
-            .fillMaxWidth()
-            .liquidGlass(
-                shape,
-                if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.20f) else Glass.tint(isDark, overWallpaper),
-                isDark,
-            )
-            .then(
-                if (selected) {
-                    Modifier.border(1.5.dp, MaterialTheme.colorScheme.primary, shape)
-                } else {
-                    Modifier
-                },
-            )
-            .clickable(onClick = onSelect),
-    ) {
-        Column(
-            Modifier
-                .fillMaxWidth()
-                .padding(start = 12.dp, top = 10.dp, bottom = 6.dp, end = 8.dp),
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    Modifier
-                        .size(40.dp)
-                        .clip(RoundedCornerShape(14.dp))
-                        .background(
-                            Brush.linearGradient(
-                                listOf(pc.copy(alpha = 0.30f), pc.copy(alpha = 0.12f)),
-                            ),
-                        ),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(
-                        Icons.Default.Lan,
-                        contentDescription = null,
-                        tint = pc,
-                        modifier = Modifier.size(19.dp),
-                    )
-                }
-                Spacer(Modifier.width(10.dp))
-                // Full-width text column: the action icons live on their
-                // own row below, so ping and server info are never starved.
-                Column(Modifier.weight(1f)) {
-                    Text(
-                        profile.name,
-                        style = MaterialTheme.typography.bodyLarge,
-                        fontWeight = FontWeight.SemiBold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            profile.protocol.displayName,
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = pc,
-                        )
-                        Spacer(Modifier.width(5.dp))
-                        Text(
-                            profile.summary(),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    }
-                    totalTraffic?.takeIf { it.rx + it.tx > 0 }?.let { t ->
-                        Text(
-                            stringResource(
-                                R.string.profile_traffic_total,
-                                formatBytes(t.rx + t.tx),
-                            ),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    }
-                }
-                Spacer(Modifier.width(8.dp))
-                if (pingable) {
-                    PingChip(ping = ping, tint = pc, onPing = onPing)
-                    Spacer(Modifier.width(6.dp))
-                }
-                if (selected) {
-                    Box(
-                        Modifier
-                            .size(22.dp)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.primary),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Icon(
-                            Icons.Default.Check,
-                            contentDescription = "Selected",
-                            tint = MaterialTheme.colorScheme.onPrimary,
-                            modifier = Modifier.size(14.dp),
-                        )
-                    }
-                }
-            }
-            // Actions row: star (favorite), share, edit, delete. Compact
-            // 30dp buttons, right-aligned — never squeeze the text column.
-            Row(
-                Modifier
-                    .fillMaxWidth()
-                    .padding(top = 2.dp, end = 2.dp),
-                horizontalArrangement = Arrangement.End,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                IconButton(onClick = onToggleFavorite, modifier = Modifier.size(30.dp)) {
-                    Icon(
-                        if (favorite) Icons.Default.Star else Icons.Default.StarBorder,
-                        contentDescription = "Favorite",
-                        modifier = Modifier.size(15.dp),
-                        tint = if (favorite) Color(0xFFFFC94A) else MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                IconButton(onClick = onShare, modifier = Modifier.size(30.dp)) {
-                    Icon(
-                        Icons.Default.Share,
-                        contentDescription = "Share",
-                        modifier = Modifier.size(15.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                IconButton(onClick = onEdit, modifier = Modifier.size(30.dp)) {
-                    Icon(
-                        Icons.Default.Edit,
-                        contentDescription = "Edit",
-                        modifier = Modifier.size(15.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                IconButton(onClick = onDelete, modifier = Modifier.size(30.dp)) {
-                    Icon(
-                        Icons.Default.Delete,
-                        contentDescription = "Delete",
-                        modifier = Modifier.size(15.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
-        }
-    }
-}
-
-/**
- * Small chip showing the measured server ping for a profile: a "measure"
- * icon before the first attempt, "—" in error color when unreachable,
- * "N мс" otherwise. Tap (re)measures.
- */
-@Composable
-private fun PingChip(
-    ping: Long?,
-    tint: Color,
-    onPing: () -> Unit,
-) {
-    Box(
-        Modifier
-            .clip(RoundedCornerShape(999.dp))
-            .background(tint.copy(alpha = 0.16f))
-            .clickable(onClick = onPing)
-            .padding(horizontal = 9.dp, vertical = 4.dp),
-        contentAlignment = Alignment.Center,
-    ) {
-        when {
-            ping == null -> Icon(
-                Icons.Default.NetworkCheck,
-                contentDescription = "Ping",
-                tint = tint,
-                modifier = Modifier.size(15.dp),
-            )
-
-            ping < 0 -> Text(
-                "—",
-                style = MaterialTheme.typography.labelSmall,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.error,
-            )
-
-            else -> Text(
-                stringResource(R.string.ping_ms, ping),
-                style = MaterialTheme.typography.labelSmall,
-                fontWeight = FontWeight.Bold,
-                color = tint,
-            )
-        }
-    }
-}
-
-/** TCP-connect ping is only meaningful for Xray-family TCP transports. */
-private fun isPingable(p: Profile): Boolean {
-    if (p.isWireGuardFamily || p.isOpenVpn) return false
-    if (p.address.isEmpty() || p.port <= 0) return false
-    return (p.fields["network"] ?: "tcp") !in setOf("quic", "kcp", "udp")
-}
-
-@Composable
-private fun EmptyProfiles(
-    isDark: Boolean,
-    overWallpaper: Boolean,
-    onImport: () -> Unit,
-    onAdd: () -> Unit,
-) {
-    Column(
-        Modifier
-            .fillMaxWidth()
-            .liquidGlass(RoundedCornerShape(22.dp), Glass.tint(isDark, overWallpaper), isDark)
-            .padding(24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Box(
-            Modifier
-                .size(54.dp)
-                .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                Icons.Default.Lan,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(26.dp),
-            )
-        }
-        Spacer(Modifier.height(12.dp))
-        Text(
-            stringResource(R.string.empty_profiles),
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
-        )
-        Spacer(Modifier.height(4.dp))
-        Text(
-            stringResource(R.string.empty_profiles_hint),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center,
-        )
-        Spacer(Modifier.height(14.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            PillButton(
-                text = stringResource(R.string.action_import),
-                icon = Icons.Default.FileOpen,
-                accent = false,
-                isDark = isDark,
-                overWallpaper = overWallpaper,
-                onClick = onImport,
-            )
-            PillButton(
-                text = stringResource(R.string.action_create),
-                icon = Icons.Default.Add,
-                accent = true,
-                isDark = isDark,
-                onClick = onAdd,
-            )
-        }
-    }
-}
-
 fun humanBytes(v: Long): String {
     val units = arrayOf("B", "KB", "MB", "GB", "TB")
     var x = v.toDouble()
@@ -1170,13 +605,4 @@ fun humanBytes(v: Long): String {
         u++
     }
     return "%.1f %s".format(x, units[u])
-}
-
-/** Localized byte size for the per-profile totals row. */
-@Composable
-private fun formatBytes(v: Long): String = when {
-    v >= 1L shl 40 -> stringResource(R.string.size_tb_fmt, v / 1099511627776.0)
-    v >= 1L shl 30 -> stringResource(R.string.size_gb_fmt, v / 1073741824.0)
-    v >= 1L shl 20 -> stringResource(R.string.size_mb_fmt, v / 1048576.0)
-    else -> stringResource(R.string.size_kb_fmt, v / 1024.0)
 }

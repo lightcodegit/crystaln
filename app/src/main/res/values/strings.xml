@@ -39,6 +39,7 @@
     <string name="stat_upload">Отдача</string>
     <string name="tab_connect">Подключение</string>
     <string name="tab_settings">Настройки</string>
+    <string name="tab_profiles">Профили</string>
     <string name="server_unreachable">Сервер недоступен</string>
 
     <!-- Profiles -->
@@ -152,6 +153,37 @@
     <string name="block_ads_ready">База рекламных доменов загружена</string>
     <string name="search_hint">Поиск профилей</string>
     <string name="group_manual">Вручную</string>
+    <string name="search_no_results">Ничего не найдено</string>
+
+    <!-- Profile groups -->
+    <string name="group_filter_all">Все</string>
+    <string name="group_filter_favorites">Избранное</string>
+    <string name="group_filter_ungrouped">Без группы</string>
+    <string name="groups_title">Группы профилей</string>
+    <string name="groups_hint">Название группы</string>
+    <string name="groups_create">Создать</string>
+    <string name="groups_empty">Групп пока нет. Создайте группу и назначьте профили в редакторе.</string>
+    <string name="group_member_count">Профилей: %1$d</string>
+    <string name="group_created">Группа создана</string>
+    <string name="group_exists">Такая группа уже есть</string>
+    <string name="group_deleted">Группа удалена, профили не тронуты</string>
+    <string name="editor_group_section">Группа</string>
+    <string name="group_none">Без группы</string>
+
+    <!-- Full availability check -->
+    <string name="check_running">Проверка… %1$d из %2$d</string>
+    <string name="check_summary">Доступно %1$d из %2$d</string>
+    <string name="check_summary_best">Самый быстрый: %1$s (%2$d мс)</string>
+    <string name="check_all_none_reachable">Ни один из %1$d профилей не отвечает</string>
+
+    <!-- Ping tool -->
+    <string name="section_tools">Инструменты</string>
+    <string name="ping_tool_hint">Сайт или IP (можно с портом: example.com:443)</string>
+    <string name="ping_tool_run">Проверить</string>
+    <string name="ping_tool_running">Проверяю…</string>
+    <string name="ping_tool_ok">Отклик %1$d мс (порт %2$d)</string>
+    <string name="ping_tool_fail">Недоступен</string>
+    <string name="ping_tool_idle">TCP-подключение к любому адресу</string>
     <string name="share_title">Поделиться профилем</string>
     <string name="share_unavailable">Этот профиль нельзя экспортировать: нет адреса или учётных данных.</string>
     <string name="share_copied">Ссылка скопирована</string>

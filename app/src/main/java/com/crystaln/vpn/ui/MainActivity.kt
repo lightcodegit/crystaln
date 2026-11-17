@@ -81,6 +81,8 @@ import com.crystaln.vpn.data.SettingsStore
 import com.crystaln.vpn.data.TrafficStats
 import com.crystaln.vpn.data.TrafficStatsStore
 import com.crystaln.vpn.data.UpdateChecker
+import com.crystaln.vpn.data.GroupStore
+import com.crystaln.vpn.net.TcpPing
 import com.crystaln.vpn.data.Subscription
 import com.crystaln.vpn.data.SubscriptionRefresher
 import com.crystaln.vpn.data.SubscriptionsStore
@@ -90,7 +92,9 @@ import com.crystaln.vpn.widget.CrystalListWidget
 import com.crystaln.vpn.ui.screens.DiagnosticsScreen
 import com.crystaln.vpn.ui.screens.EditorScreen
 import com.crystaln.vpn.ui.screens.OnboardingScreen
+import com.crystaln.vpn.ui.screens.CheckSummary
 import com.crystaln.vpn.ui.screens.MainScreen
+import com.crystaln.vpn.ui.screens.ProfilesScreen
 import com.crystaln.vpn.ui.screens.SettingsScreen
 import com.crystaln.vpn.ui.theme.CrystalNTheme
 import java.io.File
@@ -117,7 +121,7 @@ class MainActivity : FragmentActivity() {
     private val maxWallpaperBytes = 25L * 1024 * 1024
 
     // Simple in-process navigation state.
-    private enum class Nav { MAIN, SETTINGS, DIAGNOSTICS, EDITOR, ONBOARDING }
+    private enum class Nav { MAIN, PROFILES, SETTINGS, DIAGNOSTICS, EDITOR, ONBOARDING }
 
     private val nav = mutableStateOf(Nav.MAIN)
     /** Back stack for the hardware/gesture back button. */
@@ -172,6 +176,20 @@ class MainActivity : FragmentActivity() {
     /** Measured TCP ping per profile id (ms), -1 = unreachable. */
     private val pingResults = mutableStateMapOf<String, Long>()
     private val pingAllRunning = mutableStateOf(false)
+    /** Full-availability-check progress: done, total (0 = idle). */
+    private val pingAllProgress = mutableStateOf(0 to 0)
+    /** Aggregated result of the last full availability check (ui.screens.CheckSummary). */
+    private val pingAllSummary = mutableStateOf<CheckSummary?>(null)
+
+    /** User-defined profile groups (canonical name list). */
+    private val groups = mutableStateOf<List<String>>(emptyList())
+
+    private fun refreshGroups() {
+        lifecycleScope.launch(Dispatchers.IO) {
+            val loaded = GroupStore.load(this@MainActivity)
+            withContext(Dispatchers.Main) { groups.value = loaded }
+        }
+    }
 
     // Connection diagnostics: null = not run yet, list = last run's results.
     private val diagResults = mutableStateOf<List<ConnectionDiagnostics.Result>?>(null)
@@ -307,6 +325,7 @@ class MainActivity : FragmentActivity() {
         refreshProfiles()
         refreshSubscriptions()
         refreshWallpaper()
+        refreshGroups()
         if (!SettingsStore.onboarded(this)) {
             navHistory.clear()
             nav.value = Nav.ONBOARDING
@@ -455,6 +474,18 @@ class MainActivity : FragmentActivity() {
                     Nav.MAIN -> MainScreen(
                         isDark = dark,
                         state = uiState,
+                        profileCount = profiles.value.size,
+                        selected = profiles.value.firstOrNull {
+                            it.id == (uiState.profile?.id ?: selectedId.value)
+                        },
+                        wallpaperPath = wallpaperPath.value,
+                        onConnect = { onConnectClicked() },
+                        onSettings = { goto(Nav.SETTINGS) },
+                        onProfiles = { goto(Nav.PROFILES) },
+                    )
+
+                    Nav.PROFILES -> ProfilesScreen(
+                        isDark = dark,
                         profiles = profiles.value,
                         selectedId = selectedId.value,
                         wallpaperPath = wallpaperPath.value,
@@ -483,16 +514,42 @@ class MainActivity : FragmentActivity() {
                             goto(Nav.EDITOR)
                         },
                         onImport = { importMenu.value = true },
-                        onConnect = { onConnectClicked() },
+                        onBack = { goBack() },
                         onSettings = { goto(Nav.SETTINGS) },
                         pingResults = pingResults,
                         onPing = { p -> pingProfile(p) },
                         pingAllRunning = pingAllRunning.value,
+                        pingAllProgress = pingAllProgress.value,
+                        pingAllSummary = pingAllSummary.value,
                         onPingAll = { pingAll() },
                         trafficStats = profileStats.value,
                         searchQuery = searchQuery.value,
                         onSearchChange = { searchQuery.value = it },
                         subscriptionTitles = subscriptions.value.associate { it.id to it.name },
+                        groups = groups.value,
+                        onCreateGroup = { name ->
+                            lifecycleScope.launch(Dispatchers.IO) {
+                                val ok = GroupStore.add(this@MainActivity, name)
+                                refreshGroups()
+                                withContext(Dispatchers.Main) {
+                                    Toast.makeText(
+                                        this@MainActivity,
+                                        if (ok) R.string.group_created else R.string.group_exists,
+                                        Toast.LENGTH_SHORT,
+                                    ).show()
+                                }
+                            }
+                        },
+                        onDeleteGroup = { name ->
+                            lifecycleScope.launch(Dispatchers.IO) {
+                                GroupStore.remove(this@MainActivity, name)
+                                refreshGroups()
+                                refreshProfiles()
+                                withContext(Dispatchers.Main) {
+                                    Toast.makeText(this@MainActivity, R.string.group_deleted, Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                        },
                         onShare = { shareProfile.value = it },
                         shareProfile = shareProfile.value,
                         onDismissShare = { shareProfile.value = null },
@@ -607,6 +664,7 @@ class MainActivity : FragmentActivity() {
                     Nav.EDITOR -> EditorScreen(
                         existing = editing.value,
                         isDark = dark,
+                        groups = groups.value,
                         onSave = { p ->
                             ProfileStore.upsert(this@MainActivity, p)
                             refreshProfiles()
@@ -835,9 +893,10 @@ class MainActivity : FragmentActivity() {
     }
 
     /**
-     * Pings every profile in parallel (a few dozen sockets are cheap) and,
-     * when auto-select is enabled while the tunnel is down, moves the
-     * selection to the fastest reachable server.
+     * Full availability check: pings every profile in parallel (a few dozen
+     * sockets are cheap), tracks done/total progress, and when auto-select is
+     * enabled while the tunnel is down, moves the selection to the fastest
+     * reachable server. The aggregated summary is shown on the profiles tab.
      */
     private fun pingAll() {
         if (pingAllRunning.value) return
@@ -845,15 +904,33 @@ class MainActivity : FragmentActivity() {
         if (list.isEmpty()) return
         lifecycleScope.launch(Dispatchers.IO) {
             pingAllRunning.value = true
+            pingAllSummary.value = null
+            pingAllProgress.value = 0 to list.size
+            pingResults.clear()
             try {
+                val done = java.util.concurrent.atomic.AtomicInteger()
                 coroutineScope {
                     list.forEach { p ->
-                        launch { pingResults[p.id] = tcpPing(p.address, p.port) }
+                        launch {
+                            val ms = tcpPing(p.address, p.port)
+                            pingResults[p.id] = ms
+                            pingAllProgress.value = done.incrementAndGet() to list.size
+                        }
                     }
                 }
                 withContext(Dispatchers.Main) { maybeAutoSelectFastest() }
+                // Aggregate: how many answered, and which profile was fastest.
+                val live = list.filter { (pingResults[it.id] ?: -1L) >= 0 }
+                val best = live.minByOrNull { pingResults[it.id] ?: Long.MAX_VALUE }
+                pingAllSummary.value = CheckSummary(
+                    reachable = live.size,
+                    total = list.size,
+                    bestMs = best?.let { pingResults[it.id] },
+                    bestName = best?.name,
+                )
             } finally {
                 pingAllRunning.value = false
+                pingAllProgress.value = 0 to 0
             }
         }
     }
@@ -920,15 +997,7 @@ class MainActivity : FragmentActivity() {
         }
     }
 
-    private fun tcpPing(host: String, port: Int): Long = try {
-        val started = System.nanoTime()
-        java.net.Socket().use { s ->
-            s.connect(java.net.InetSocketAddress(host, port), 5000)
-        }
-        (System.nanoTime() - started) / 1_000_000
-    } catch (_: Throwable) {
-        -1L
-    }
+    private fun tcpPing(host: String, port: Int): Long = TcpPing.measure(host, port)
 
     private fun importClipboard() {
         val cm = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
