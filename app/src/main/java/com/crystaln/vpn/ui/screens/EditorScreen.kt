@@ -567,6 +567,10 @@ private fun WireGuardFamilyFields(
             placeholder = "[Interface]\nPrivateKey = ...\nAddress = 10.0.0.2/32\nDNS = 1.1.1.1\n\n[Peer]\nPublicKey = ...\nEndpoint = host:port\nAllowedIPs = 0.0.0.0/0, ::/0",
         )
     }
+    SectionLabel(stringResource(R.string.section_name))
+    GlassPanel(isDark = isDark) {
+        TextFieldRow("name", stringResource(R.string.field_profile_name), value, set)
+    }
     if (protocol == Protocol.AMNEZIAWG) {
         SectionLabel(stringResource(R.string.awg_obfuscation))
         GlassPanel(isDark = isDark) {

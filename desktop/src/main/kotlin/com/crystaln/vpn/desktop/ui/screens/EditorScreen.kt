@@ -547,6 +547,10 @@ private fun WireGuardFamilyFields(
             placeholder = "[Interface]\nPrivateKey = ...\nAddress = 10.0.0.2/32\nDNS = 1.1.1.1\n\n[Peer]\nPublicKey = ...\nEndpoint = host:port\nAllowedIPs = 0.0.0.0/0, ::/0",
         )
     }
+    SectionLabel("Название")
+    GlassPanel(isDark = isDark) {
+        TextFieldRow("name", "Название профиля", value, set)
+    }
     if (protocol == Protocol.AMNEZIAWG) {
         SectionLabel("Параметры обфускации (AmneziaWG)")
         GlassPanel(isDark = isDark) {

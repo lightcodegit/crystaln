@@ -4,7 +4,7 @@
 
 # CrystalN
 
-**Мультипротокольный VPN-клиент для Android и Linux**
+**Мультипротокольный VPN-клиент для Android, Linux и Windows**
 
 Один процесс ядра, живая статистика трафика, умный выбор сервера,
 защита от рекламы — без аналитики и телеметрии.
@@ -27,6 +27,7 @@
 | WireGuard | amneziawg-go | wg-quick конфиг, AllowedIPs, DNS |
 | AmneziaWG | amneziawg-go | junk-параметры Jc/Jmin/Jmax/S1/S2/H1–H4 |
 | OpenVPN | openvpn 2.6 | .ovpn конфиг, UDP/TCP, инлайн-сертификаты, auth-user-pass |
+| Hysteria2 | hysteria (официальный) | QUIC, SNI, obfs salamander, insecure, up/down mbps, `hysteria2://` ссылки |
 
 TLS и REALITY настраиваются для любого Xray-профиля (SNI, uTLS fingerprint,
 ALPN, publicKey/shortId/spiderX).
@@ -48,6 +49,9 @@ ALPN, publicKey/shortId/spiderX).
   паролем; при импорте пароль запрашивается автоматически.
 - 🔄 **Обновления** — приложение сверяется с GitHub Releases и предлагает
   открыть страницу релиза, когда вышла новая версия.
+- 🕵️ **Обезличивание имён серверов** — вместо названий профилей показывается
+  флаг страны и номер («🇩🇪 #4»); ссылка и таймаут для проверки подключения
+  настраиваются в разделе «Подключение».
 
 ## Установка
 
@@ -139,8 +143,9 @@ sudo systemctl daemon-reload
 Desktop-модуль собирается на **Linux, Windows и macOS**.
 
 ```bash
-# 1. Скачать ядро Xray (один раз; WireGuard придёт сам из Maven Central)
-tools/fetch_cores.sh              # Windows: bash tools/fetch_cores.sh
+# 1. Скачать ядра: Xray-биндинги + Hysteria2 (WireGuard придёт сам из Maven Central)
+bash tools/fetch_cores.sh          # Windows: bash tools/fetch_cores.sh
+bash tools/fetch_hysteria.sh       # ядро Hysteria2 для Android
 
 # 2. Android: debug-APK
 ./gradlew assembleDebug            # → app/build/outputs/apk/debug/
@@ -174,7 +179,7 @@ bash tools/build_openvpn_core.sh      # нужен NDK; OpenSSL/LZO/LZ4 линк
 
 - Кнопка «импорт»: буфер обмена, файл, QR-код или ссылка.
   Парсит построчно `vless://`, `trojan://`, `ss://` (SIP002 и legacy),
-  `vmess://` (v2rayN), `socks5://`, `http(s)://`.
+  `vmess://` (v2rayN), `socks5://`, `hysteria2://` / `hy2://`, `http(s)://`.
 - **WireGuard/AWG** — вставьте готовый wg-quick конфиг
   (`PrivateKey/Address/DNS` + `[Peer]`).
 - **OpenVPN** — вставьте `.ovpn` текст (сертификаты должны быть inline:
@@ -233,6 +238,11 @@ net/           (desktop) TunnelManager, привилегированный root-
   приложение слушает management-сокет, отвечает `IFCONFIG`/`ROUTE`/`DNSSERVER`,
   передаёт fd через SCM_RIGHTS (`needok 'OPENTUN' ok`). Статистика —
   `>BYTECOUNT`.
+- **Hysteria2.** Официальный клиент hysteria запускается как дочерний процесс
+  (Android: `libhysteria.so` из jniLibs; desktop: бинарник из «Обновить
+  бинарники») с сгенерированным YAML-конфигом; ядро поднимает локальный SOCKS5
+  на 127.0.0.1:17901, а xray (владелец TUN) направляет туда весь трафик
+  через SOCKS-outbound — фичи Xray-семейства работают без изменений.
 - **Linux root-хелпер.** systemd socket-активация: `crystaln-helper.socket`
   слушает `/run/crystaln-helper.sock`, на каждое соединение стартует root-процесс
   `crystaln-helper@.service`; приложение шлёт base64-скрипты, получает код
@@ -247,8 +257,9 @@ net/           (desktop) TunnelManager, привилегированный root-
   конфиги, парсеры и хранилища, но не поднимают туннель.
 - OpenVPN: только inline-сертификаты, `http-proxy` игнорируется, TAP не
   поддерживается на Android.
-- Hysteria2/TUIC потребовали бы sing-box — архитектура движков позволяет
-  добавить третьим ядром.
+- Hysteria2 пинг-инструментом не проверяется (транспорт QUIC/UDP — TCP-ping
+  не показывается); TUIC потребовал бы sing-box — архитектура движков
+  позволяет добавить третьим ядром.
 
 ## Известные особенности сети
 
