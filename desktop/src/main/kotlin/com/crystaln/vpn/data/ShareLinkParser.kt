@@ -260,9 +260,11 @@ object ShareLinkParser {
             val uri = splitUri(link) ?: return null
             // URLs with a real path are web pages, not proxies.
             if (uri.userInfo.isNullOrEmpty() && uri.path.length > 1) return null
+            // The splitter drops the scheme; re-check the raw link.
+            val https = link.startsWith("https://", ignoreCase = true)
             val p = Profile(
-                name = nameOf(uri.fragment, "HTTP"),
-                protocol = Protocol.HTTP,
+                name = nameOf(uri.fragment, if (https) "HTTPS" else "HTTP"),
+                protocol = if (https) Protocol.HTTPS else Protocol.HTTP,
                 address = uri.host ?: return null,
                 port = uri.port.takeIf { it > 0 } ?: 8080,
             )

@@ -319,7 +319,7 @@ private fun XrayFields(
                 TextFieldRow("address", "Адрес (host или IP)", value, set)
                 TextFieldRow("port", "Порт", value, set, numeric = true)
             }
-            Protocol.SOCKS, Protocol.HTTP -> {
+            Protocol.SOCKS, Protocol.HTTP, Protocol.HTTPS -> {
                 TextFieldRow("username", "Логин (опционально)", value, set)
                 TextFieldRow("password", "Пароль (опционально)", value, set)
             }
@@ -335,23 +335,26 @@ private fun XrayFields(
         }
     }
 
-    SectionLabel("Безопасность")
-    GlassPanel(isDark = isDark) {
-        ToggleRow("TLS", tls, onTls)
-        ToggleRow("REALITY", reality, onReality)
-        if (tls || reality) {
-            val visible = if (reality) {
-                setOf("sni", "fingerprint", "publicKey", "shortId", "spiderX")
-            } else {
-                setOf("sni", "fingerprint", "alpn")
-            }
-            listOf("sni", "fingerprint", "alpn", "publicKey", "shortId", "spiderX").forEach { k ->
-                if (k in visible) {
-                    TextFieldRow(k, securityLabel(k), value, set)
+    // HTTPS proxy carries TLS by definition — no security toggles.
+    if (protocol != Protocol.HTTPS) {
+        SectionLabel("Безопасность")
+        GlassPanel(isDark = isDark) {
+            ToggleRow("TLS", tls, onTls)
+            ToggleRow("REALITY", reality, onReality)
+            if (tls || reality) {
+                val visible = if (reality) {
+                    setOf("sni", "fingerprint", "publicKey", "shortId", "spiderX")
+                } else {
+                    setOf("sni", "fingerprint", "alpn")
                 }
-            }
-            if (!reality) {
-                ToggleRow("Разрешить небезопасный TLS", insecure, onInsecure)
+                listOf("sni", "fingerprint", "alpn", "publicKey", "shortId", "spiderX").forEach { k ->
+                    if (k in visible) {
+                        TextFieldRow(k, securityLabel(k), value, set)
+                    }
+                }
+                if (!reality) {
+                    ToggleRow("Разрешить небезопасный TLS", insecure, onInsecure)
+                }
             }
         }
     }
