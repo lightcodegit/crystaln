@@ -34,6 +34,7 @@
     <string name="hero_starting_sub">Setting up a secure tunnel</string>
     <string name="hero_checking_sub">Checking server availability</string>
     <string name="hero_connected_sub">Traffic goes through a secure tunnel</string>
+    <string name="welcome_free_internet">Welcome to the free internet.</string>
     <string name="hero_stopping_sub">Closing the tunnel</string>
     <string name="stat_download">Download</string>
     <string name="stat_upload">Upload</string>

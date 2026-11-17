@@ -1,11 +1,14 @@
 package com.crystaln.vpn.ui.screens
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -42,8 +45,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -359,6 +365,24 @@ private fun HeroStatus(
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+
+        // A little welcome line once the tunnel is live — fades and slides in.
+        if (state.state == VpnManager.State.CONNECTED) {
+            var welcomeShown by remember { mutableStateOf(false) }
+            LaunchedEffect(Unit) { welcomeShown = true }
+            AnimatedVisibility(
+                visible = welcomeShown,
+                enter = fadeIn(tween(700)) + slideInVertically(tween(700)) { it / 2 },
+            ) {
+                Text(
+                    stringResource(R.string.welcome_free_internet),
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Medium,
+                    color = com.crystaln.vpn.ui.theme.StatusConnected,
+                    modifier = Modifier.padding(top = 6.dp),
+                )
+            }
+        }
 
         selected?.let { p ->
             Spacer(Modifier.height(10.dp))

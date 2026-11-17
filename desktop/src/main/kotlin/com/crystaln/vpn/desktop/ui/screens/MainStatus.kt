@@ -1,5 +1,6 @@
 package com.crystaln.vpn.desktop.ui.screens
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
@@ -7,6 +8,8 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -56,6 +59,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -216,6 +220,24 @@ internal fun HeroStatus(
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+
+        // A little welcome line once the tunnel is live — fades and slides in.
+        if (state.state == TunnelManager.State.CONNECTED) {
+            var welcomeShown by remember { mutableStateOf(false) }
+            LaunchedEffect(Unit) { welcomeShown = true }
+            AnimatedVisibility(
+                visible = welcomeShown,
+                enter = fadeIn(tween(700)) + slideInVertically(tween(700)) { it / 2 },
+            ) {
+                Text(
+                    "Добро пожаловать в свободный интернет.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Medium,
+                    color = StatusConnected,
+                    modifier = Modifier.padding(top = 6.dp),
+                )
+            }
+        }
 
         selected?.let { p ->
             Spacer(Modifier.height(10.dp))

@@ -34,6 +34,7 @@
     <string name="hero_starting_sub">Устанавливаем защищённый туннель</string>
     <string name="hero_checking_sub">Проверяем доступность сервера</string>
     <string name="hero_connected_sub">Трафик идёт через защищённый туннель</string>
+    <string name="welcome_free_internet">Добро пожаловать в свободный интернет.</string>
     <string name="hero_stopping_sub">Закрываем туннель</string>
     <string name="stat_download">Загрузка</string>
     <string name="stat_upload">Отдача</string>
