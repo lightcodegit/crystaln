@@ -6,6 +6,9 @@ import org.json.JSONObject
 object SettingsStore {
     enum class ThemeMode { SYSTEM, LIGHT, DARK }
 
+    /** Default URL probed to confirm the tunnel actually carries traffic. */
+    const val DEFAULT_CHECK_URL = "https://www.gstatic.com/generate_204"
+
     private const val PREFS = "crystaln"
     private const val KEY_THEME = "theme_mode"
     private const val KEY_DYNAMIC = "dynamic_color"
@@ -21,6 +24,9 @@ object SettingsStore {
     private const val KEY_AMOLED = "amoled_mode"
     private const val KEY_APP_LOCK = "app_lock"
     private const val KEY_LIQUID = "liquid_background"
+    private const val KEY_ANON_NAMES = "anonymize_names"
+    private const val KEY_CHECK_URL = "check_url"
+    private const val KEY_CHECK_TIMEOUT = "check_timeout_sec"
 
     /** First-run wizard completed (or explicitly skipped). */
     fun onboarded(context: Context): Boolean =
@@ -192,6 +198,44 @@ object SettingsStore {
             .edit().putBoolean(KEY_LIQUID, value).apply()
     }
 
+    /**
+     * Privacy mask: profile names are replaced in the UI with a country flag
+     * (guessed from the server hostname) and an index — "🇩🇪 #4". Names stay
+     * stored; only what's shown on screen is masked.
+     */
+    fun anonymizeNames(context: Context): Boolean =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getBoolean(KEY_ANON_NAMES, false)
+
+    fun setAnonymizeNames(context: Context, value: Boolean) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit().putBoolean(KEY_ANON_NAMES, value).apply()
+    }
+
+    /** URL probed (through the tunnel) to confirm the connection is live. */
+    fun checkUrl(context: Context): String =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getString(KEY_CHECK_URL, DEFAULT_CHECK_URL) ?: DEFAULT_CHECK_URL
+
+    fun setCheckUrl(context: Context, value: String) {
+        val url = value.trim()
+        // Only accept http(s) URLs — anything else can't serve as a probe.
+        if (url.startsWith("http://") || url.startsWith("https://")) {
+            context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+                .edit().putString(KEY_CHECK_URL, url).apply()
+        }
+    }
+
+    /** Seconds allowed for the connection test before declaring failure. */
+    fun checkTimeoutSec(context: Context): Int =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getInt(KEY_CHECK_TIMEOUT, 15)
+
+    fun setCheckTimeoutSec(context: Context, value: Int) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit().putInt(KEY_CHECK_TIMEOUT, value.coerceIn(3, 60)).apply()
+    }
+
     /** Everything restorable from a backup. The wallpaper image is a binary
      * asset in filesDir, not prefs — it is not carried in backups. */
     fun exportJson(context: Context): JSONObject = JSONObject()
@@ -203,6 +247,9 @@ object SettingsStore {
         .put("dnsViaTunnel", dnsViaTunnel(context))
         .put("dnsServer", dnsServer(context))
         .put("blockAds", blockAds(context))
+        .put("anonymizeNames", anonymizeNames(context))
+        .put("checkUrl", checkUrl(context))
+        .put("checkTimeoutSec", checkTimeoutSec(context))
 
     fun importJson(context: Context, o: JSONObject) {
         setThemeMode(
@@ -216,5 +263,8 @@ object SettingsStore {
         setDnsViaTunnel(context, o.optBoolean("dnsViaTunnel", false))
         o.optString("dnsServer").takeIf { it.isNotEmpty() }?.let { setDnsServer(context, it) }
         setBlockAds(context, o.optBoolean("blockAds", false))
+        setAnonymizeNames(context, o.optBoolean("anonymizeNames", false))
+        o.optString("checkUrl").takeIf { it.isNotEmpty() }?.let { setCheckUrl(context, it) }
+        o.optInt("checkTimeoutSec", 0).takeIf { it > 0 }?.let { setCheckTimeoutSec(context, it) }
     }
 }

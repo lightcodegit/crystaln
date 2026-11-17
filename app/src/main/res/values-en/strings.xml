@@ -184,6 +184,19 @@
     <string name="ping_tool_ok">%1$d ms (port %2$d)</string>
     <string name="ping_tool_fail">Unreachable</string>
     <string name="ping_tool_idle">TCP connection to any address</string>
+
+    <!-- Connection test -->
+    <string name="check_url_label">Connection check URL</string>
+    <string name="check_timeout_label">Check timeout (sec)</string>
+    <string name="check_timeout_sub">How many seconds to wait for a response when connecting (3–60)</string>
+
+    <!-- Privacy mask -->
+    <string name="anon_names_title">Anonymize server names</string>
+    <string name="anon_names_sub">Show a country flag and index instead of profile names: "🇩🇪 #4"</string>
+
+    <!-- Jelly mini game -->
+    <string name="jelly_title">CrystalN Jelly</string>
+    <string name="jelly_hint">Drag the jelly logo — it springs and bounces</string>
     <string name="share_title">Share profile</string>
     <string name="share_unavailable">This profile cannot be exported: no address or credentials.</string>
     <string name="share_copied">Link copied</string>

@@ -17,6 +17,10 @@ import com.crystaln.vpn.data.SettingsStore
 import com.crystaln.vpn.ui.MainActivity
 import com.crystaln.vpn.xray.XrayConfigBuilder
 import com.crystaln.vpn.xray.XrayCore
+import java.net.HttpURLConnection
+import java.net.InetSocketAddress
+import java.net.Proxy
+import java.net.URL
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -84,11 +88,18 @@ class CrystalVpnService : VpnService() {
                         dnsViaTunnel = SettingsStore.dnsViaTunnel(applicationContext),
                         dnsServer = SettingsStore.dnsServer(applicationContext),
                         blockAds = SettingsStore.blockAds(applicationContext),
+                        probePort = PROBE_SOCKS_PORT,
                     ),
                 )
                 XrayCore.start(configJson, fd.fd)
                 VpnManager.notifyChecking(true)
-                if (!awaitProxyResponse(PROBE_TIMEOUT_MS)) {
+                val timeoutMs = SettingsStore.checkTimeoutSec(applicationContext)
+                    .coerceIn(3, 60) * 1000L
+                if (!awaitConnectionProof(
+                        applicationContext,
+                        timeoutMs,
+                    )
+                ) {
                     fail(getString(R.string.server_unreachable))
                     return@launch
                 }
@@ -117,14 +128,41 @@ class CrystalVpnService : VpnService() {
         return builder.establish()
     }
 
-    /** Waits until the proxy outbound reports received bytes from the server. */
-    private suspend fun awaitProxyResponse(timeoutMs: Long): Boolean {
+    /**
+     * Waits until the connection is proven live, using the user's configured
+     * check URL and timeout. Two independent proofs, either is enough:
+     * 1. An active HTTP probe through the tunnel: the app connects to the
+     *    core's local SOCKS inbound (the app itself is excluded from the
+     *    TUN, so a plain request would bypass the VPN) and requests the URL.
+     * 2. The passive byte-wait fallback: the core's outbound reports
+     *    received bytes (system validation traffic flowing through).
+     */
+    private suspend fun awaitConnectionProof(
+        context: Context,
+        timeoutMs: Long,
+    ): Boolean {
+        val url = SettingsStore.checkUrl(context)
         val deadline = System.currentTimeMillis() + timeoutMs
+        val probe = { try {
+            val conn = URL(url).openConnection(
+                Proxy(Proxy.Type.SOCKS, InetSocketAddress("127.0.0.1", PROBE_SOCKS_PORT)),
+            ) as HttpURLConnection
+            conn.connectTimeout = 4000
+            conn.readTimeout = 4000
+            conn.instanceFollowRedirects = false
+            conn.useCaches = false
+            val ok = conn.responseCode in 200..399
+            conn.disconnect()
+            ok
+        } catch (_: Throwable) {
+            false
+        } }
         while (System.currentTimeMillis() < deadline) {
             if (!running) return false
+            if (probe()) return true
             val traffic = XrayCore.traffic()
             if (traffic != null && traffic.first > 0) return true
-            delay(500)
+            delay(600)
         }
         return false
     }
@@ -217,6 +255,9 @@ class CrystalVpnService : VpnService() {
 
         /** Max wait for the first server response before declaring failure. */
         const val PROBE_TIMEOUT_MS = 15_000L
+
+        /** Local SOCKS inbound port for the active connectivity probe. */
+        private const val PROBE_SOCKS_PORT = 17533
 
         fun startIntent(context: Context, profile: Profile): Intent =
             Intent(context, CrystalVpnService::class.java)

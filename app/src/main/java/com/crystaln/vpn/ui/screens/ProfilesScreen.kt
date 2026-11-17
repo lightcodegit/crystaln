@@ -87,6 +87,7 @@ import com.crystaln.vpn.ui.glass.GlassTab
 import com.crystaln.vpn.ui.glass.GlassTabBar
 import com.crystaln.vpn.ui.glass.PillButton
 import com.crystaln.vpn.ui.glass.liquidGlass
+import com.crystaln.vpn.ui.ServerAlias
 import com.crystaln.vpn.ui.rememberWallpaper
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.EncodeHintType
@@ -117,6 +118,8 @@ fun ProfilesScreen(
     isDark: Boolean,
     profiles: List<Profile>,
     selectedId: String?,
+    /** Privacy mask: show "🇩🇪 #N" instead of the profile name. */
+    anonymizeNames: Boolean = false,
     wallpaperPath: String? = null,
     onSelect: (Profile) -> Unit,
     onEdit: (Profile) -> Unit,
@@ -161,6 +164,15 @@ fun ProfilesScreen(
     // Favorites first; a stable sort keeps the original order within each
     // group (plain alphabetical/reverse not needed — pinned just float up).
     val ordered = remember(profiles) { profiles.sortedByDescending { it.favorite } }
+
+    // Privacy mask labels: flag emoji + 1-based index per profile id.
+    val aliasLabels = remember(profiles, anonymizeNames) {
+        if (anonymizeNames) {
+            ordered.mapIndexed { i, p -> p.id to ServerAlias.label(p, i) }.toMap()
+        } else {
+            emptyMap()
+        }
+    }
 
     fun matchesFilter(p: Profile): Boolean = when (filter) {
         FILTER_ALL -> true
@@ -321,6 +333,7 @@ fun ProfilesScreen(
                                         favorite = p.favorite,
                                         onToggleFavorite = { onToggleFavorite(p) },
                                         totalTraffic = trafficStats[p.id],
+                                        aliasLabel = aliasLabels[p.id],
                                     )
                                 }
                             }
@@ -344,6 +357,7 @@ fun ProfilesScreen(
                                         favorite = p.favorite,
                                         onToggleFavorite = { onToggleFavorite(p) },
                                         totalTraffic = trafficStats[p.id],
+                                        aliasLabel = aliasLabels[p.id],
                                     )
                                 }
                             }
@@ -364,6 +378,7 @@ fun ProfilesScreen(
                                     favorite = p.favorite,
                                     onToggleFavorite = { onToggleFavorite(p) },
                                     totalTraffic = trafficStats[p.id],
+                                    aliasLabel = aliasLabels[p.id],
                                 )
                             }
                         }
@@ -802,6 +817,8 @@ private fun ProfileCard(
     favorite: Boolean = false,
     onToggleFavorite: () -> Unit = {},
     totalTraffic: TrafficStats? = null,
+    /** Privacy mask: "🇩🇪 #4" instead of the real name (null = off). */
+    aliasLabel: String? = null,
 ) {
     val pc = protocolColor(profile.protocol)
     val shape = RoundedCornerShape(22.dp)
@@ -851,7 +868,7 @@ private fun ProfileCard(
                 // own row below, so ping and server info are never starved.
                 Column(Modifier.weight(1f)) {
                     Text(
-                        profile.name,
+                        aliasLabel ?: profile.name,
                         style = MaterialTheme.typography.bodyLarge,
                         fontWeight = FontWeight.SemiBold,
                         maxLines = 1,

@@ -96,6 +96,8 @@ fun MainScreen(
     state: VpnManager.UiState,
     profileCount: Int,
     selected: Profile?,
+    /** Anonymized display name (flag + index) when the privacy mask is on. */
+    selectedLabel: String? = null,
     wallpaperPath: String? = null,
     onConnect: () -> Unit,
     onSettings: () -> Unit,
@@ -140,6 +142,7 @@ fun MainScreen(
                     HeroStatus(
                         state = state,
                         selected = selected,
+                        selectedLabel = selectedLabel,
                         isDark = glassDark,
                         overWallpaper = overWallpaper,
                         onConnect = onConnect,
@@ -309,6 +312,7 @@ private fun StatusChip(state: VpnManager.UiState) {
 private fun HeroStatus(
     state: VpnManager.UiState,
     selected: Profile?,
+    selectedLabel: String?,
     isDark: Boolean,
     overWallpaper: Boolean,
     onConnect: () -> Unit,
@@ -372,7 +376,7 @@ private fun HeroStatus(
                 Box(Modifier.size(8.dp).clip(CircleShape).background(protocolColor(p.protocol)))
                 Spacer(Modifier.width(7.dp))
                 Text(
-                    p.name,
+                    selectedLabel ?: p.name,
                     style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.SemiBold,
                     maxLines = 1,

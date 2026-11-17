@@ -24,6 +24,13 @@ object XrayConfigBuilder {
         val dnsServer: String = "1.1.1.1",
         /** Drop ad/tracker domains (geosite:category-ads-all → block). */
         val blockAds: Boolean = false,
+        /**
+         * When > 0, adds a local SOCKS inbound on 127.0.0.1:[probePort]. The
+         * app uses it to actively probe the user's check URL through the
+         * tunnel (the app itself is excluded from the TUN, so a plain HTTP
+         * request from the app would bypass the VPN).
+         */
+        val probePort: Int = 0,
     )
 
     fun build(profile: Profile): String = build(profile, Options())
@@ -31,7 +38,10 @@ object XrayConfigBuilder {
     fun build(profile: Profile, options: Options): String {
         val root = JSONObject()
         root.put("log", JSONObject().put("loglevel", "warning"))
-        root.put("inbounds", JSONArray().put(tunInbound()))
+        root.put("inbounds", JSONArray().apply {
+            put(tunInbound())
+            if (options.probePort > 0) put(probeInbound(options.probePort))
+        })
         root.put("outbounds", JSONArray().apply {
             put(buildOutbound(profile))
             put(directOutbound())
@@ -54,6 +64,15 @@ object XrayConfigBuilder {
             JSONObject().put("enabled", true)
                 .put("destOverride", JSONArray().put("http").put("tls").put("quic")),
         )
+    }
+
+    /** Local SOCKS inbound used by the app's active connectivity probe. */
+    private fun probeInbound(port: Int): JSONObject = JSONObject().apply {
+        put("tag", "probe")
+        put("listen", "127.0.0.1")
+        put("port", port)
+        put("protocol", "socks")
+        put("settings", JSONObject().put("auth", "noauth").put("udp", false))
     }
 
     private fun routing(options: Options): JSONObject = JSONObject().apply {

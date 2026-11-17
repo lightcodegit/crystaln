@@ -3,6 +3,7 @@ package com.crystaln.vpn.ui.glass
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.clickable
@@ -31,6 +32,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
@@ -89,17 +91,23 @@ fun GlassTabBar(
                 flat = true,
             ),
     ) {
-        // The droplet: one shared surface that slides between tabs.
+        // The droplet: one shared surface that slides between tabs,
+        // stretching like jelly while it travels and squashing back
+        // into place when it arrives.
         BoxWithConstraints(Modifier.fillMaxSize()) {
             val cellWidth = maxWidth / tabs.size
             val dropletX by animateDpAsState(
                 targetValue = cellWidth * selected,
                 animationSpec = spring(
-                    dampingRatio = 0.74f,
+                    dampingRatio = 0.72f,
                     stiffness = Spring.StiffnessMediumLow,
                 ),
                 label = "dropletX",
             )
+            // How far the droplet still has to travel → jelly stretch.
+            val travel = (cellWidth * selected - dropletX).value
+            val stretch = (kotlin.math.abs(travel) / cellWidth.value * 0.30f)
+                .coerceAtMost(0.30f)
             // A hint of the accent color tints the droplet like light passing
             // through glass.
             val dropletFill by animateColorAsState(
@@ -119,6 +127,10 @@ fun GlassTabBar(
                     .width(cellWidth)
                     .fillMaxHeight()
                     .padding(6.dp)
+                    .graphicsLayer {
+                        scaleX = 1f + stretch
+                        scaleY = 1f - stretch * 0.35f
+                    }
                     .shadow(6.dp, RoundedCornerShape(999.dp))
                     .liquidGlass(RoundedCornerShape(999.dp), dropletFill, isDark, flat = true),
             )
@@ -142,11 +154,25 @@ fun GlassTabBar(
                         .fillMaxHeight()
                         .clickable { onSelect(index) },
                 ) {
+                    // The active tab's icon pops up with a soft spring bump.
+                    val iconScale by animateFloatAsState(
+                        targetValue = if (sel) 1.12f else 1f,
+                        animationSpec = spring(
+                            dampingRatio = 0.55f,
+                            stiffness = Spring.StiffnessMedium,
+                        ),
+                        label = "tabIconScale",
+                    )
                     Icon(
                         tab.icon,
                         contentDescription = tab.label,
                         tint = tint,
-                        modifier = Modifier.size(22.dp),
+                        modifier = Modifier
+                            .size(22.dp)
+                            .graphicsLayer {
+                                scaleX = iconScale
+                                scaleY = iconScale
+                            },
                     )
                     Spacer(Modifier.width(2.dp))
                     Text(

@@ -83,6 +83,7 @@ import com.crystaln.vpn.data.TrafficStatsStore
 import com.crystaln.vpn.data.UpdateChecker
 import com.crystaln.vpn.data.GroupStore
 import com.crystaln.vpn.net.TcpPing
+import com.crystaln.vpn.ui.ServerAlias
 import com.crystaln.vpn.data.Subscription
 import com.crystaln.vpn.data.SubscriptionRefresher
 import com.crystaln.vpn.data.SubscriptionsStore
@@ -146,6 +147,9 @@ class MainActivity : FragmentActivity() {
     /** True while the biometric lock is armed and not yet passed. */
     private val locked = mutableStateOf(false)
     private val liquidBackground = mutableStateOf(false)
+    private val anonymizeNames = mutableStateOf(false)
+    private val checkUrlText = mutableStateOf(SettingsStore.DEFAULT_CHECK_URL)
+    private val checkTimeoutSec = mutableStateOf(15)
     private val autoConnect = mutableStateOf(false)
     private val autoFastest = mutableStateOf(false)
     private val dnsViaTunnel = mutableStateOf(false)
@@ -317,6 +321,9 @@ class MainActivity : FragmentActivity() {
         appLock.value = SettingsStore.appLock(this)
         locked.value = appLock.value
         liquidBackground.value = SettingsStore.liquidBackground(this)
+        anonymizeNames.value = SettingsStore.anonymizeNames(this)
+        checkUrlText.value = SettingsStore.checkUrl(this)
+        checkTimeoutSec.value = SettingsStore.checkTimeoutSec(this)
         autoConnect.value = SettingsStore.autoConnect(this)
         autoFastest.value = SettingsStore.autoFastest(this)
         dnsViaTunnel.value = SettingsStore.dnsViaTunnel(this)
@@ -431,18 +438,27 @@ class MainActivity : FragmentActivity() {
                     targetState = nav.value,
                     transitionSpec = {
                         // Directional slide: screens ordered MAIN →
-                        // SETTINGS → EDITOR; going "forward" slides left.
+                        // PROFILES → SETTINGS; going "forward" slides left.
+                        // A slightly larger travel distance with longer,
+                        // softly-eased tweens and a gentle fade reads as a
+                        // smooth glass panel gliding, not a janky jump.
                         val forward = targetState.ordinal > initialState.ordinal
                         (
                             slideInHorizontally(
-                                animationSpec = tween(340, easing = FastOutSlowInEasing),
-                            ) { full -> if (forward) full / 3 else -full / 3 } +
+                                animationSpec = tween(
+                                    420,
+                                    easing = FastOutSlowInEasing,
+                                ),
+                            ) { full -> if (forward) full / 2 else -full / 2 } +
                                 fadeIn(tween(300))
                             ) togetherWith (
                             slideOutHorizontally(
-                                animationSpec = tween(300, easing = FastOutSlowInEasing),
-                            ) { full -> if (forward) -full / 3 else full / 3 } +
-                                fadeOut(tween(220))
+                                animationSpec = tween(
+                                    360,
+                                    easing = FastOutSlowInEasing,
+                                ),
+                            ) { full -> if (forward) -full / 2 else full / 2 } +
+                                fadeOut(tween(260))
                             )
                     },
                     label = "nav",
@@ -478,6 +494,9 @@ class MainActivity : FragmentActivity() {
                         selected = profiles.value.firstOrNull {
                             it.id == (uiState.profile?.id ?: selectedId.value)
                         },
+                        selectedLabel = profiles.value.firstOrNull {
+                            it.id == (uiState.profile?.id ?: selectedId.value)
+                        }?.let { ServerAlias.label(it, profiles.value.indexOf(it)) },
                         wallpaperPath = wallpaperPath.value,
                         onConnect = { onConnectClicked() },
                         onSettings = { goto(Nav.SETTINGS) },
@@ -488,6 +507,7 @@ class MainActivity : FragmentActivity() {
                         isDark = dark,
                         profiles = profiles.value,
                         selectedId = selectedId.value,
+                        anonymizeNames = anonymizeNames.value,
                         wallpaperPath = wallpaperPath.value,
                         onSelect = { p ->
                             ProfileStore.select(this@MainActivity, p.id)
@@ -615,6 +635,21 @@ class MainActivity : FragmentActivity() {
                         blockAds = blockAds.value,
                         blockAdsBusy = blockAdsBusy.value,
                         onBlockAdsChange = { on -> toggleBlockAds(on) },
+                        anonymizeNames = anonymizeNames.value,
+                        onAnonymizeNamesChange = { on ->
+                            anonymizeNames.value = on
+                            SettingsStore.setAnonymizeNames(this@MainActivity, on)
+                        },
+                        checkUrl = checkUrlText.value,
+                        onCheckUrlChange = { url ->
+                            checkUrlText.value = url
+                            SettingsStore.setCheckUrl(this@MainActivity, url)
+                        },
+                        checkTimeoutSec = checkTimeoutSec.value,
+                        onCheckTimeoutSecChange = { sec ->
+                            checkTimeoutSec.value = sec.coerceIn(3, 60)
+                            SettingsStore.setCheckTimeoutSec(this@MainActivity, sec)
+                        },
                         subscriptions = subscriptions.value,
                         subscriptionsBusy = subscriptionsBusy.value,
                         subscriptionBusyId = subscriptionBusyId.value,

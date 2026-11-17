@@ -177,13 +177,25 @@
     <string name="check_all_none_reachable">Ни один из %1$d профилей не отвечает</string>
 
     <!-- Ping tool -->
-    <string name="section_tools">Инструменты</string>
-    <string name="ping_tool_hint">Сайт или IP (можно с портом: example.com:443)</string>
+    <string name="section_tools">Инструменты</string>    <string name="ping_tool_hint">Сайт или IP (можно с портом: example.com:443)</string>
     <string name="ping_tool_run">Проверить</string>
     <string name="ping_tool_running">Проверяю…</string>
     <string name="ping_tool_ok">Отклик %1$d мс (порт %2$d)</string>
     <string name="ping_tool_fail">Недоступен</string>
     <string name="ping_tool_idle">TCP-подключение к любому адресу</string>
+
+    <!-- Connection test -->
+    <string name="check_url_label">Ссылка для проверки подключения</string>
+    <string name="check_timeout_label">Таймаут проверки (сек)</string>
+    <string name="check_timeout_sub">Сколько секунд ждать отклика при подключении (3–60)</string>
+
+    <!-- Privacy mask -->
+    <string name="anon_names_title">Обезличивать имена серверов</string>
+    <string name="anon_names_sub">Показывать флаг страны и номер вместо названий профилей: «🇩🇪 #4»</string>
+
+    <!-- Jelly mini game -->
+    <string name="jelly_title">CrystalN Jelly</string>
+    <string name="jelly_hint">Потяни желейный логотип — он пружинит и отскакивает</string>
     <string name="share_title">Поделиться профилем</string>
     <string name="share_unavailable">Этот профиль нельзя экспортировать: нет адреса или учётных данных.</string>
     <string name="share_copied">Ссылка скопирована</string>

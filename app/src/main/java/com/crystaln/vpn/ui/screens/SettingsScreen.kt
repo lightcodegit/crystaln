@@ -33,6 +33,7 @@ import androidx.compose.material.icons.filled.NetworkCheck
 import androidx.compose.material.icons.filled.PowerSettingsNew
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.SportsEsports
 import androidx.compose.material.icons.filled.Wallpaper
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.OutlinedTextField
@@ -111,6 +112,12 @@ fun SettingsScreen(
     onDnsServerChange: (String) -> Unit,
     blockAds: Boolean,
     onBlockAdsChange: (Boolean) -> Unit,
+    anonymizeNames: Boolean,
+    onAnonymizeNamesChange: (Boolean) -> Unit,
+    checkUrl: String,
+    onCheckUrlChange: (String) -> Unit,
+    checkTimeoutSec: Int,
+    onCheckTimeoutSecChange: (Int) -> Unit,
     blockAdsBusy: Boolean,
     subscriptions: List<Subscription>,
     subscriptionsBusy: Boolean,
@@ -133,6 +140,9 @@ fun SettingsScreen(
     val overWallpaper = wallpaper != null
     var addSubscriptionVisible by remember { mutableStateOf(false) }
     var subscriptionUrl by remember { mutableStateOf("") }
+    var checkUrlText by remember { mutableStateOf(checkUrl) }
+    var timeoutText by remember(checkTimeoutSec) { mutableStateOf(checkTimeoutSec.toString()) }
+    var jellyGame by remember { mutableStateOf(false) }
 
     BoxWithConstraints(
         Modifier
@@ -315,6 +325,31 @@ fun SettingsScreen(
                             onChange = onAutoFastestChange,
                         )
                         GlassDivider(Modifier.padding(vertical = 14.dp))
+                        OutlinedTextField(
+                            value = checkUrlText,
+                            onValueChange = { checkUrlText = it },
+                            singleLine = true,
+                            label = { Text(stringResource(R.string.check_url_label)) },
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        Spacer(Modifier.height(10.dp))
+                        OutlinedTextField(
+                            value = timeoutText,
+                            onValueChange = { v ->
+                                timeoutText = v
+                                v.toIntOrNull()?.let { onCheckTimeoutSecChange(it) }
+                            },
+                            singleLine = true,
+                            label = { Text(stringResource(R.string.check_timeout_label)) },
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            stringResource(R.string.check_timeout_sub),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        GlassDivider(Modifier.padding(vertical = 14.dp))
                         PillButton(
                             text = stringResource(R.string.diag_title),
                             icon = Icons.Default.Bolt,
@@ -352,6 +387,13 @@ fun SettingsScreen(
                             checked = blockAds,
                             enabled = !blockAdsBusy,
                             onChange = onBlockAdsChange,
+                        )
+                        GlassDivider(Modifier.padding(vertical = 14.dp))
+                        SwitchRow(
+                            title = stringResource(R.string.anon_names_title),
+                            subtitle = stringResource(R.string.anon_names_sub),
+                            checked = anonymizeNames,
+                            onChange = onAnonymizeNamesChange,
                         )
                     }
 
@@ -509,6 +551,18 @@ fun SettingsScreen(
                         )
                     }
 
+                    // Hidden easter egg: the jelly logo mini game.
+                    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                        CircleGlassButton(
+                            icon = Icons.Default.SportsEsports,
+                            contentDescription = "CrystalN jelly",
+                            isDark = glassDark,
+                            overWallpaper = overWallpaper,
+                            size = 40.dp,
+                            onClick = { jellyGame = true },
+                        )
+                    }
+
                     // Clearance so the last rows sit above the tab bar;
                     // content under the bar is genuinely frosted by Haze.
                     Spacer(Modifier.height(170.dp))
@@ -546,6 +600,10 @@ fun SettingsScreen(
                 .navigationBarsPadding()
                 .padding(horizontal = 28.dp, vertical = 12.dp),
         )
+
+        if (jellyGame) {
+            JellyGameOverlay(onDismiss = { jellyGame = false })
+        }
     }
 }
 
