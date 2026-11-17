@@ -14,7 +14,8 @@ enum class Protocol(val displayName: String) {
     HTTPS("HTTPS"),
     WIREGUARD("WireGuard"),
     AMNEZIAWG("AmneziaWG"),
-    OPENVPN("OpenVPN");
+    OPENVPN("OpenVPN"),
+    HYSTERIA2("Hysteria2");
 
     companion object {
         fun fromNameOrNull(name: String?): Protocol? =
@@ -51,6 +52,9 @@ data class Profile(
     /** OpenVPN runs in its own VpnService with the native openvpn core. */
     val isOpenVpn: Boolean get() = protocol == Protocol.OPENVPN
 
+    /** Hysteria2 runs its own QUIC core; the Xray outbound points at it. */
+    val isHysteria: Boolean get() = protocol == Protocol.HYSTERIA2
+
     /**
      * Stable server identity used by subscription refreshes: the same endpoint
      * and credentials update the existing profile instead of adding a duplicate.
@@ -61,7 +65,7 @@ data class Profile(
         if (host.isEmpty() || port !in 1..65535) return null
         val credential = when (protocol) {
             Protocol.VMESS, Protocol.VLESS -> fields["uuid"]
-            Protocol.TROJAN, Protocol.SHADOWSOCKS -> fields["password"]
+            Protocol.TROJAN, Protocol.SHADOWSOCKS, Protocol.HYSTERIA2 -> fields["password"]
             Protocol.SOCKS, Protocol.HTTP, Protocol.HTTPS -> fields["username"]?.let { "$it:${fields["password"]}" }
             Protocol.WIREGUARD, Protocol.AMNEZIAWG ->
                 wgConfig.lineSequence()
@@ -95,6 +99,7 @@ data class Profile(
                 protocol.displayName
             }
         }
+        Protocol.HYSTERIA2 -> "$address:${if (port > 0) port else "?"} · hy2"
         else -> "$address:${if (port > 0) port else "?"} · ${transportLabel()}"
     }
 

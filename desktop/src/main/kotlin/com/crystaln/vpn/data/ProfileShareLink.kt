@@ -27,6 +27,22 @@ object ProfileShareLink {
         Protocol.HTTPS -> shareUserPass(p, "https")
         Protocol.WIREGUARD, Protocol.AMNEZIAWG -> p.wgConfig.ifEmpty { null }
         Protocol.OPENVPN -> p.ovpnConfig.ifEmpty { null }
+        Protocol.HYSTERIA2 -> shareHysteria2(p)
+    }
+
+    /** hysteria2://password@host:port?params#name */
+    private fun shareHysteria2(p: Profile): String? {
+        val password = p.fields["password"]?.takeIf { it.isNotEmpty() } ?: return null
+        if (p.address.isEmpty() || p.port <= 0) return null
+        val q = mutableListOf<String>()
+        p.fields["sni"]?.takeIf { it.isNotEmpty() }?.let { q += "sni=${enc(it)}" }
+        if (p.fields["allowInsecure"] == "true") q += "insecure=1"
+        p.fields["obfs"]?.takeIf { it.isNotEmpty() }?.let { q += "obfs=${enc(it)}" }
+        p.fields["obfsPassword"]?.takeIf { it.isNotEmpty() }?.let { q += "obfs-password=${enc(it)}" }
+        p.fields["upMbps"]?.takeIf { it.isNotEmpty() }?.let { q += "upmbps=$it" }
+        p.fields["downMbps"]?.takeIf { it.isNotEmpty() }?.let { q += "downmbps=$it" }
+        val query = if (q.isEmpty()) "" else "?" + q.joinToString("&")
+        return "hysteria2://${enc(password)}@${hostPort(p)}$query#${fragment(p)}"
     }
 
     /** Name goes into the URI fragment, URL-encoded. */

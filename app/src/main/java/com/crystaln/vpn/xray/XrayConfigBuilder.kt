@@ -16,6 +16,14 @@ object XrayConfigBuilder {
 
     const val TUN_MTU = 8500
 
+    /**
+     * Local SOCKS5 port of the Hysteria2 core. For HYSTERIA2 profiles the Xray
+     * core still owns the TUN, but its outbound is a SOCKS proxy pointing at
+     * the hysteria child process listening on this loopback port — hysteria
+     * speaks QUIC to the real server (see HysteriaCore).
+     */
+    const val HYSTERIA_SOCKS_PORT = 17901
+
     /** Options that tune the config without changing the server. */
     data class Options(
         /** Intercept port 53 in the TUN and resolve DNS through the tunnel. */
@@ -138,12 +146,30 @@ object XrayConfigBuilder {
         put("settings", JSONObject())
     }
 
-    fun buildOutbound(profile: Profile): JSONObject = JSONObject().apply {
-        put("tag", "proxy")
-        put("protocol", xrayProtocol(profile.protocol))
-        put("settings", settingsFor(profile))
-        val stream = streamSettings(profile)
-        if (stream != null) put("streamSettings", stream)
+    fun buildOutbound(profile: Profile): JSONObject = when {
+        profile.isHysteria -> JSONObject().apply {
+            put("tag", "proxy")
+            put("protocol", "socks")
+            put(
+                "settings",
+                JSONObject().put(
+                    "servers",
+                    JSONArray().put(
+                        JSONObject()
+                            .put("address", "127.0.0.1")
+                            .put("port", HYSTERIA_SOCKS_PORT),
+                    ),
+                ),
+            )
+        }
+
+        else -> JSONObject().apply {
+            put("tag", "proxy")
+            put("protocol", xrayProtocol(profile.protocol))
+            put("settings", settingsFor(profile))
+            val stream = streamSettings(profile)
+            if (stream != null) put("streamSettings", stream)
+        }
     }
 
     private fun xrayProtocol(p: Protocol): String = when (p) {
@@ -157,6 +183,8 @@ object XrayConfigBuilder {
             throw IllegalArgumentException("WireGuard-family is not routed through Xray")
         Protocol.OPENVPN ->
             throw IllegalArgumentException("OpenVPN is not routed through Xray")
+        Protocol.HYSTERIA2 ->
+            throw IllegalArgumentException("Hysteria2 is routed through its own SOCKS outbound")
     }
 
     private fun settingsFor(p: Profile): JSONObject = when (p.protocol) {
@@ -236,6 +264,9 @@ object XrayConfigBuilder {
 
         Protocol.OPENVPN ->
             throw IllegalArgumentException("OpenVPN is not routed through Xray")
+
+        Protocol.HYSTERIA2 ->
+            throw IllegalArgumentException("Hysteria2 is routed through its own SOCKS outbound")
     }
 
     private fun server(p: Profile): JSONObject =

@@ -48,6 +48,12 @@ internal fun TunnelManager.connectXray(p: Profile) {
         val configFile = File(AppDirs.dataDir(), "xray-config.json")
         configFile.writeText(config)
 
+        // Hysteria2: the hysteria core (child process) must be up and serving
+        // its local SOCKS before xray starts — its outbound points there.
+        if (p.isHysteria) {
+            HysteriaRunner.start(p)
+        }
+
         logLine("Запуск xray (${if (opts.blockAds) "с geosite" else "без geosite"})…")
         val env = mutableListOf("XRAY_LOCATION_ASSET=${bin.absolutePath}")
         xray = ChildProcess(
@@ -598,6 +604,7 @@ internal fun TunnelManager.teardownAll() {
         if (xray != null) stoppedSomething = true
         xray?.stop()
         xray = null
+        HysteriaRunner.stop()
         if (stoppedSomething) logLine("Туннель остановлен")
     }
 

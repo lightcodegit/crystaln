@@ -197,6 +197,14 @@
     <!-- Jelly mini game -->
     <string name="jelly_title">CrystalN Jelly</string>
     <string name="jelly_hint">Drag the jelly logo — it springs and bounces</string>
+
+    <!-- Hysteria2 -->
+    <string name="section_hy2_transport">Hysteria2 (QUIC)</string>
+    <string name="field_hy2_obfs">Obfs (salamander — empty if none)</string>
+    <string name="field_hy2_obfs_password">Obfs password</string>
+    <string name="field_hy2_up">Upload speed (Mbps, optional)</string>
+    <string name="field_hy2_down">Download speed (Mbps, optional)</string>
+    <string name="field_hy2_insecure">Allow insecure TLS</string>
     <string name="share_title">Share profile</string>
     <string name="share_unavailable">This profile cannot be exported: no address or credentials.</string>
     <string name="share_copied">Link copied</string>

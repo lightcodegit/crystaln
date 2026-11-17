@@ -22,6 +22,8 @@ object ShareLinkParser {
         line.startsWith("vmess://", ignoreCase = true) -> parseVmess(line)
         line.startsWith("socks://", ignoreCase = true) || line.startsWith("socks5://", ignoreCase = true) ->
             parseUserPass(line, Protocol.SOCKS)
+        line.startsWith("hysteria2://", ignoreCase = true) || line.startsWith("hy2://", ignoreCase = true) ->
+            parseHysteria2(line)
         line.startsWith("http://", ignoreCase = true) || line.startsWith("https://", ignoreCase = true) ->
             parseHttpUrl(line)
         else -> null
@@ -176,6 +178,45 @@ object ShareLinkParser {
                     p.fields["password"] = info.substring(i + 1)
                 }
             }
+            p
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    /**
+     * hysteria2://password@host:port/?sni=…&insecure=1&obfs=salamander&obfs-password=…#name
+     * ("hy2://" alias). Bandwidth hints: up/upmbps, down/downmbps (mbps suffix
+     * optional). Password may be percent-encoded.
+     */
+    private fun parseHysteria2(link: String): Profile? {
+        return try {
+            val uri = Uri.parse(link)
+            val p = Profile(
+                name = nameOf(uri.fragment ?: "", "Hysteria2"),
+                protocol = Protocol.HYSTERIA2,
+                address = uri.host ?: return null,
+                port = uri.port.takeIf { it > 0 } ?: 443,
+            )
+            p.fields["password"] = uri.userInfo?.let { Uri.decode(it) } ?: return null
+            listOf(
+                "sni" to "sni",
+                "obfs" to "obfs",
+                "obfs-password" to "obfsPassword",
+                "obfsPassword" to "obfsPassword",
+            ).forEach { (q, key) ->
+                uri.getQueryParameter(q)?.takeIf { it.isNotEmpty() }?.let { p.fields[key] = it }
+            }
+            when (uri.getQueryParameter("insecure")) {
+                "1", "true" -> p.fields["allowInsecure"] = "true"
+            }
+            // Either scheme spelling, with or without the "mbps" suffix.
+            fun mbps(vararg keys: String): Int? = keys.firstNotNullOfOrNull { k ->
+                uri.getQueryParameter(k)?.trim()?.removeSuffix("mbps")
+                    ?.removeSuffix("Mbps")?.toIntOrNull()?.takeIf { it > 0 }
+            }
+            mbps("up", "upmbps", "up-mbps")?.let { p.fields["upMbps"] = it.toString() }
+            mbps("down", "downmbps", "down-mbps")?.let { p.fields["downMbps"] = it.toString() }
             p
         } catch (_: Exception) {
             null

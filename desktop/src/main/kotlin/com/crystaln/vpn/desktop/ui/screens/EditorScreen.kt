@@ -148,6 +148,8 @@ fun EditorScreen(
                         WireGuardFamilyFields(protocol, ::value, ::set, isDark)
                     } else if (protocol == Protocol.OPENVPN) {
                         OpenVpnFields(isDark, ::value, ::set)
+                    } else if (protocol == Protocol.HYSTERIA2) {
+                        HysteriaFields(isDark, ::value, ::set, insecure, onInsecure = { insecure = it })
                     } else {
                         XrayFields(protocol, isDark, ::value, ::set, tls, reality, insecure,
                             onTls = { tls = it }, onReality = { reality = it }, onInsecure = { insecure = it })
@@ -258,6 +260,19 @@ private fun buildProfile(
         return p
     }
 
+    // Hysteria2: server + credentials; TLS/transport is handled by the
+    // hysteria core, so the Xray transport fields don't apply.
+    if (protocol == Protocol.HYSTERIA2) {
+        p.address = v("address")
+        p.port = v("port").toIntOrNull() ?: 0
+        p.fields = mutableMapOf()
+        listOf(
+            "password", "sni", "obfs", "obfsPassword", "upMbps", "downMbps",
+        ).forEach { k -> v(k).takeIf { it.isNotEmpty() }?.let { p.fields[k] = it } }
+        if (insecure) p.fields["allowInsecure"] = "true"
+        return p
+    }
+
     p.address = v("address")
     p.port = v("port").toIntOrNull() ?: 0
     p.fields = mutableMapOf()
@@ -323,7 +338,15 @@ private fun XrayFields(
                 TextFieldRow("username", "Логин (опционально)", value, set)
                 TextFieldRow("password", "Пароль (опционально)", value, set)
             }
-            Protocol.WIREGUARD, Protocol.AMNEZIAWG, Protocol.OPENVPN -> Unit
+            Protocol.HYSTERIA2 -> {
+                TextFieldRow("password", "Пароль (auth)", value, set)
+                TextFieldRow("sni", "SNI (опционально)", value, set)
+                TextFieldRow("obfs", "Obfs (salamander — пусто, если нет)", value, set)
+                TextFieldRow("obfsPassword", "Пароль obfs", value, set)
+                TextFieldRow("upMbps", "Скорость отдачи (Mbps, опционально)", value, set, numeric = true)
+                TextFieldRow("downMbps", "Скорость загрузки (Mbps, опционально)", value, set, numeric = true)
+            }
+            Protocol.WIREGUARD, Protocol.AMNEZIAWG, Protocol.OPENVPN, Protocol.HYSTERIA2 -> Unit
         }
         TextFieldRow("name", "Название профиля", value, set)
     }
@@ -335,8 +358,9 @@ private fun XrayFields(
         }
     }
 
-    // HTTPS proxy carries TLS by definition — no security toggles.
-    if (protocol != Protocol.HTTPS) {
+    // HTTPS proxy carries TLS by definition — no security toggles. Hysteria2
+    // hides them too: its TLS is configured via sni/insecure above.
+    if (protocol !in setOf(Protocol.HTTPS, Protocol.HYSTERIA2)) {
         SectionLabel("Безопасность")
         GlassPanel(isDark = isDark) {
             ToggleRow("TLS", tls, onTls)
@@ -357,6 +381,33 @@ private fun XrayFields(
                 }
             }
         }
+    }
+}
+
+/** Fields for Hysteria2: credentials and QUIC transport hints. */
+@Composable
+private fun HysteriaFields(
+    isDark: Boolean,
+    value: (String) -> String,
+    set: (String, String) -> Unit,
+    insecure: Boolean,
+    onInsecure: (Boolean) -> Unit,
+) {
+    SectionLabel("Сервер")
+    GlassPanel(isDark = isDark) {
+        TextFieldRow("address", "Адрес (host или IP)", value, set)
+        TextFieldRow("port", "Порт", value, set, numeric = true)
+        TextFieldRow("password", "Пароль (auth)", value, set)
+        TextFieldRow("name", "Название профиля", value, set)
+    }
+    SectionLabel("Hysteria2 (QUIC)")
+    GlassPanel(isDark = isDark) {
+        TextFieldRow("sni", "SNI", value, set)
+        TextFieldRow("obfs", "Obfs (salamander — пусто, если нет)", value, set)
+        TextFieldRow("obfsPassword", "Пароль obfs", value, set)
+        TextFieldRow("upMbps", "Скорость отдачи (Mbps, опционально)", value, set, numeric = true)
+        TextFieldRow("downMbps", "Скорость загрузки (Mbps, опционально)", value, set, numeric = true)
+        ToggleRow("Разрешить небезопасный TLS", insecure, onInsecure)
     }
 }
 

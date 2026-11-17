@@ -26,5 +26,6 @@ Thumbs.db
 
 # OpenVPN core (built by tools/build_openvpn_core.sh)
 app/src/main/jniLibs/
+# libhysteria.so качается tools/fetch_hysteria.sh (70 MB — не коммитим).
 third_party/build/
 downloads/

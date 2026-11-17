@@ -1017,7 +1017,7 @@ private fun PingChip(
 
 /** TCP-connect ping is only meaningful for Xray-family TCP transports. */
 private fun isPingable(p: Profile): Boolean {
-    if (p.isWireGuardFamily || p.isOpenVpn) return false
+    if (p.isWireGuardFamily || p.isOpenVpn || p.isHysteria) return false // QUIC/UDP — TCP-ping бессмыслен
     if (p.address.isEmpty() || p.port <= 0) return false
     return (p.fields["network"] ?: "tcp") !in setOf("quic", "kcp", "udp")
 }

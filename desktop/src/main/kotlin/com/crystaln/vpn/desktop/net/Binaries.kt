@@ -23,6 +23,9 @@ object Binaries {
     const val AWG_GO = "amneziawg-go"
     const val AWG = "awg"
 
+    /** Официальный клиент Hysteria2 (child-процесс с локальным SOCKS5). */
+    const val HYSTERIA = "hysteria"
+
     /** Windows: amneziawg.exe — менеджер туннель-сервисов AmneziaWG. */
     const val AWG_SERVICE = "amneziawg"
 
@@ -44,6 +47,7 @@ object Binaries {
         val tun2socksReady: Boolean,
         val geositeReady: Boolean,
         val awgReady: Boolean,
+        val hysteriaReady: Boolean,
         /** Windows: wintun.dll лежит рядом с tun2socks/openvpn (иначе TUN нем). */
         val wintunReady: Boolean = true,
         /** Windows: портативный openvpn извлечён в bin/openvpn (на Linux системный). */
@@ -62,6 +66,7 @@ object Binaries {
             xrayReady = executable(File(bin, p.binName(XRAY))),
             tun2socksReady = executable(File(bin, p.binName(TUN2SOCKS))),
             geositeReady = File(bin, "geosite.dat").exists(),
+            hysteriaReady = executable(File(bin, p.binName(HYSTERIA))),
             awgReady = if (p.isWindows) {
                 executable(File(bin, p.binName(AWG_SERVICE))) &&
                     executable(File(bin, p.binName(AWG)))
@@ -106,12 +111,31 @@ object Binaries {
         needGeosite: Boolean = false,
         needAwg: Boolean = true,
         needOpenVpn: Boolean = true,
+        needHysteria: Boolean = true,
         progress: (String) -> Unit = {},
     ) {
         val bin = AppDirs.binDir()
         bin.mkdirs()
         val arch = archSuffix()
         val isWin = p.isWindows
+        if (needHysteria && !status().hysteriaReady) {
+            progress("Загрузка Hysteria2…")
+            // Ассеты — сырые бинарники: hysteria-windows-amd64.exe (без zip),
+            // hysteria-linux-amd64. Windows-версию нельзя качать сразу в целевой
+            // файл: downloadTo пишет через .tmp, поэтому качаем и переименовываем.
+            val asset = if (isWin) {
+                "hysteria-windows-$arch.exe"
+            } else {
+                "hysteria-linux-$arch"
+            }
+            val tmp = downloadTo(
+                "https://github.com/HyNetworks/hysteria/releases/download/app/v2.14.0/$asset",
+                File(bin, "hysteria.tmp"),
+            )
+            val out = File(bin, p.binName(HYSTERIA))
+            if (!tmp.renameTo(out)) out.writeBytes(tmp.readBytes())
+            out.setExecutable(true)
+        }
         if (needXray && !status().xrayReady) {
             progress("Загрузка Xray-core…")
             // Windows-сборка называется Xray-windows-64.zip и содержит xray.exe.

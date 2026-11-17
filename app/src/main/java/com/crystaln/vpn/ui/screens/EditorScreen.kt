@@ -153,6 +153,8 @@ fun EditorScreen(
                         WireGuardFamilyFields(protocol, ::value, ::set, isDark)
                     } else if (protocol == Protocol.OPENVPN) {
                         OpenVpnFields(isDark, ::value, ::set)
+                    } else if (protocol == Protocol.HYSTERIA2) {
+                        HysteriaFields(isDark, ::value, ::set, insecure, onInsecure = { insecure = it })
                     } else {
                         XrayFields(protocol, isDark, ::value, ::set, tls, reality, insecure,
                             onTls = { tls = it }, onReality = { reality = it }, onInsecure = { insecure = it })
@@ -194,10 +196,36 @@ fun EditorScreen(
     }
 }
 
+/** Fields for Hysteria2: credentials and QUIC transport hints. */
+@Composable
+private fun HysteriaFields(
+    isDark: Boolean,
+    value: (String) -> String,
+    set: (String, String) -> Unit,
+    insecure: Boolean,
+    onInsecure: (Boolean) -> Unit,
+) {
+    SectionLabel(stringResource(R.string.section_server))
+    GlassPanel(isDark = isDark) {
+        TextFieldRow("address", stringResource(R.string.field_address), value, set)
+        TextFieldRow("port", stringResource(R.string.field_port), value, set, numeric = true)
+        TextFieldRow("password", stringResource(R.string.field_password), value, set)
+        TextFieldRow("name", stringResource(R.string.field_profile_name), value, set)
+    }
+    SectionLabel(stringResource(R.string.section_hy2_transport))
+    GlassPanel(isDark = isDark) {
+        TextFieldRow("sni", "SNI", value, set)
+        TextFieldRow("obfs", stringResource(R.string.field_hy2_obfs), value, set)
+        TextFieldRow("obfsPassword", stringResource(R.string.field_hy2_obfs_password), value, set)
+        TextFieldRow("upMbps", stringResource(R.string.field_hy2_up), value, set, numeric = true)
+        TextFieldRow("downMbps", stringResource(R.string.field_hy2_down), value, set, numeric = true)
+        ToggleRow(stringResource(R.string.field_hy2_insecure), insecure, onInsecure)
+    }
+}
+
 /** Round pill chip with the protocol's accent color. */
 @Composable
-private fun ProtocolChip(
-    protocol: Protocol,
+private fun ProtocolChip(    protocol: Protocol,
     selected: Boolean,
     onClick: () -> Unit,
     enabled: Boolean = true,
@@ -288,6 +316,19 @@ private fun buildProfile(
         return p
     }
 
+    // Hysteria2: server + credentials only; TLS/transport is handled by the
+    // hysteria core, so the Xray transport fields don't apply.
+    if (protocol == Protocol.HYSTERIA2) {
+        p.address = v("address")
+        p.port = v("port").toIntOrNull() ?: 0
+        p.fields = mutableMapOf()
+        listOf(
+            "password", "sni", "obfs", "obfsPassword", "upMbps", "downMbps",
+        ).forEach { k -> v(k).takeIf { it.isNotEmpty() }?.let { p.fields[k] = it } }
+        if (insecure) p.fields["allowInsecure"] = "true"
+        return p
+    }
+
     p.address = v("address")
     p.port = v("port").toIntOrNull() ?: 0
     p.fields = mutableMapOf()
@@ -353,7 +394,7 @@ private fun XrayFields(
                 TextFieldRow("username", stringResource(R.string.field_username_opt), value, set)
                 TextFieldRow("password", stringResource(R.string.field_password_opt), value, set)
             }
-            Protocol.WIREGUARD, Protocol.AMNEZIAWG, Protocol.OPENVPN -> Unit
+            Protocol.WIREGUARD, Protocol.AMNEZIAWG, Protocol.OPENVPN, Protocol.HYSTERIA2 -> Unit
         }
         TextFieldRow("name", stringResource(R.string.field_profile_name), value, set)
     }

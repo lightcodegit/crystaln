@@ -83,6 +83,7 @@ fun protocolColor(p: Protocol): Color = when (p) {
     Protocol.WIREGUARD -> Color(0xFFE86A4B)
     Protocol.AMNEZIAWG -> Color(0xFFC95E3F)
     Protocol.OPENVPN -> Color(0xFFC9A23F)
+    Protocol.HYSTERIA2 -> Color(0xFFB04FF6)
 }
 
 /**

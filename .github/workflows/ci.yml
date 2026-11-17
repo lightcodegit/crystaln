@@ -35,6 +35,9 @@ jobs:
       - name: Fetch Xray core bindings
         run: bash tools/fetch_cores.sh
 
+      - name: Fetch Hysteria2 core
+        run: bash tools/fetch_hysteria.sh
+
       - name: Run unit tests
         run: ./gradlew --no-daemon :app:testDebugUnitTest --console=plain
 

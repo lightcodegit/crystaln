@@ -24,6 +24,8 @@ jobs:
       - uses: gradle/actions/setup-gradle@v6
       - name: Fetch Xray core bindings
         run: bash tools/fetch_cores.sh
+      - name: Fetch Hysteria2 core
+        run: bash tools/fetch_hysteria.sh
       - name: Build APKs
         run: |
           ./gradlew --no-daemon :app:assembleDebug --console=plain

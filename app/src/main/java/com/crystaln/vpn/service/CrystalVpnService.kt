@@ -14,6 +14,7 @@ import com.crystaln.vpn.R
 import com.crystaln.vpn.data.Profile
 import com.crystaln.vpn.data.ProfileStore
 import com.crystaln.vpn.data.SettingsStore
+import com.crystaln.vpn.hysteria.HysteriaCore
 import com.crystaln.vpn.ui.MainActivity
 import com.crystaln.vpn.xray.XrayConfigBuilder
 import com.crystaln.vpn.xray.XrayCore
@@ -77,6 +78,17 @@ class CrystalVpnService : VpnService() {
                     return@launch
                 }
                 tun = fd
+                // Hysteria2: the hysteria core (child process) must be up and
+                // serving its local SOCKS before the Xray router starts — its
+                // outbound points there.
+                if (profile.isHysteria) {
+                    try {
+                        HysteriaCore.start(applicationContext, profile)
+                    } catch (t: Throwable) {
+                        fail(t.message ?: "hysteria core failed to start")
+                        return@launch
+                    }
+                }
                 // A started core says nothing about the server: it binds the
                 // TUN happily even with the server off. Wait for the first
                 // bytes received through the proxy outbound (system network
@@ -177,6 +189,7 @@ class CrystalVpnService : VpnService() {
     private fun shutdown() {
         running = false
         XrayCore.stop()
+        HysteriaCore.stop()
         try {
             tun?.close()
         } catch (_: Exception) {
