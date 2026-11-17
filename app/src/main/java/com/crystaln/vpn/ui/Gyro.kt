@@ -43,11 +43,11 @@ private const val LIQUID_TILT_MAX_PX = 130f
  *  purpose: the surface sloshes around the equilibrium, like real liquid. */
 private const val LIQUID_STIFFNESS = 30f
 
-/** Velocity damping (1/s). */
-private const val LIQUID_DAMPING = 2.0f
+/** Damped spring velocity decay (1/s). Low = long viscous sloshing. */
+private const val LIQUID_DAMPING = 1.35f
 
 /** Gyro rotation → slosh velocity kick (px/s per rad/s). */
-private const val LIQUID_KICK = 210f
+private const val LIQUID_KICK = 280f
 
 /** Drift with velocity — velocity drives the blob wobble. */
 data class Drift(val offset: Offset, val vel: Offset)

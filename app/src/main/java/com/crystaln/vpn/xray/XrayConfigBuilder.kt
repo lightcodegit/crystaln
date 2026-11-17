@@ -133,7 +133,7 @@ object XrayConfigBuilder {
         Protocol.TROJAN -> "trojan"
         Protocol.SHADOWSOCKS -> "shadowsocks"
         Protocol.SOCKS -> "socks"
-        Protocol.HTTP -> "http"
+        Protocol.HTTP, Protocol.HTTPS -> "http"
         Protocol.WIREGUARD, Protocol.AMNEZIAWG ->
             throw IllegalArgumentException("WireGuard-family is not routed through Xray")
         Protocol.OPENVPN ->
@@ -194,7 +194,7 @@ object XrayConfigBuilder {
             ),
         )
 
-        Protocol.SOCKS, Protocol.HTTP -> JSONObject().put(
+        Protocol.SOCKS, Protocol.HTTP, Protocol.HTTPS -> JSONObject().put(
             "servers",
             JSONArray().put(
                 server(p).apply {
@@ -302,7 +302,7 @@ object XrayConfigBuilder {
             else -> {} // tcp
         }
 
-        val useTls = p.fields["tls"] == "true"
+        val useTls = p.fields["tls"] == "true" || p.protocol == Protocol.HTTPS
         val useReality = p.fields["reality"] == "true"
         if (useTls || useReality) {
             s.put("security", if (useReality) "reality" else "tls")

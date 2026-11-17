@@ -322,7 +322,7 @@ private fun XrayFields(
                 TextFieldRow("address", stringResource(R.string.field_address), value, set)
                 TextFieldRow("port", stringResource(R.string.field_port), value, set, numeric = true)
             }
-            Protocol.SOCKS, Protocol.HTTP -> {
+            Protocol.SOCKS, Protocol.HTTP, Protocol.HTTPS -> {
                 TextFieldRow("username", stringResource(R.string.field_username_opt), value, set)
                 TextFieldRow("password", stringResource(R.string.field_password_opt), value, set)
             }
@@ -338,23 +338,26 @@ private fun XrayFields(
         }
     }
 
-    SectionLabel(stringResource(R.string.section_security))
-    GlassPanel(isDark = isDark) {
-        ToggleRow("TLS", tls, onTls)
-        ToggleRow("REALITY", reality, onReality)
-        if (tls || reality) {
-            val visible = if (reality) {
-                setOf("sni", "fingerprint", "publicKey", "shortId", "spiderX")
-            } else {
-                setOf("sni", "fingerprint", "alpn")
-            }
-            listOf("sni", "fingerprint", "alpn", "publicKey", "shortId", "spiderX").forEach { k ->
-                if (k in visible) {
-                    TextFieldRow(k, securityLabel(k), value, set)
+    // HTTPS proxy carries TLS by definition — no security toggles.
+    if (protocol != Protocol.HTTPS) {
+        SectionLabel(stringResource(R.string.section_security))
+        GlassPanel(isDark = isDark) {
+            ToggleRow("TLS", tls, onTls)
+            ToggleRow("REALITY", reality, onReality)
+            if (tls || reality) {
+                val visible = if (reality) {
+                    setOf("sni", "fingerprint", "publicKey", "shortId", "spiderX")
+                } else {
+                    setOf("sni", "fingerprint", "alpn")
                 }
-            }
-            if (!reality) {
-                ToggleRow(stringResource(R.string.toggle_allow_insecure), insecure, onInsecure)
+                listOf("sni", "fingerprint", "alpn", "publicKey", "shortId", "spiderX").forEach { k ->
+                    if (k in visible) {
+                        TextFieldRow(k, securityLabel(k), value, set)
+                    }
+                }
+                if (!reality) {
+                    ToggleRow(stringResource(R.string.toggle_allow_insecure), insecure, onInsecure)
+                }
             }
         }
     }

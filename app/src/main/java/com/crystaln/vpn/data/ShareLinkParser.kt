@@ -190,8 +190,8 @@ object ShareLinkParser {
             // URLs with a real path are web pages, not proxies.
             if (uri.userInfo.isNullOrEmpty() && path.length > 1) return null
             val p = Profile(
-                name = nameOf(uri.fragment ?: "", "HTTP"),
-                protocol = Protocol.HTTP,
+                name = nameOf(uri.fragment ?: "", if (uri.scheme.equals("https", true)) "HTTPS" else "HTTP"),
+                protocol = if (uri.scheme.equals("https", true)) Protocol.HTTPS else Protocol.HTTP,
                 address = uri.host ?: return null,
                 port = uri.port.takeIf { it > 0 } ?: 8080,
             )

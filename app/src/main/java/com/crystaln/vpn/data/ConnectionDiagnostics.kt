@@ -130,7 +130,7 @@ object ConnectionDiagnostics {
                 if (profile.fields["method"].isNullOrBlank()) problems += "method"
             }
 
-            Protocol.SOCKS, Protocol.HTTP -> Unit // credentials optional
+            Protocol.SOCKS, Protocol.HTTP, Protocol.HTTPS -> Unit // credentials optional
 
             Protocol.WIREGUARD, Protocol.AMNEZIAWG -> {
                 val cfg = profile.wgConfig

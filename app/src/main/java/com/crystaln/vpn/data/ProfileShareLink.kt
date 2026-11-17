@@ -21,6 +21,7 @@ object ProfileShareLink {
         Protocol.SHADOWSOCKS -> shareShadowsocks(p)
         Protocol.SOCKS -> shareUserPass(p, "socks")
         Protocol.HTTP -> shareUserPass(p, "http")
+        Protocol.HTTPS -> shareUserPass(p, "https")
         Protocol.WIREGUARD, Protocol.AMNEZIAWG -> p.wgConfig.ifEmpty { null }
         Protocol.OPENVPN -> p.ovpnConfig.ifEmpty { null }
     }

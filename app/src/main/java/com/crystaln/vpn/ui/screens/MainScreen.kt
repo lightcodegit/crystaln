@@ -111,7 +111,7 @@ fun protocolColor(p: Protocol): Color = when (p) {
     Protocol.TROJAN -> Color(0xFFE85A6A)
     Protocol.SHADOWSOCKS -> Color(0xFF38B6E8)
     Protocol.SOCKS -> Color(0xFF2BB673)
-    Protocol.HTTP -> Color(0xFFE8A238)
+    Protocol.HTTP, Protocol.HTTPS -> Color(0xFFE8A238)
     Protocol.WIREGUARD -> Color(0xFFE8622C)
     Protocol.AMNEZIAWG -> Color(0xFFD04FF6)
     Protocol.OPENVPN -> Color(0xFF4F9E58)
@@ -916,125 +916,133 @@ private fun ProfileCard(
             )
             .clickable(onClick = onSelect),
     ) {
-        Row(
+        Column(
             Modifier
                 .fillMaxWidth()
-                .padding(start = 12.dp, top = 10.dp, bottom = 10.dp, end = 2.dp),
-            verticalAlignment = Alignment.CenterVertically,
+                .padding(start = 12.dp, top = 10.dp, bottom = 6.dp, end = 8.dp),
         ) {
-            Box(
-                Modifier
-                    .size(40.dp)
-                    .clip(RoundedCornerShape(14.dp))
-                    .background(
-                        Brush.linearGradient(
-                            listOf(pc.copy(alpha = 0.30f), pc.copy(alpha = 0.12f)),
-                        ),
-                    ),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    Icons.Default.Lan,
-                    contentDescription = null,
-                    tint = pc,
-                    modifier = Modifier.size(19.dp),
-                )
-            }
-            Spacer(Modifier.width(10.dp))
-            Column(Modifier.weight(1f)) {
-                Text(
-                    profile.name,
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                // Protocol + summary share one line so the right-side actions
-                // never squeeze the text on narrow screens.
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        profile.protocol.displayName,
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = pc,
-                    )
-                    Spacer(Modifier.width(5.dp))
-                    Text(
-                        profile.summary(),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
-                totalTraffic?.takeIf { it.rx + it.tx > 0 }?.let { t ->
-                    Text(
-                        stringResource(
-                            R.string.profile_traffic_total,
-                            formatBytes(t.rx + t.tx),
-                        ),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
-            }
-            Spacer(Modifier.width(6.dp))
-            if (pingable) {
-                PingChip(ping = ping, tint = pc, onPing = onPing)
-                Spacer(Modifier.width(4.dp))
-            }
-            if (selected) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(
                     Modifier
-                        .size(22.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primary),
+                        .size(40.dp)
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(
+                            Brush.linearGradient(
+                                listOf(pc.copy(alpha = 0.30f), pc.copy(alpha = 0.12f)),
+                            ),
+                        ),
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(
-                        Icons.Default.Check,
-                        contentDescription = "Selected",
-                        tint = MaterialTheme.colorScheme.onPrimary,
-                        modifier = Modifier.size(14.dp),
+                        Icons.Default.Lan,
+                        contentDescription = null,
+                        tint = pc,
+                        modifier = Modifier.size(19.dp),
                     )
                 }
-                Spacer(Modifier.width(2.dp))
+                Spacer(Modifier.width(10.dp))
+                // Full-width text column: the action icons live on their
+                // own row below, so ping and server info are never starved.
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        profile.name,
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            profile.protocol.displayName,
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = pc,
+                        )
+                        Spacer(Modifier.width(5.dp))
+                        Text(
+                            profile.summary(),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                    totalTraffic?.takeIf { it.rx + it.tx > 0 }?.let { t ->
+                        Text(
+                            stringResource(
+                                R.string.profile_traffic_total,
+                                formatBytes(t.rx + t.tx),
+                            ),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                }
+                Spacer(Modifier.width(8.dp))
+                if (pingable) {
+                    PingChip(ping = ping, tint = pc, onPing = onPing)
+                    Spacer(Modifier.width(6.dp))
+                }
+                if (selected) {
+                    Box(
+                        Modifier
+                            .size(22.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.primary),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            Icons.Default.Check,
+                            contentDescription = "Selected",
+                            tint = MaterialTheme.colorScheme.onPrimary,
+                            modifier = Modifier.size(14.dp),
+                        )
+                    }
+                }
             }
-            // Compact icon buttons: the default 48dp target triples the
-            // footprint of three actions and starves the text column.
-            IconButton(onClick = onToggleFavorite, modifier = Modifier.size(32.dp)) {
-                Icon(
-                    if (favorite) Icons.Default.Star else Icons.Default.StarBorder,
-                    contentDescription = "Favorite",
-                    modifier = Modifier.size(16.dp),
-                    tint = if (favorite) Color(0xFFFFC94A) else MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            IconButton(onClick = onShare, modifier = Modifier.size(32.dp)) {
-                Icon(
-                    Icons.Default.Share,
-                    contentDescription = "Share",
-                    modifier = Modifier.size(16.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            IconButton(onClick = onEdit, modifier = Modifier.size(32.dp)) {
-                Icon(
-                    Icons.Default.Edit,
-                    contentDescription = "Edit",
-                    modifier = Modifier.size(16.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            IconButton(onClick = onDelete, modifier = Modifier.size(32.dp)) {
-                Icon(
-                    Icons.Default.Delete,
-                    contentDescription = "Delete",
-                    modifier = Modifier.size(16.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+            // Actions row: star (favorite), share, edit, delete. Compact
+            // 30dp buttons, right-aligned — never squeeze the text column.
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(top = 2.dp, end = 2.dp),
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                IconButton(onClick = onToggleFavorite, modifier = Modifier.size(30.dp)) {
+                    Icon(
+                        if (favorite) Icons.Default.Star else Icons.Default.StarBorder,
+                        contentDescription = "Favorite",
+                        modifier = Modifier.size(15.dp),
+                        tint = if (favorite) Color(0xFFFFC94A) else MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                IconButton(onClick = onShare, modifier = Modifier.size(30.dp)) {
+                    Icon(
+                        Icons.Default.Share,
+                        contentDescription = "Share",
+                        modifier = Modifier.size(15.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                IconButton(onClick = onEdit, modifier = Modifier.size(30.dp)) {
+                    Icon(
+                        Icons.Default.Edit,
+                        contentDescription = "Edit",
+                        modifier = Modifier.size(15.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                IconButton(onClick = onDelete, modifier = Modifier.size(30.dp)) {
+                    Icon(
+                        Icons.Default.Delete,
+                        contentDescription = "Delete",
+                        modifier = Modifier.size(15.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
         }
     }

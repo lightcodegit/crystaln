@@ -1048,8 +1048,21 @@ class MainActivity : FragmentActivity() {
     private fun toggleSubscription(sub: Subscription, enabled: Boolean) {
         SubscriptionsStore.update(this, sub.copy(enabled = enabled))
         SubscriptionSyncScheduler.reschedule(this)
+        if (enabled) {
+            refreshSubscription(sub.id)
+        } else {
+            // Disabled subscription: hide its profiles until re-enabled.
+            // Stop the tunnel first if it runs on one of them.
+            val active = VpnManager.current().profile
+            if (active?.subscriptionId == sub.id &&
+                VpnManager.current().state != VpnManager.State.OFF
+            ) {
+                VpnManager.stop(this)
+            }
+            ProfileStore.removeBySubscription(this, sub.id)
+            refreshProfiles()
+        }
         refreshSubscriptions()
-        if (enabled) refreshSubscription(sub.id)
     }
 
     private fun removeSubscription(sub: Subscription) {

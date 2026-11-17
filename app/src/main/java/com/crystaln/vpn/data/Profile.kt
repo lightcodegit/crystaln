@@ -11,6 +11,7 @@ enum class Protocol(val displayName: String) {
     SHADOWSOCKS("Shadowsocks"),
     SOCKS("SOCKS5"),
     HTTP("HTTP"),
+    HTTPS("HTTPS"),
     WIREGUARD("WireGuard"),
     AMNEZIAWG("AmneziaWG"),
     OPENVPN("OpenVPN");
@@ -63,7 +64,7 @@ data class Profile(
         val credential = when (protocol) {
             Protocol.VMESS, Protocol.VLESS -> fields["uuid"]
             Protocol.TROJAN, Protocol.SHADOWSOCKS -> fields["password"]
-            Protocol.SOCKS, Protocol.HTTP -> fields["username"]?.let { "$it:${fields["password"]}" }
+            Protocol.SOCKS, Protocol.HTTP, Protocol.HTTPS -> fields["username"]?.let { "$it:${fields["password"]}" }
             Protocol.WIREGUARD, Protocol.AMNEZIAWG ->
                 wgConfig.lineSequence()
                     .firstOrNull { it.trim().startsWith("PublicKey", ignoreCase = true) }

@@ -41,7 +41,7 @@ uniform float2 uP4; uniform float uR4; uniform float3 uC4; uniform float2 uV4;
 
 float field(float2 p, float2 c, float r, float2 v) {
     float sp = length(v);
-    float s = 1.0 + min(sp / 700.0, 0.6);
+    float s = 1.0 + min(sp / 500.0, 0.85);
     float2 dir = sp < 1.0 ? float2(1.0, 0.0) : v / sp;
     float2 d = p - c;
     float along = dot(d, dir);
@@ -142,19 +142,19 @@ fun LiquidSurface(isDark: Boolean) {
                 shader.setFloatUniform("uT", 0.909f)
                 shader.setFloatUniform("uE", 0.05f)
                 shader.setFloatUniform("uP1", p1.x, p1.y)
-                shader.setFloatUniform("uR1", 230.dp.toPx())
+                shader.setFloatUniform("uR1", 260.dp.toPx())
                 shader.setFloatUniform("uC1", c1.red, c1.green, c1.blue)
                 shader.setFloatUniform("uV1", v1.x, v1.y)
                 shader.setFloatUniform("uP2", p2.x, p2.y)
-                shader.setFloatUniform("uR2", 200.dp.toPx())
+                shader.setFloatUniform("uR2", 230.dp.toPx())
                 shader.setFloatUniform("uC2", c2.red, c2.green, c2.blue)
                 shader.setFloatUniform("uV2", v2.x, v2.y)
                 shader.setFloatUniform("uP3", p3.x, p3.y)
-                shader.setFloatUniform("uR3", 170.dp.toPx())
+                shader.setFloatUniform("uR3", 195.dp.toPx())
                 shader.setFloatUniform("uC3", c3.red, c3.green, c3.blue)
                 shader.setFloatUniform("uV3", v3.x, v3.y)
                 shader.setFloatUniform("uP4", p4.x, p4.y)
-                shader.setFloatUniform("uR4", (190 + breathe * 25).dp.toPx())
+                shader.setFloatUniform("uR4", (215 + breathe * 25).dp.toPx())
                 shader.setFloatUniform("uC4", c4.red, c4.green, c4.blue)
                 shader.setFloatUniform("uV4", v4.x, v4.y)
 
