@@ -368,7 +368,6 @@ class MainActivity : FragmentActivity() {
         trafficLimitMb.value = SettingsStore.trafficLimitMb(this)
         killSwitch.value = SettingsStore.killSwitch(this)
         checkUrlText.value = SettingsStore.checkUrl(this)
-        checkUrlText.value = SettingsStore.checkUrl(this)
         checkTimeoutSec.value = SettingsStore.checkTimeoutSec(this)
         autoConnect.value = SettingsStore.autoConnect(this)
         autoFastest.value = SettingsStore.autoFastest(this)
@@ -709,7 +708,9 @@ class MainActivity : FragmentActivity() {
                         checkUrl = checkUrlText.value,
                         onCheckUrlChange = { url ->
                             checkUrlText.value = url
-                            SettingsStore.setCheckUrl(this@MainActivity, url)
+                            if (url.startsWith("http://", true) || url.startsWith("https://", true)) {
+                                SettingsStore.setCheckUrl(this@MainActivity, url)
+                            }
                         },
                         checkTimeoutSec = checkTimeoutSec.value,
                         onCheckTimeoutSecChange = { sec ->

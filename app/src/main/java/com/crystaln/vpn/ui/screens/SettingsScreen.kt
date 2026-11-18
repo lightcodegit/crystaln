@@ -354,8 +354,19 @@ fun SettingsScreen(
                             singleLine = true,
                             label = { Text(stringResource(R.string.check_url_label)) },
                             modifier = Modifier.fillMaxWidth(),
+                            isError = checkUrlText.isNotEmpty() &&
+                                !checkUrlText.startsWith("http://", true) &&
+                                !checkUrlText.startsWith("https://", true),
+                            supportingText = {
+                                if (checkUrlText.isNotEmpty() &&
+                                    !checkUrlText.startsWith("http://", true) &&
+                                    !checkUrlText.startsWith("https://", true)
+                                ) {
+                                    Text(stringResource(R.string.check_url_invalid))
+                                }
+                            },
                         )
-                        Spacer(Modifier.height(10.dp))
+                        Spacer(Modifier.height(2.dp))
                         OutlinedTextField(
                             value = timeoutText,
                             onValueChange = { v ->

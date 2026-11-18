@@ -189,6 +189,7 @@
 
     <!-- Connection test -->
     <string name="check_url_label">Connection check URL</string>
+    <string name="check_url_invalid">Only http:// and https:// are allowed</string>
     <string name="check_timeout_label">Check timeout (sec)</string>
     <string name="check_timeout_sub">How many seconds to wait for a response when connecting (3–60)</string>
 

@@ -188,6 +188,7 @@
 
     <!-- Connection test -->
     <string name="check_url_label">Ссылка для проверки подключения</string>
+    <string name="check_url_invalid">Допустимы только http:// и https://</string>
     <string name="check_timeout_label">Таймаут проверки (сек)</string>
     <string name="check_timeout_sub">Сколько секунд ждать отклика при подключении (3–60)</string>
 
