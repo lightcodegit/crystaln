@@ -2,6 +2,7 @@ package com.crystaln.vpn.ui.screens
 
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -49,11 +50,21 @@ fun SplitTunnelScreen(
             .filter { ctx.packageManager.getLaunchIntentForPackage(it.packageName) != null }
             .sortedBy { ctx.packageManager.getApplicationLabel(it).toString() }
     }
-    Column(Modifier.fillMaxSize().padding(16.dp)) {
+    Column(
+        Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+            .padding(16.dp),
+    ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             CircleGlassButton(icon = Icons.Default.ArrowBack, contentDescription = "Back", isDark = isDark, onClick = onBack, size = 40.dp)
             Spacer(Modifier.width(12.dp))
-            Text("Split tunneling", style = MaterialTheme.typography.titleLarge, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+            Text(
+                "Split tunneling",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
         }
         Spacer(Modifier.height(12.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -85,7 +96,7 @@ fun SplitTunnelScreen(
                 ) {
                     Checkbox(checked = ai.packageName in selected, onCheckedChange = { onToggleApp(ai.packageName) })
                     Spacer(Modifier.width(8.dp))
-                    Text(label, style = MaterialTheme.typography.bodyMedium)
+                    Text(label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
                 }
             }
         }
