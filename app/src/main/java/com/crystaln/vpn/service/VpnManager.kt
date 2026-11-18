@@ -170,6 +170,8 @@ object VpnManager {
                 startAwg(context.applicationContext, profile, myGeneration)
             }
 
+            profile.protocol == Protocol.TUIC -> failGeneration(myGeneration, profile, "TUIC requires the sing-box engine (planned)")
+
             profile.isOpenVpn -> try {
                 ContextCompat.startForegroundService(
                     context,

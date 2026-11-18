@@ -25,6 +25,7 @@ object ProfileShareLink {
         Protocol.WIREGUARD, Protocol.AMNEZIAWG -> p.wgConfig.ifEmpty { null }
         Protocol.OPENVPN -> p.ovpnConfig.ifEmpty { null }
         Protocol.HYSTERIA2 -> shareHysteria2(p)
+        Protocol.TUIC -> shareTuic(p)
     }
 
     /** hysteria2://password@host:port?params#name */
@@ -129,6 +130,20 @@ object ProfileShareLink {
             "${Uri.encode(user)}:${Uri.encode(pass ?: "")}@"
         } else ""
         return "$scheme://$auth${hostPort(p)}#${fragment(p)}"
+    }
+
+    private fun shareTuic(p: Profile): String? {
+        val uuid = p.fields["uuid"]?.takeIf { it.isNotEmpty() } ?: return null
+        if (p.address.isEmpty() || p.port <= 0) return null
+        val pass = p.fields["password"]?.takeIf { it.isNotEmpty() } ?: ""
+        val q = mutableListOf<String>()
+        p.fields["sni"]?.takeIf { it.isNotEmpty() }?.let { q += "sni=${Uri.encode(it)}" }
+        p.fields["congestionControl"]?.takeIf { it.isNotEmpty() }?.let { q += "congestion_control=${Uri.encode(it)}" }
+        p.fields["udpRelayMode"]?.takeIf { it.isNotEmpty() }?.let { q += "udp_relay_mode=${Uri.encode(it)}" }
+        if (p.fields["allowInsecure"] == "true") q += "allow_insecure=1"
+        val query = if (q.isEmpty()) "" else "?" + q.joinToString("&")
+        val auth = if (pass.isNotEmpty()) "${Uri.encode(uuid)}:${Uri.encode(pass)}" else Uri.encode(uuid)
+        return "tuic://$auth@${hostPort(p)}$query#${fragment(p)}"
     }
 
     /** Bare IPv6 hosts are bracketed so the port is unambiguous. */

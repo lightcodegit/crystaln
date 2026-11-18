@@ -15,7 +15,8 @@ enum class Protocol(val displayName: String) {
     WIREGUARD("WireGuard"),
     AMNEZIAWG("AmneziaWG"),
     OPENVPN("OpenVPN"),
-    HYSTERIA2("Hysteria2");
+    HYSTERIA2("Hysteria2"),
+    TUIC("TUIC");
 
     companion object {
         fun fromNameOrNull(name: String?): Protocol? =
@@ -70,6 +71,7 @@ data class Profile(
         val credential = when (protocol) {
             Protocol.VMESS, Protocol.VLESS -> fields["uuid"]
             Protocol.TROJAN, Protocol.SHADOWSOCKS, Protocol.HYSTERIA2 -> fields["password"]
+            Protocol.TUIC -> fields["uuid"] ?: fields["password"]
             Protocol.SOCKS, Protocol.HTTP, Protocol.HTTPS -> fields["username"]?.let { "$it:${fields["password"]}" }
             Protocol.WIREGUARD, Protocol.AMNEZIAWG ->
                 wgConfig.lineSequence()
@@ -104,6 +106,7 @@ data class Profile(
             }
         }
         Protocol.HYSTERIA2 -> "$address:${if (port > 0) port else "?"} · hy2"
+        Protocol.TUIC -> "$address:${if (port > 0) port else "?"} · tuic"
         else -> "$address:${if (port > 0) port else "?"} · ${transportLabel()}"
     }
 

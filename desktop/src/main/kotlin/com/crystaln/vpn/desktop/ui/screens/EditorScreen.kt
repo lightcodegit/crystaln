@@ -150,6 +150,8 @@ fun EditorScreen(
                         OpenVpnFields(isDark, ::value, ::set)
                     } else if (protocol == Protocol.HYSTERIA2) {
                         HysteriaFields(isDark, ::value, ::set, insecure, onInsecure = { insecure = it })
+                    } else if (protocol == Protocol.TUIC) {
+                        TuicFields(isDark, ::value, ::set, insecure, onInsecure = { insecure = it })
                     } else {
                         XrayFields(protocol, isDark, ::value, ::set, tls, reality, insecure,
                             onTls = { tls = it }, onReality = { reality = it }, onInsecure = { insecure = it })
@@ -260,6 +262,18 @@ private fun buildProfile(
         return p
     }
 
+    // TUIC: server + credentials; engine not available yet (sing-box planned).
+    if (protocol == Protocol.TUIC) {
+        p.address = v("address")
+        p.port = v("port").toIntOrNull() ?: 0
+        p.fields = mutableMapOf()
+        listOf("uuid", "password", "sni", "congestionControl", "udpRelayMode").forEach { k ->
+            v(k).takeIf { it.isNotEmpty() }?.let { p.fields[k] = it }
+        }
+        if (insecure) p.fields["allowInsecure"] = "true"
+        return p
+    }
+
     // Hysteria2: server + credentials; TLS/transport is handled by the
     // hysteria core, so the Xray transport fields don't apply.
     if (protocol == Protocol.HYSTERIA2) {
@@ -346,7 +360,7 @@ private fun XrayFields(
                 TextFieldRow("upMbps", "Скорость отдачи (Mbps, опционально)", value, set, numeric = true)
                 TextFieldRow("downMbps", "Скорость загрузки (Mbps, опционально)", value, set, numeric = true)
             }
-            Protocol.WIREGUARD, Protocol.AMNEZIAWG, Protocol.OPENVPN, Protocol.HYSTERIA2 -> Unit
+            Protocol.WIREGUARD, Protocol.AMNEZIAWG, Protocol.OPENVPN, Protocol.HYSTERIA2, Protocol.TUIC -> Unit
         }
         TextFieldRow("name", "Название профиля", value, set)
     }
@@ -381,6 +395,32 @@ private fun XrayFields(
                 }
             }
         }
+    }
+}
+
+/** Fields for TUIC: credentials and QUIC transport hints. */
+@Composable
+private fun TuicFields(
+    isDark: Boolean,
+    value: (String) -> String,
+    set: (String, String) -> Unit,
+    insecure: Boolean,
+    onInsecure: (Boolean) -> Unit,
+) {
+    SectionLabel("Сервер")
+    GlassPanel(isDark = isDark) {
+        TextFieldRow("address", "Адрес (host или IP)", value, set)
+        TextFieldRow("port", "Порт", value, set, numeric = true)
+        TextFieldRow("uuid", "UUID", value, set)
+        TextFieldRow("password", "Пароль", value, set)
+        TextFieldRow("name", "Название профиля", value, set)
+    }
+    SectionLabel("TUIC (QUIC)")
+    GlassPanel(isDark = isDark) {
+        TextFieldRow("sni", "SNI", value, set)
+        TextFieldRow("congestionControl", "Congestion control (cubic/bbr)", value, set)
+        TextFieldRow("udpRelayMode", "UDP relay mode (native/quic)", value, set)
+        ToggleRow("Разрешить небезопасный TLS", insecure, onInsecure)
     }
 }
 

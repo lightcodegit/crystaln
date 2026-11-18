@@ -24,6 +24,8 @@ object ShareLinkParser {
             parseUserPass(line, Protocol.SOCKS)
         line.startsWith("hysteria2://", ignoreCase = true) || line.startsWith("hy2://", ignoreCase = true) ->
             parseHysteria2(line)
+        line.startsWith("tuic://", ignoreCase = true) ->
+            parseTuic(line)
         line.startsWith("http://", ignoreCase = true) || line.startsWith("https://", ignoreCase = true) ->
             parseHttpUrl(line)
         else -> null
@@ -217,6 +219,40 @@ object ShareLinkParser {
             }
             mbps("up", "upmbps", "up-mbps")?.let { p.fields["upMbps"] = it.toString() }
             mbps("down", "downmbps", "down-mbps")?.let { p.fields["downMbps"] = it.toString() }
+            p
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    private fun parseTuic(link: String): Profile? {
+        return try {
+            val uri = Uri.parse(link)
+            val p = Profile(
+                name = nameOf(uri.fragment ?: "", "TUIC"),
+                protocol = Protocol.TUIC,
+                address = uri.host ?: return null,
+                port = uri.port.takeIf { it > 0 } ?: 443,
+            )
+            uri.userInfo?.let { info ->
+                val i = info.indexOf(':')
+                if (i > 0) {
+                    p.fields["uuid"] = Uri.decode(info.substring(0, i))
+                    p.fields["password"] = Uri.decode(info.substring(i + 1))
+                } else {
+                    p.fields["uuid"] = Uri.decode(info)
+                }
+            } ?: return null
+            listOf(
+                "sni" to "sni",
+                "congestion_control" to "congestionControl",
+                "udp_relay_mode" to "udpRelayMode",
+            ).forEach { (q, key) ->
+                uri.getQueryParameter(q)?.takeIf { it.isNotEmpty() }?.let { p.fields[key] = it }
+            }
+            when (uri.getQueryParameter("allow_insecure") ?: uri.getQueryParameter("insecure")) {
+                "1", "true" -> p.fields["allowInsecure"] = "true"
+            }
             p
         } catch (_: Exception) {
             null

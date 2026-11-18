@@ -111,6 +111,7 @@ fun protocolColor(p: Protocol): Color = when (p) {
     Protocol.AMNEZIAWG -> Color(0xFFD04FF6)
     Protocol.OPENVPN -> Color(0xFF4F9E58)
     Protocol.HYSTERIA2 -> Color(0xFF8A4FF6)
+    Protocol.TUIC -> Color(0xFF3FA8BF)
 }
 
 @Composable

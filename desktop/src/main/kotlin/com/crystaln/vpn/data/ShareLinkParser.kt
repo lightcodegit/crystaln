@@ -26,6 +26,8 @@ object ShareLinkParser {
             parseUserPass(line, Protocol.SOCKS)
         line.startsWith("hysteria2://", ignoreCase = true) || line.startsWith("hy2://", ignoreCase = true) ->
             parseHysteria2(line)
+        line.startsWith("tuic://", ignoreCase = true) ->
+            parseTuic(line)
         line.startsWith("http://", ignoreCase = true) || line.startsWith("https://", ignoreCase = true) ->
             parseHttpUrl(line)
         else -> null
@@ -294,6 +296,39 @@ object ShareLinkParser {
     }
 
     /** http(s)://user:pass@host:port#name imported as HTTP proxy profile. */
+    private fun parseTuic(link: String): Profile? {
+        return try {
+            val uri = splitUri(link) ?: return null
+            val p = Profile(
+                name = nameOf(uri.fragment, "TUIC"),
+                protocol = Protocol.TUIC,
+                address = uri.host ?: return null,
+                port = uri.port.takeIf { it > 0 } ?: 443,
+            )
+            val info = uri.userInfo ?: return null
+            val i = info.indexOf(':')
+            if (i > 0) {
+                p.fields["uuid"] = info.substring(0, i)
+                p.fields["password"] = info.substring(i + 1)
+            } else {
+                p.fields["uuid"] = info
+            }
+            listOf(
+                "sni" to "sni",
+                "congestion_control" to "congestionControl",
+                "udp_relay_mode" to "udpRelayMode",
+            ).forEach { (q, key) ->
+                uri.query[q]?.takeIf { it.isNotEmpty() }?.let { p.fields[key] = it }
+            }
+            when (uri.query["allow_insecure"] ?: uri.query["insecure"]) {
+                "1", "true" -> p.fields["allowInsecure"] = "true"
+            }
+            p
+        } catch (_: Exception) {
+            null
+        }
+    }
+
     private fun parseHttpUrl(link: String): Profile? {
         return try {
             val uri = splitUri(link) ?: return null

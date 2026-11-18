@@ -212,6 +212,8 @@ object XrayConfigBuilder {
             throw IllegalArgumentException("OpenVPN is not routed through Xray")
         Protocol.HYSTERIA2 ->
             throw IllegalArgumentException("Hysteria2 is routed through its own SOCKS outbound")
+        Protocol.TUIC ->
+            throw IllegalArgumentException("TUIC requires the sing-box engine (planned)")
     }
 
     private fun settingsFor(p: Profile): JSONObject = when (p.protocol) {
@@ -294,6 +296,8 @@ object XrayConfigBuilder {
 
         Protocol.HYSTERIA2 ->
             throw IllegalArgumentException("Hysteria2 is routed through its own SOCKS outbound")
+        Protocol.TUIC ->
+            throw IllegalArgumentException("TUIC requires the sing-box engine (planned)")
     }
 
     private fun server(p: Profile): JSONObject =

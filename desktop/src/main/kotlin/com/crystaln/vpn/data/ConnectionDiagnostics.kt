@@ -133,6 +133,10 @@ object ConnectionDiagnostics {
             Protocol.SOCKS, Protocol.HTTP, Protocol.HTTPS -> Unit // credentials optional
 
             Protocol.HYSTERIA2 -> if (profile.fields["password"].isNullOrBlank()) problems += "password"
+            Protocol.TUIC -> {
+                if (profile.fields["uuid"].isNullOrBlank()) problems += "uuid"
+                if (profile.fields["password"].isNullOrBlank()) problems += "password"
+            }
 
             Protocol.WIREGUARD, Protocol.AMNEZIAWG -> {
                 val cfg = profile.wgConfig

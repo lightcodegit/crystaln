@@ -76,6 +76,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.crystaln.vpn.R
 import com.crystaln.vpn.data.Profile
+import com.crystaln.vpn.data.Protocol
 import com.crystaln.vpn.data.ProfileShareLink
 import com.crystaln.vpn.data.TrafficStats
 import com.crystaln.vpn.ui.LiquidBlobs
@@ -1038,7 +1039,8 @@ private fun PingChip(
 
 /** TCP-connect ping is only meaningful for Xray-family TCP transports. */
 private fun isPingable(p: Profile): Boolean {
-    if (p.isWireGuardFamily || p.isOpenVpn || p.isHysteria) return false // QUIC/UDP — TCP-ping бессмыслен
+    if (p.isWireGuardFamily || p.isOpenVpn) return false
+    if (p.isHysteria || p.protocol == Protocol.TUIC) return false
     if (p.address.isEmpty() || p.port <= 0) return false
     return (p.fields["network"] ?: "tcp") !in setOf("quic", "kcp", "udp")
 }

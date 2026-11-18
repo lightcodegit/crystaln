@@ -971,7 +971,11 @@ class MainActivity : FragmentActivity() {
     private fun pingProfile(profile: Profile) {
         if (!pinging.add(profile.id)) return
         lifecycleScope.launch(Dispatchers.IO) {
-            val ms = tcpPing(profile.address, profile.port)
+            val ms = if (profile.isHysteria) {
+                com.crystaln.vpn.hysteria.HysteriaPing.measure(this@MainActivity, profile)
+            } else {
+                tcpPing(profile.address, profile.port)
+            }
             pingResults[profile.id] = ms
             pinging.remove(profile.id)
         }

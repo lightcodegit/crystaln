@@ -155,6 +155,8 @@ fun EditorScreen(
                         OpenVpnFields(isDark, ::value, ::set)
                     } else if (protocol == Protocol.HYSTERIA2) {
                         HysteriaFields(isDark, ::value, ::set, insecure, onInsecure = { insecure = it })
+                    } else if (protocol == Protocol.TUIC) {
+                        TuicFields(isDark, ::value, ::set, insecure, onInsecure = { insecure = it })
                     } else {
                         XrayFields(protocol, isDark, ::value, ::set, tls, reality, insecure,
                             onTls = { tls = it }, onReality = { reality = it }, onInsecure = { insecure = it })
@@ -193,6 +195,32 @@ fun EditorScreen(
                 }
             }
         }
+    }
+}
+
+/** Fields for TUIC: credentials and QUIC transport hints. */
+@Composable
+private fun TuicFields(
+    isDark: Boolean,
+    value: (String) -> String,
+    set: (String, String) -> Unit,
+    insecure: Boolean,
+    onInsecure: (Boolean) -> Unit,
+) {
+    SectionLabel(stringResource(R.string.section_server))
+    GlassPanel(isDark = isDark) {
+        TextFieldRow("address", stringResource(R.string.field_address), value, set)
+        TextFieldRow("port", stringResource(R.string.field_port), value, set, numeric = true)
+        TextFieldRow("uuid", "UUID", value, set)
+        TextFieldRow("password", stringResource(R.string.field_password), value, set)
+        TextFieldRow("name", stringResource(R.string.field_profile_name), value, set)
+    }
+    SectionLabel("TUIC (QUIC)")
+    GlassPanel(isDark = isDark) {
+        TextFieldRow("sni", "SNI", value, set)
+        TextFieldRow("congestionControl", "Congestion control (cubic/bbr)", value, set)
+        TextFieldRow("udpRelayMode", "UDP relay mode (native/quic)", value, set)
+        ToggleRow(stringResource(R.string.field_hy2_insecure), insecure, onInsecure)
     }
 }
 
@@ -316,6 +344,19 @@ private fun buildProfile(
         return p
     }
 
+    // TUIC: server + credentials; engine not available yet (sing-box planned),
+    // but profiles can be created/imported/shared.
+    if (protocol == Protocol.TUIC) {
+        p.address = v("address")
+        p.port = v("port").toIntOrNull() ?: 0
+        p.fields = mutableMapOf()
+        listOf("uuid", "password", "sni", "congestionControl", "udpRelayMode").forEach { k ->
+            v(k).takeIf { it.isNotEmpty() }?.let { p.fields[k] = it }
+        }
+        if (insecure) p.fields["allowInsecure"] = "true"
+        return p
+    }
+
     // Hysteria2: server + credentials only; TLS/transport is handled by the
     // hysteria core, so the Xray transport fields don't apply.
     if (protocol == Protocol.HYSTERIA2) {
@@ -386,6 +427,21 @@ private fun XrayFields(
             Protocol.TROJAN -> TextFieldRow("password", stringResource(R.string.field_password), value, set)
             Protocol.SHADOWSOCKS -> {
                 TextFieldRow("method", stringResource(R.string.field_ss_method), value, set)
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    listOf(
+                        "2022-blake3-aes-128-gcm",
+                        "2022-blake3-aes-256-gcm",
+                        "aes-256-gcm",
+                        "aes-128-gcm",
+                        "chacha20-ietf-poly1305",
+                    ).forEach { m ->
+                        androidx.compose.material3.FilterChip(
+                            selected = value("method") == m,
+                            onClick = { set("method", m) },
+                            label = { Text(m, style = MaterialTheme.typography.labelSmall) },
+                        )
+                    }
+                }
                 TextFieldRow("password", stringResource(R.string.field_password), value, set)
                 TextFieldRow("address", stringResource(R.string.field_address), value, set)
                 TextFieldRow("port", stringResource(R.string.field_port), value, set, numeric = true)
@@ -394,7 +450,7 @@ private fun XrayFields(
                 TextFieldRow("username", stringResource(R.string.field_username_opt), value, set)
                 TextFieldRow("password", stringResource(R.string.field_password_opt), value, set)
             }
-            Protocol.WIREGUARD, Protocol.AMNEZIAWG, Protocol.OPENVPN, Protocol.HYSTERIA2 -> Unit
+            Protocol.WIREGUARD, Protocol.AMNEZIAWG, Protocol.OPENVPN, Protocol.HYSTERIA2, Protocol.TUIC -> Unit
         }
         TextFieldRow("name", stringResource(R.string.field_profile_name), value, set)
     }
@@ -421,6 +477,14 @@ private fun XrayFields(
                 listOf("sni", "fingerprint", "alpn", "publicKey", "shortId", "spiderX").forEach { k ->
                     if (k in visible) {
                         TextFieldRow(k, securityLabel(k), value, set)
+                    }
+                }
+                if (reality) {
+                    androidx.compose.material3.TextButton(onClick = {
+                        val hex = (1..8).map { "%02x".format((0..255).random()) }.joinToString("")
+                        set("shortId", hex)
+                    }) {
+                        Text("Сгенерировать shortId")
                     }
                 }
                 if (!reality) {

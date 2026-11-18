@@ -113,10 +113,11 @@ object TunnelManager {
     // ── connect ──────────────────────────────────────────────────────────
 
     fun connect(profile: Profile) {
+        val myGen: Int
         synchronized(lock) {
             if (_ui.value.state == State.STARTING || _ui.value.state == State.CONNECTED) return
             generation++
-            val myGen = generation
+            myGen = generation
             _ui.value = UiState(State.STARTING, profile, error = null)
         }
         Thread {
@@ -125,6 +126,7 @@ object TunnelManager {
                     profile.protocol == Protocol.WIREGUARD -> connectWireGuard(profile)
                     profile.protocol == Protocol.AMNEZIAWG -> connectAmneziaWg(profile)
                     profile.protocol == Protocol.OPENVPN -> connectOpenVpn(profile)
+                    profile.protocol == Protocol.TUIC -> fail("TUIC requires the sing-box engine (planned)", myGen)
                     else -> connectXray(profile)
                 }
             } catch (t: Throwable) {
