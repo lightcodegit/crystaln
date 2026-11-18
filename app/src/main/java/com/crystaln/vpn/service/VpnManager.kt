@@ -129,6 +129,13 @@ object VpnManager {
     /** Auto-reconnect bookkeeping. */
     private var autoReconnectAttempts = 0
 
+    /** Opaque token for the current connection attempt. Services echo it back
+     *  in callbacks so a destroyed older service can't clobber a newer session. */
+    @Volatile
+    private var sessionToken: String? = null
+
+    fun currentToken(): String? = sessionToken
+
     /** Rolling 60-sample speed history for the live sparkline (bytes/s). */
     private val _rxHistory = kotlinx.coroutines.flow.MutableStateFlow<List<Long>>(emptyList())
     private val _txHistory = kotlinx.coroutines.flow.MutableStateFlow<List<Long>>(emptyList())
@@ -146,6 +153,7 @@ object VpnManager {
 
     fun connect(context: Context, profile: Profile) {
         appContext = context.applicationContext
+        sessionToken = java.util.UUID.randomUUID().toString()
         autoReconnectAttempts = 0
         _limitReached.value = false
         val myGeneration = synchronized(lifecycleLock) {
@@ -413,12 +421,14 @@ object VpnManager {
     }
 
     /** Marks the "server is being verified" phase while a tunnel comes up. */
-    fun notifyChecking(checking: Boolean) {
+    fun notifyChecking(checking: Boolean, token: String? = null) {
+        if (token != null && token != sessionToken) return
         _ui.value = _ui.value.copy(checking = checking)
     }
 
     /** Called by services/state owners to publish transitions. */
-    fun notifyState(state: State, profile: Profile?) {
+    fun notifyState(state: State, profile: Profile?, token: String? = null) {
+        if (token != null && token != sessionToken) return
         synchronized(lifecycleLock) {
             _ui.value = _ui.value.copy(
                 state = state,
@@ -439,7 +449,8 @@ object VpnManager {
         _ui.value = _ui.value.copy(rx = rx, tx = tx)
     }
 
-    fun notifyError(message: String) {
+    fun notifyError(message: String, token: String? = null) {
+        if (token != null && token != sessionToken) return
         val failed = _ui.value.profile
         synchronized(lifecycleLock) {
             _ui.value = _ui.value.copy(state = State.OFF, error = message, checking = false)

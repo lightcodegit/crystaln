@@ -87,6 +87,10 @@ class OpenVpnService : VpnService() {
     @Volatile
     private var running = false
 
+    /** Echoed from the start intent; guards stale callbacks. */
+    @Volatile
+    private var sessionToken: String? = null
+
     /** Flags set asynchronously by the management/log readers. */
     @Volatile
     private var connected = false
@@ -122,8 +126,9 @@ class OpenVpnService : VpnService() {
                     return START_NOT_STICKY
                 }
                 running = true
+                sessionToken = intent?.getStringExtra(EXTRA_TOKEN)
                 startForegroundNotification(getString(R.string.notif_connecting))
-                VpnManager.notifyState(VpnManager.State.STARTING, profile)
+                VpnManager.notifyState(VpnManager.State.STARTING, profile, sessionToken)
                 scope.launch { runTunnel(profile) }
             }
         }
@@ -542,7 +547,7 @@ class OpenVpnService : VpnService() {
             delay(500)
             if (!notifiedConnected && connected) {
                 notifiedConnected = true
-                VpnManager.notifyState(VpnManager.State.CONNECTED, profile)
+                VpnManager.notifyState(VpnManager.State.CONNECTED, profile, sessionToken)
                 // Hands the foreground notification over to the status ticker
                 // (live "VPN подключён" + speed on NOTIF_ID).
                 val stopIntent = PendingIntent.getService(
@@ -610,7 +615,7 @@ class OpenVpnService : VpnService() {
 
     private fun fail(message: String) {
         shutdown()
-        VpnManager.notifyError(message)
+        VpnManager.notifyError(message, sessionToken)
         stopSelf()
     }
 
@@ -653,14 +658,14 @@ class OpenVpnService : VpnService() {
 
     override fun onRevoke() {
         shutdown()
-        VpnManager.notifyState(VpnManager.State.OFF, null)
+        VpnManager.notifyState(VpnManager.State.OFF, null, sessionToken)
         stopSelf()
     }
 
     override fun onDestroy() {
         shutdown()
         scope.cancel()
-        VpnManager.notifyState(VpnManager.State.OFF, null)
+        VpnManager.notifyState(VpnManager.State.OFF, null, sessionToken)
         super.onDestroy()
     }
 
@@ -701,6 +706,7 @@ class OpenVpnService : VpnService() {
         const val ACTION_START = "com.crystaln.vpn.OVPN_START"
         const val ACTION_STOP = "com.crystaln.vpn.OVPN_STOP"
         const val EXTRA_PROFILE_ID = "profile_id"
+        const val EXTRA_TOKEN = "session_token"
 
         /** Give up if the handshake never completes. */
         const val CONNECT_TIMEOUT_MS = 45_000L
@@ -715,6 +721,7 @@ class OpenVpnService : VpnService() {
             Intent(context, OpenVpnService::class.java)
                 .setAction(ACTION_START)
                 .putExtra(EXTRA_PROFILE_ID, profile.id)
+                .putExtra(EXTRA_TOKEN, VpnManager.currentToken())
 
         fun stopIntent(context: Context): Intent =
             Intent(context, OpenVpnService::class.java).setAction(ACTION_STOP)

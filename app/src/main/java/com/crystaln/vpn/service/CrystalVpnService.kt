@@ -45,6 +45,10 @@ class CrystalVpnService : VpnService() {
     @Volatile
     private var running = false
 
+    /** Echoed from the start intent; guards stale callbacks. */
+    @Volatile
+    private var sessionToken: String? = null
+
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_STOP -> {
@@ -61,6 +65,7 @@ class CrystalVpnService : VpnService() {
                     return START_NOT_STICKY
                 }
                 running = true
+                sessionToken = intent?.getStringExtra(EXTRA_TOKEN)
                 startTunnel(profile)
             }
         }
@@ -69,7 +74,7 @@ class CrystalVpnService : VpnService() {
 
     private fun startTunnel(profile: Profile) {
         notifyConnecting(profile.name)
-        VpnManager.notifyState(VpnManager.State.STARTING, profile)
+        VpnManager.notifyState(VpnManager.State.STARTING, profile, sessionToken)
         scope.launch {
             try {
                 XrayCore.initEnv(applicationContext)
@@ -114,7 +119,7 @@ class CrystalVpnService : VpnService() {
                     ),
                 )
                 XrayCore.start(configJson, fd.fd)
-                VpnManager.notifyChecking(true)
+                VpnManager.notifyChecking(true, sessionToken)
                 val timeoutMs = SettingsStore.checkTimeoutSec(applicationContext)
                     .coerceIn(3, 60) * 1000L
                 if (!awaitConnectionProof(
@@ -125,8 +130,8 @@ class CrystalVpnService : VpnService() {
                     fail(getString(R.string.server_unreachable))
                     return@launch
                 }
-                VpnManager.notifyChecking(false)
-                VpnManager.notifyState(VpnManager.State.CONNECTED, profile)
+                VpnManager.notifyChecking(false, sessionToken)
+                VpnManager.notifyState(VpnManager.State.CONNECTED, profile, sessionToken)
                 notifyConnected(profile.name)
             } catch (t: Throwable) {
                 fail(t.message ?: t.javaClass.simpleName)
@@ -216,7 +221,7 @@ class CrystalVpnService : VpnService() {
     private fun fail(message: String) {
         running = false
         shutdown()
-        VpnManager.notifyError(message)
+        VpnManager.notifyError(message, sessionToken)
         stopSelf()
     }
 
@@ -234,14 +239,14 @@ class CrystalVpnService : VpnService() {
 
     override fun onRevoke() {
         shutdown()
-        VpnManager.notifyState(VpnManager.State.OFF, null)
+        VpnManager.notifyState(VpnManager.State.OFF, null, sessionToken)
         stopSelf()
     }
 
     override fun onDestroy() {
         shutdown()
         scope.cancel()
-        VpnManager.notifyState(VpnManager.State.OFF, null)
+        VpnManager.notifyState(VpnManager.State.OFF, null, sessionToken)
         super.onDestroy()
     }
 
@@ -300,6 +305,7 @@ class CrystalVpnService : VpnService() {
         const val ACTION_START = "com.crystaln.vpn.START"
         const val ACTION_STOP = "com.crystaln.vpn.STOP"
         const val EXTRA_PROFILE_ID = "profile_id"
+        const val EXTRA_TOKEN = "session_token"
 
         /** Max wait for the first server response before declaring failure. */
         const val PROBE_TIMEOUT_MS = 15_000L
@@ -311,6 +317,7 @@ class CrystalVpnService : VpnService() {
             Intent(context, CrystalVpnService::class.java)
                 .setAction(ACTION_START)
                 .putExtra(EXTRA_PROFILE_ID, profile.id)
+                .putExtra(EXTRA_TOKEN, VpnManager.currentToken())
 
         fun stopIntent(context: Context): Intent =
             Intent(context, CrystalVpnService::class.java).setAction(ACTION_STOP)
