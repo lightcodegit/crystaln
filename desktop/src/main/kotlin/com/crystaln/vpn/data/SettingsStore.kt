@@ -95,6 +95,16 @@ object SettingsStore {
 
     fun setBlockAds(dataDir: File, v: Boolean) = mutate(dataDir) { it.put("blockAds", v) }
 
+    /**
+     * Kill-switch: when the tunnel drops unexpectedly, block all non-loopback
+     * traffic until the user disconnects/reconnects (or the app restarts).
+     * Implemented with platform firewall rules applied by the privileged
+     * helper; never enabled for the plain local-proxy mode.
+     */
+    fun killSwitch(dataDir: File): Boolean = load(dataDir).optBoolean("killSwitch", false)
+
+    fun setKillSwitch(dataDir: File, v: Boolean) = mutate(dataDir) { it.put("killSwitch", v) }
+
     /** Default tunnel mode for Xray-family profiles. */
     enum class TunnelMode { TUN, PROXY }
 
@@ -146,6 +156,7 @@ object SettingsStore {
         .put("dnsViaTunnel", dnsViaTunnel(dataDir))
         .put("dnsServer", dnsServer(dataDir))
         .put("blockAds", blockAds(dataDir))
+        .put("killSwitch", killSwitch(dataDir))
         .put("socksPort", socksPort(dataDir))
         .put("httpPort", httpPort(dataDir))
         .put("tunnelMode", tunnelMode(dataDir).name)
@@ -163,6 +174,7 @@ object SettingsStore {
             store.put("dnsViaTunnel", o.optBoolean("dnsViaTunnel", false))
             o.optString("dnsServer").takeIf { it.isNotEmpty() }?.let { store.put("dnsServer", it) }
             store.put("blockAds", o.optBoolean("blockAds", false))
+            store.put("killSwitch", o.optBoolean("killSwitch", false))
             if (o.has("socksPort")) store.put("socksPort", o.optInt("socksPort", 10808).coerceIn(1024, 65535))
             if (o.has("httpPort")) store.put("httpPort", o.optInt("httpPort", 10809).coerceIn(1024, 65535))
         }
