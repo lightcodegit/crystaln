@@ -23,8 +23,13 @@ object KillSwitch {
     private const val TAG = "crystaln-kill"
     private var engaged = false
 
-    /** Applies a blocking firewall rule set for the given session id. */
-    fun engage(sessionId: String) {
+    /**
+     * Applies a blocking firewall rule set. [allowIface] is the VPN interface
+     * that must stay allowed while the tunnel is up (Linux). When it is null
+     * (tunnel dropped), only loopback stays open — that is the fail-closed
+     * kill-switch state.
+     */
+    fun engage(sessionId: String, allowIface: String? = null) {
         if (engaged) return
         engaged = true
         val res = if (Platform.isWindows) {
@@ -33,20 +38,24 @@ object KillSwitch {
                 listOf(
                     "netsh advfirewall firewall delete rule name=\"$TAG\" >nul 2>&1; \$LASTEXITCODE=0",
                     "netsh advfirewall firewall add rule name=\"$TAG\" dir=out action=block enable=yes description=\"$sessionId\"",
-                    "netsh advfirewall set allprofiles state on",
                 ),
             )
         } else {
+            val allowRule = if (allowIface != null) {
+                "nft insert rule inet crystaln_kill output comment \"$TAG-vpn\" oifname \"$allowIface\" counter accept 2>/dev/null || true"
+            } else {
+                ""
+            }
             Privileges.runScript(
                 "kill-on",
                 listOf(
                     // nftables: tag via comment so stale rules can be removed.
                     "nft add table inet crystaln_kill 2>/dev/null || true",
                     "nft add chain inet crystaln_kill output { type filter hook output priority -200 \\; policy accept \\; } 2>/dev/null || true",
-                    "nft add rule inet crystaln_kill output comment \"$TAG\" oifname != \"lo\" counter drop 2>/dev/null || true",
-                    // Allow loopback explicitly regardless of chain policy.
-                    "nft insert rule inet crystaln_kill output comment \"$TAG-lo\" oifname \"lo\" counter accept 2>/dev/null || true",
-                ),
+                    allowRule,
+                    "nft add rule inet crystaln_kill output comment \"$TAG-lo\" oifname \"lo\" counter accept 2>/dev/null || true",
+                    "nft add rule inet crystaln_kill output comment \"$TAG\" counter drop 2>/dev/null || true",
+                ).filter { it.isNotEmpty() },
             )
         }
         if (res is Privileges.Result.Fail) {
