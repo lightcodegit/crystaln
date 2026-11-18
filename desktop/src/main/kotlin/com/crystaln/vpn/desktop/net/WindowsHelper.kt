@@ -137,8 +137,8 @@ object WindowsHelper {
         } else {
             val rest = text.removePrefix(RESP_PREFIX)
             val sep = rest.indexOf(':')
-            val code = rest.substring(0, sep).toIntOrNull()
-            if (sep < 0 || code == null) {
+            val code = if (sep < 0) null else rest.substring(0, sep).toIntOrNull()
+            if (code == null) {
                 Privileges.Result.Fail("Повреждённый ответ хелпера")
             } else {
                 val out = String(
