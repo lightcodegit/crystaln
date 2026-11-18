@@ -201,6 +201,10 @@
     <string name="traffic_limit_label">Monthly traffic limit (MB, 0 = off)</string>
     <string name="traffic_limit_sub">A warning appears when the limit is reached; counter resets next month</string>
     <string name="traffic_limit_reached">Monthly traffic limit reached</string>
+    <string name="kill_switch_title">Kill-switch (block traffic when VPN drops)</string>
+    <string name="kill_switch_sub">Internet is blocked until the tunnel is restored (best-effort on Android)</string>
+    <string name="settings_export_title">Export settings</string>
+    <string name="settings_import_title">Import settings</string>
     <string name="split_tunnel_title">Split tunneling (app selection)</string>
     <string name="url_test_title">URL-test: connect the fastest</string>
 

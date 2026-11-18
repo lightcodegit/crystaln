@@ -200,6 +200,10 @@
     <string name="traffic_limit_label">Лимит трафика в месяц (МБ, 0 = без лимита)</string>
     <string name="traffic_limit_sub">При достижении лимита появится предупреждение; счётчик сбрасывается в новом месяце</string>
     <string name="traffic_limit_reached">Достигнут месячный лимит трафика</string>
+    <string name="kill_switch_title">Kill-switch (блокировать трафик при падении VPN)</string>
+    <string name="kill_switch_sub">При потере туннеля интернет блокируется до восстановления соединения (best-effort на Android)</string>
+    <string name="settings_export_title">Экспорт настроек</string>
+    <string name="settings_import_title">Импорт настроек</string>
     <string name="split_tunnel_title">Split tunneling (выбор приложений)</string>
     <string name="url_test_title">URL-test: подключить самый быстрый</string>
 

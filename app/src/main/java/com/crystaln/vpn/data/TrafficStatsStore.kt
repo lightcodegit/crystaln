@@ -19,6 +19,7 @@ data class TrafficStats(
  */
 object TrafficStatsStore {
     private const val FILE = "traffic_stats.json"
+    private const val DAILY_FILE = "traffic_daily.json"
     private const val SAVE_PERIOD_TICKS = 60 // 1 Hz poller → once a minute
 
     private val lock = Any()
@@ -93,7 +94,43 @@ object TrafficStatsStore {
         save(context)
     }
 
-    /** Writes pending counters immediately (session end). */
+    /** Adds byte counters for [profileId] for today's date bucket. */
+    fun addDaily(context: Context, profileId: String, rx: Long, tx: Long) {
+        if (rx <= 0 && tx <= 0) return
+        synchronized(lock) {
+            val f = File(context.filesDir, DAILY_FILE)
+            val root = if (f.exists()) try { JSONObject(f.readText()) } catch (_: Exception) { JSONObject() } else JSONObject()
+            val prof = root.optJSONObject(profileId) ?: JSONObject()
+            val today = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date())
+            val day = prof.optJSONObject(today) ?: JSONObject()
+            day.put("rx", day.optLong("rx") + rx)
+            day.put("tx", day.optLong("tx") + tx)
+            prof.put(today, day)
+            // prune older than 30 days
+            val keys = prof.keys().asSequence().toList()
+            val cutoff = java.time.LocalDate.now().minusDays(30).toString()
+            keys.forEach { k -> if (k < cutoff) prof.remove(k) }
+            root.put(profileId, prof)
+            try { f.writeText(root.toString()) } catch (_: Exception) { }
+        }
+    }
+
+    /** Daily totals for [profileId] for the last 30 days (date → stats). */
+    fun daily(context: Context, profileId: String): Map<String, TrafficStats> {
+        synchronized(lock) {
+            val f = File(context.filesDir, DAILY_FILE)
+            if (!f.exists()) return emptyMap()
+            return try {
+                val prof = JSONObject(f.readText()).optJSONObject(profileId) ?: return emptyMap()
+                buildMap {
+                    prof.keys().forEach { d ->
+                        val o = prof.getJSONObject(d)
+                        put(d, TrafficStats(rx = o.optLong("rx"), tx = o.optLong("tx")))
+                    }
+                }
+            } catch (_: Exception) { emptyMap() }
+        }
+    }
     fun flush(context: Context): Unit = synchronized(lock) {
         loadIfNeeded(context)
         save(context)

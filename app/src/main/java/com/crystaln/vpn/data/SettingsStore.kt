@@ -34,6 +34,7 @@ object SettingsStore {
     private const val KEY_TRAFFIC_LIMIT_MB = "traffic_limit_mb"
     private const val KEY_TRAFFIC_LIMIT_MONTH = "traffic_limit_month"
     private const val KEY_TRAFFIC_LIMIT_USED = "traffic_limit_used"
+    private const val KEY_KILL_SWITCH = "kill_switch"
 
     /** First-run wizard completed (or explicitly skipped). */
     fun onboarded(context: Context): Boolean =
@@ -264,6 +265,16 @@ object SettingsStore {
 
     /** Adds [mb] (may be fractional via KB) to this month's counter, rolling
      *  over automatically when the month changes. Returns the new total. */
+    fun killSwitch(context: Context): Boolean =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_KILL_SWITCH, false)
+
+    fun setKillSwitch(context: Context, value: Boolean) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit().putBoolean(KEY_KILL_SWITCH, value).apply()
+    }
+
+    /** Adds [mb] (may be fractional via KB) to this month's counter, rolling
+     *  over automatically when the month changes. Returns the new total. */
     fun addTrafficLimitUsage(context: Context, bytes: Long): Long {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val now = java.text.SimpleDateFormat("yyyy-MM", java.util.Locale.US)
@@ -332,6 +343,7 @@ object SettingsStore {
         .put("autoReconnect", autoReconnect(context))
         .put("fallbackProfileId", fallbackProfileId(context) ?: "")
         .put("trafficLimitMb", trafficLimitMb(context))
+        .put("killSwitch", killSwitch(context))
         .put("anonymizeNames", anonymizeNames(context))
         .put("checkUrl", checkUrl(context))
         .put("checkTimeoutSec", checkTimeoutSec(context))
@@ -353,6 +365,7 @@ object SettingsStore {
         setAutoReconnect(context, o.optBoolean("autoReconnect", false))
         o.optString("fallbackProfileId").takeIf { it.isNotEmpty() }?.let { setFallbackProfileId(context, it) }
         setTrafficLimitMb(context, o.optInt("trafficLimitMb", 0))
+        setKillSwitch(context, o.optBoolean("killSwitch", false))
         setAnonymizeNames(context, o.optBoolean("anonymizeNames", false))
         o.optString("checkUrl").takeIf { it.isNotEmpty() }?.let { setCheckUrl(context, it) }
         o.optInt("checkTimeoutSec", 0).takeIf { it > 0 }?.let { setCheckTimeoutSec(context, it) }

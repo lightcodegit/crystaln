@@ -520,6 +520,7 @@ object VpnManager {
         _txHistory.value = (_txHistory.value + dTx).takeLast(60)
         try {
             TrafficStatsStore.add(ctx, id, dRx, dTx, seconds = 1)
+            TrafficStatsStore.addDaily(ctx, id, dRx, dTx)
             // Monthly traffic limit accounting.
             val mb = SettingsStore.trafficLimitMb(ctx)
             if (mb > 0) {

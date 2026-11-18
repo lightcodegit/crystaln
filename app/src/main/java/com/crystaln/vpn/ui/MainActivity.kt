@@ -149,10 +149,37 @@ class MainActivity : FragmentActivity() {
     private val locked = mutableStateOf(false)
     private val liquidBackground = mutableStateOf(false)
     private val anonymizeNames = mutableStateOf(false)
+    private val exportSettingsLauncher = registerForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.CreateDocument("application/json"),
+    ) { uri ->
+        if (uri == null) return@registerForActivityResult
+        try {
+            contentResolver.openOutputStream(uri)?.use { os ->
+                os.write(SettingsStore.exportJson(this).toString(2).toByteArray())
+            }
+            Toast.makeText(this, "Настройки экспортированы", Toast.LENGTH_SHORT).show()
+        } catch (_: Throwable) {
+            Toast.makeText(this, "Ошибка экспорта", Toast.LENGTH_SHORT).show()
+        }
+    }
+    private val importSettingsLauncher = registerForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.OpenDocument(),
+    ) { uri ->
+        if (uri == null) return@registerForActivityResult
+        try {
+            val text = contentResolver.openInputStream(uri)?.bufferedReader()?.readText() ?: return@registerForActivityResult
+            val o = org.json.JSONObject(text)
+            SettingsStore.importJson(this, o)
+            Toast.makeText(this, "Настройки импортированы", Toast.LENGTH_SHORT).show()
+        } catch (_: Throwable) {
+            Toast.makeText(this, "Ошибка импорта", Toast.LENGTH_SHORT).show()
+        }
+    }
     private val splitTunnelVisible = mutableStateOf(false)
     private val autoReconnect = mutableStateOf(false)
     private val fallbackProfileId = mutableStateOf<String?>(null)
     private val trafficLimitMb = mutableStateOf(0)
+    private val killSwitch = mutableStateOf(false)
     private val checkUrlText = mutableStateOf(SettingsStore.DEFAULT_CHECK_URL)
     private val checkTimeoutSec = mutableStateOf(15)
     private val autoConnect = mutableStateOf(false)
@@ -328,13 +355,17 @@ class MainActivity : FragmentActivity() {
         liquidBackground.value = SettingsStore.liquidBackground(this)
         lifecycleScope.launch {
             VpnManager.limitReached.collect { reached ->
-                if (reached) Toast.makeText(this@MainActivity, R.string.traffic_limit_reached, Toast.LENGTH_LONG).show()
+                if (reached) {
+                    val t = Toast.makeText(this@MainActivity, R.string.traffic_limit_reached, Toast.LENGTH_LONG)
+                    t.show()
+                }
             }
         }
         anonymizeNames.value = SettingsStore.anonymizeNames(this)
         autoReconnect.value = SettingsStore.autoReconnect(this)
         fallbackProfileId.value = SettingsStore.fallbackProfileId(this)
         trafficLimitMb.value = SettingsStore.trafficLimitMb(this)
+        killSwitch.value = SettingsStore.killSwitch(this)
         checkUrlText.value = SettingsStore.checkUrl(this)
         checkUrlText.value = SettingsStore.checkUrl(this)
         checkTimeoutSec.value = SettingsStore.checkTimeoutSec(this)
@@ -697,8 +728,15 @@ class MainActivity : FragmentActivity() {
                             trafficLimitMb.value = mb
                             SettingsStore.setTrafficLimitMb(this@MainActivity, mb)
                         },
+                        killSwitch = killSwitch.value,
+                        onKillSwitchChange = { on ->
+                            killSwitch.value = on
+                            SettingsStore.setKillSwitch(this@MainActivity, on)
+                        },
                         onSplitTunnel = { splitTunnelVisible.value = true },
                         onUrlTestGroup = { urlTestVisibleProfiles() },
+                        onExportSettings = { exportSettingsLauncher.launch("crystaln_settings.json") },
+                        onImportSettings = { importSettingsLauncher.launch(arrayOf("application/json", "text/plain")) },
                         subscriptions = subscriptions.value,
                         subscriptionsBusy = subscriptionsBusy.value,
                         subscriptionBusyId = subscriptionBusyId.value,

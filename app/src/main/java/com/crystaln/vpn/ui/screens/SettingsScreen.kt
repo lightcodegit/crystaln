@@ -28,6 +28,8 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.FileDownload
+import androidx.compose.material.icons.filled.FileUpload
+import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.FileOpen
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.NetworkCheck
@@ -126,8 +128,12 @@ fun SettingsScreen(
     onFallbackProfileIdChange: (String?) -> Unit,
     trafficLimitMb: Int,
     onTrafficLimitMbChange: (Int) -> Unit,
+    killSwitch: Boolean,
+    onKillSwitchChange: (Boolean) -> Unit,
     onSplitTunnel: () -> Unit,
     onUrlTestGroup: () -> Unit,
+    onExportSettings: () -> Unit,
+    onImportSettings: () -> Unit,
     blockAdsBusy: Boolean,
     subscriptions: List<Subscription>,
     subscriptionsBusy: Boolean,
@@ -381,6 +387,13 @@ fun SettingsScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                         GlassDivider(Modifier.padding(vertical = 14.dp))
+                        SwitchRow(
+                            title = stringResource(R.string.kill_switch_title),
+                            subtitle = stringResource(R.string.kill_switch_sub),
+                            checked = killSwitch,
+                            onChange = onKillSwitchChange,
+                        )
+                        GlassDivider(Modifier.padding(vertical = 14.dp))
                         PillButton(
                             text = stringResource(R.string.split_tunnel_title),
                             icon = Icons.Default.Apps,
@@ -398,6 +411,26 @@ fun SettingsScreen(
                             isDark = glassDark,
                             overWallpaper = overWallpaper,
                             onClick = onUrlTestGroup,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        GlassDivider(Modifier.padding(vertical = 14.dp))
+                        PillButton(
+                            text = stringResource(R.string.settings_export_title),
+                            icon = Icons.Default.FileUpload,
+                            accent = false,
+                            isDark = glassDark,
+                            overWallpaper = overWallpaper,
+                            onClick = onExportSettings,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        GlassDivider(Modifier.padding(vertical = 14.dp))
+                        PillButton(
+                            text = stringResource(R.string.settings_import_title),
+                            icon = Icons.Default.FileDownload,
+                            accent = false,
+                            isDark = glassDark,
+                            overWallpaper = overWallpaper,
+                            onClick = onImportSettings,
                             modifier = Modifier.fillMaxWidth(),
                         )
                         GlassDivider(Modifier.padding(vertical = 14.dp))
