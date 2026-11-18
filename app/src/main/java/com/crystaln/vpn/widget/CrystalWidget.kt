@@ -80,6 +80,12 @@ class CrystalWidget : AppWidgetProvider() {
                         else -> context.getString(R.string.tile_off)
                     },
                 )
+                val subtitle = if (connected) {
+                    val rx = st.rx / 1024
+                    val tx = st.tx / 1024
+                    "↓ ${rx} KB/s · ↑ ${tx} KB/s"
+                } else context.getString(R.string.widget_tap_hint)
+                setTextViewText(R.id.widget_subtitle, subtitle)
                 setInt(
                     R.id.widget_root,
                     "setBackgroundResource",

@@ -1009,10 +1009,10 @@ class MainActivity : FragmentActivity() {
     private fun pingProfile(profile: Profile) {
         if (!pinging.add(profile.id)) return
         lifecycleScope.launch(Dispatchers.IO) {
-            val ms = if (profile.isHysteria) {
-                com.crystaln.vpn.hysteria.HysteriaPing.measure(this@MainActivity, profile)
-            } else {
-                tcpPing(profile.address, profile.port)
+            val ms = when {
+                profile.isHysteria -> com.crystaln.vpn.hysteria.HysteriaPing.measure(this@MainActivity, profile)
+                profile.isSingBoxFamily -> com.crystaln.vpn.singbox.SingBoxPing.measure(this@MainActivity, profile)
+                else -> tcpPing(profile.address, profile.port)
             }
             pingResults[profile.id] = ms
             pinging.remove(profile.id)

@@ -484,6 +484,7 @@ private fun XrayFields(
     onReality: (Boolean) -> Unit,
     onInsecure: (Boolean) -> Unit,
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
     SectionLabel(stringResource(R.string.section_server))
     GlassPanel(isDark = isDark) {
         if (protocol != Protocol.SHADOWSOCKS) {
@@ -560,6 +561,17 @@ private fun XrayFields(
                         set("shortId", hex)
                     }) {
                         Text("Сгенерировать shortId")
+                    }
+                    androidx.compose.material3.TextButton(onClick = {
+                        val (priv, pub) = com.crystaln.vpn.crypto.X25519.generate()
+                        set("publicKey", com.crystaln.vpn.crypto.X25519.toHex(pub))
+                        android.widget.Toast.makeText(
+                            context,
+                            "private key: ${com.crystaln.vpn.crypto.X25519.toHex(priv)}",
+                            android.widget.Toast.LENGTH_LONG,
+                        ).show()
+                    }) {
+                        Text("Сгенерировать ключи REALITY")
                     }
                 }
                 if (!reality) {
