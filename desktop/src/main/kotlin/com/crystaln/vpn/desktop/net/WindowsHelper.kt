@@ -160,15 +160,28 @@ object WindowsHelper {
         if (readyObserved && readyFile.exists()) return true
         stopFile.delete()
         readyFile.delete()
+        // The session token must NOT appear in a process command line (any
+        // local process can read Win32_Process CommandLine via WMI). Pass the
+        // path of an ACL-restricted token file instead; the elevated helper
+        // reads the token from that file.
         val helper = File(privDir, "helper.ps1")
         privDir.mkdirs()
         helper.writeText(HELPER_SCRIPT)
+        val tokenFile = File(privDir, "token")
+        tokenFile.writeText(token)
+        try {
+            ProcessBuilder(
+                "icacls", tokenFile.absolutePath,
+                "/inheritance:r", "/grant:r", "${System.getProperty("user.name")}:(RX)",
+            ).start().waitFor()
+        } catch (_: Throwable) {
+        }
         val args = listOf(
             "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
             "-Command",
             "Start-Process powershell -Verb RunAs -WindowStyle Hidden -ArgumentList " +
                 "'-NoProfile','-ExecutionPolicy','Bypass','-WindowStyle','Hidden'," +
-                "'-File','$helper','-Dir','$privDir','-Token','$token'",
+                "'-File','$helper','-Dir','$privDir','-TokenFile','${tokenFile.absolutePath}'",
         )
         val proc = ProcessBuilder("powershell", *args.toTypedArray())
             .apply { redirectErrorStream(true) }
@@ -289,8 +302,9 @@ object WindowsHelper {
      * powershell and answers with `__CR_R:<exit>:<base64 output>` files.
      */
     private val HELPER_SCRIPT = """
-        |param([string]${'$'}Dir, [string]${'$'}Token)
+        |param([string]${'$'}Dir, [string]${'$'}TokenFile)
         |${'$'}ErrorActionPreference = 'Continue'
+        |${'$'}Token = [System.IO.File]::ReadAllText(${'$'}TokenFile).Trim()
         |${'$'}cmdDir = Join-Path ${'$'}Dir 'cmd'
         |${'$'}respDir = Join-Path ${'$'}Dir 'resp'
         |${'$'}stopFile = Join-Path ${'$'}Dir 'stop'
