@@ -130,7 +130,9 @@ object TunnelManager {
                     else -> connectXray(profile)
                 }
             } catch (t: Throwable) {
-                val myGen = generation
+                // Use the generation captured for THIS attempt — using the
+                // current value would let a stale failure tear down a newer
+                // connection.
                 fail(t.message ?: t.javaClass.simpleName, myGen)
             }
         }.apply { name = "crystaln-connect"; isDaemon = true }.start()
