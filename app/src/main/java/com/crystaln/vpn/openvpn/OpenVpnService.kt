@@ -132,7 +132,11 @@ class OpenVpnService : VpnService() {
 
     private suspend fun runTunnel(profile: Profile) {
         try {
-            val dir = File(filesDir, "openvpn/${profile.id}").apply { mkdirs() }
+            // Imported profile ids are untrusted — never use them as a path
+            // component verbatim (path traversal / file clobbering).
+            val safeId = profile.id.map { if (it in 'a'..'z' || it in 'A'..'Z' || it in '0'..'9' || it == '-' || it == '_') it else 'x' }
+                .joinToString("").take(64).ifEmpty { "unknown" }
+            val dir = File(filesDir, "openvpn/$safeId").apply { mkdirs() }
             val configFile = File(dir, "config.ovpn")
             val logFile = File(dir, "log.txt").apply { if (exists()) delete() }
             val socketFile = File(dir, "mgmt.sock").apply { if (exists()) delete() }

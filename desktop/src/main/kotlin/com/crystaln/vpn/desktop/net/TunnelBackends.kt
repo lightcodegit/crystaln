@@ -256,7 +256,9 @@ internal fun TunnelManager.connectOpenVpnWindows(p: Profile) {
         }
         val dir = File(AppDirs.dataDir(), "tunnels")
         dir.mkdirs()
-        val base = "openvpn-${p.id.take(8)}"
+        val base = "openvpn-" + p.id.lowercase().map {
+            if (it in 'a'..'z' || it in '0'..'9' || it == '-' || it == '_') it else 'x'
+        }.joinToString("").take(8).ifEmpty { "0" }
         val confFile = File(dir, "$base.ovpn").apply { writeText(conf) }
         val user = p.fields["ovpnUser"]?.trim().orEmpty()
         val pass = p.fields["ovpnPass"]?.trim().orEmpty()

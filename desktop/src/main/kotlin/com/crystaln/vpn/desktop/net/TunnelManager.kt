@@ -191,10 +191,21 @@ object TunnelManager {
      * only the session duration accumulates there.
      */
     /**
-     * Имя интерфейса ≤15 символов (IFNAMSIZ): "crystaln-<8>" даёт 17 и падает
+     * Имя интерфейса ≤15 символов (IFNAMSIZ): "cn-<8>" даёт 17 и падает
      * в TUNSETIFF/wg-quick с EINVAL, поэтому префикс короткий.
+     *
+     * ВАЖНО: id профиля приходит из импортированного JSON и может содержать
+     * произвольные символы. Имя интерфейса попадает в привилегированные
+     * shell-скрипты — поэтому жёстко фильтруем его и добавляем хеш id,
+     * чтобы разные профили не коллизировали при обрезании.
      */
-    internal fun ifaceName(p: Profile) = "cn-${p.id.take(8)}"
+    internal fun ifaceName(p: Profile): String {
+        val safe = p.id.lowercase().map { if (it in 'a'..'z' || it in '0'..'9' || it == '-' || it == '_') it else 'x' }
+            .joinToString("")
+            .take(8)
+            .ifEmpty { "0" }
+        return "cn-$safe"
+    }
 
     private fun startTrafficPoller(p: Profile, mode: String) {
         val dev = when (mode) {
