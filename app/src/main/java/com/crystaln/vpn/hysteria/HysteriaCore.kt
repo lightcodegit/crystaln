@@ -53,7 +53,16 @@ object HysteriaCore {
         process = p
         // Pump stdout/stderr to logcat so a broken config is diagnosable.
         Thread {
-            p.inputStream.bufferedReader().forEachLine { line -> Log.i(TAG, line) }
+            p.inputStream.bufferedReader().forEachLine { line ->
+                val lower = line.lowercase()
+                if (listOf("password", "passwd", "auth:", "uuid:", "private", "token", "secret", "key:")
+                        .any { lower.contains(it) }
+                ) {
+                    Log.i(TAG, "[redacted]")
+                } else {
+                    Log.i(TAG, line)
+                }
+            }
         }.apply { isDaemon = true }.start()
 
         // Wait for the local SOCKS listener (usually up in well under a second;

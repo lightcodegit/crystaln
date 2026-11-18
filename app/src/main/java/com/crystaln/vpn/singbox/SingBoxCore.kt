@@ -39,7 +39,18 @@ object SingBoxCore {
         val p = pb.start()
         process = p
         Thread {
-            p.inputStream.bufferedReader().forEachLine { line -> Log.i(TAG, line) }
+            p.inputStream.bufferedReader().forEachLine { line ->
+                // Engine logs can echo auth/uuid/password from failed configs.
+                // Only forward lines that don't look credential-bearing.
+                val lower = line.lowercase()
+                if (listOf("password", "passwd", "auth:", "uuid:", "private", "token", "secret", "key:")
+                        .any { lower.contains(it) }
+                ) {
+                    Log.i(TAG, "[redacted]")
+                } else {
+                    Log.i(TAG, line)
+                }
+            }
         }.apply { isDaemon = true }.start()
 
         repeat(40) {

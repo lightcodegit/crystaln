@@ -26,7 +26,11 @@ class ChildProcess(
             proc = p
             val t = Thread {
                 try {
-                    p.inputStream.bufferedReader().forEachLine { line ->
+                    p.inputStream.bufferedReader().forEachLine { raw ->
+                        val lower = raw.lowercase()
+                        val line = if (listOf("password", "passwd", "auth:", "uuid:", "private", "token", "secret", "key:")
+                                .any { lower.contains(it) }
+                        ) "[redacted]" else raw
                         Privileges.appendLog("$name.log", line + "\n")
                         onLine(line)
                     }
