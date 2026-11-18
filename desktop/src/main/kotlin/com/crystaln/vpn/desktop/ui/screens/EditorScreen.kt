@@ -418,16 +418,9 @@ private fun XrayFields(
                 }
                 if (reality) {
                     androidx.compose.material3.TextButton(onClick = {
-                        try {
-                            val bin = com.crystaln.vpn.desktop.net.ChildProcess.bin(
-                                com.crystaln.vpn.desktop.AppDirs.binDir(),
-                                com.crystaln.vpn.desktop.net.Binaries.XRAY,
-                            )
-                            val p = ProcessBuilder(bin, "x25519").start()
-                            val out = p.inputStream.bufferedReader().readText()
-                            p.waitFor()
-                            Regex("Public key:\\s*(.+)").find(out)?.groupValues?.get(1)?.trim()?.let { set("publicKey", it) }
-                        } catch (_: Throwable) { }
+                        val (priv, pub) = com.crystaln.vpn.crypto.X25519.generate()
+                        set("publicKey", com.crystaln.vpn.crypto.X25519.toHex(pub))
+                        // privateKey for server config
                     }) {
                         Text("Сгенерировать ключи REALITY")
                     }
