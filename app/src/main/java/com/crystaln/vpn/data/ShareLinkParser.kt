@@ -26,6 +26,10 @@ object ShareLinkParser {
             parseHysteria2(line)
         line.startsWith("tuic://", ignoreCase = true) ->
             parseTuic(line)
+        line.startsWith("anytls://", ignoreCase = true) ->
+            parseAnytls(line)
+        line.startsWith("hysteria://", ignoreCase = true) ->
+            parseHysteria1(line)
         line.startsWith("http://", ignoreCase = true) || line.startsWith("https://", ignoreCase = true) ->
             parseHttpUrl(line)
         else -> null
@@ -257,6 +261,48 @@ object ShareLinkParser {
         } catch (_: Exception) {
             null
         }
+    }
+
+    private fun parseAnytls(link: String): Profile? {
+        return try {
+            val uri = Uri.parse(link)
+            val p = Profile(
+                name = nameOf(uri.fragment ?: "", "AnyTLS"),
+                protocol = Protocol.ANYTLS,
+                address = uri.host ?: return null,
+                port = uri.port.takeIf { it > 0 } ?: 443,
+            )
+            p.fields["password"] = uri.userInfo?.let { Uri.decode(it) } ?: return null
+            uri.getQueryParameter("sni")?.takeIf { it.isNotEmpty() }?.let { p.fields["sni"] = it }
+            when (uri.getQueryParameter("insecure") ?: uri.getQueryParameter("allow_insecure")) {
+                "1", "true" -> p.fields["allowInsecure"] = "true"
+            }
+            p
+        } catch (_: Exception) { null }
+    }
+
+    /** Hysteria v1: hysteria://host:port?protocol=...&auth=...&peer=...&insecure=...&upmbps=&downmbps= */
+    private fun parseHysteria1(link: String): Profile? {
+        return try {
+            val uri = Uri.parse(link)
+            val p = Profile(
+                name = nameOf(uri.fragment ?: "", "Hysteria"),
+                protocol = Protocol.HYSTERIA1,
+                address = uri.host ?: return null,
+                port = uri.port.takeIf { it > 0 } ?: 443,
+            )
+            uri.getQueryParameter("auth")?.takeIf { it.isNotEmpty() }?.let { p.fields["password"] = Uri.decode(it) }
+            uri.getQueryParameter("peer")?.takeIf { it.isNotEmpty() }?.let { p.fields["sni"] = it }
+            (uri.getQueryParameter("upmbps") ?: uri.getQueryParameter("up"))
+                ?.toIntOrNull()?.takeIf { it > 0 }?.let { p.fields["upMbps"] = it.toString() }
+            (uri.getQueryParameter("downmbps") ?: uri.getQueryParameter("down"))
+                ?.toIntOrNull()?.takeIf { it > 0 }?.let { p.fields["downMbps"] = it.toString() }
+            when (uri.getQueryParameter("insecure") ?: uri.getQueryParameter("allowInsecure")) {
+                "1", "true" -> p.fields["allowInsecure"] = "true"
+            }
+            if (p.fields["password"].isNullOrEmpty()) return null
+            p
+        } catch (_: Exception) { null }
     }
 
     /** http(s)://user:pass@host:port#name imported as HTTP proxy profile. */

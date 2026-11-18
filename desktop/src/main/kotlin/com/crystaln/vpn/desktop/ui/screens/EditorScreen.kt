@@ -152,6 +152,10 @@ fun EditorScreen(
                         HysteriaFields(isDark, ::value, ::set, insecure, onInsecure = { insecure = it })
                     } else if (protocol == Protocol.TUIC) {
                         TuicFields(isDark, ::value, ::set, insecure, onInsecure = { insecure = it })
+                    } else if (protocol == Protocol.ANYTLS) {
+                        AnyTlsFields(isDark, ::value, ::set, insecure, onInsecure = { insecure = it })
+                    } else if (protocol == Protocol.HYSTERIA1) {
+                        Hysteria1Fields(isDark, ::value, ::set, insecure, onInsecure = { insecure = it })
                     } else {
                         XrayFields(protocol, isDark, ::value, ::set, tls, reality, insecure,
                             onTls = { tls = it }, onReality = { reality = it }, onInsecure = { insecure = it })
@@ -262,7 +266,29 @@ private fun buildProfile(
         return p
     }
 
-    // TUIC: server + credentials; engine not available yet (sing-box planned).
+    // AnyTLS: server + password; runs on sing-box.
+    if (protocol == Protocol.ANYTLS) {
+        p.address = v("address")
+        p.port = v("port").toIntOrNull() ?: 0
+        p.fields = mutableMapOf()
+        listOf("password", "sni").forEach { k -> v(k).takeIf { it.isNotEmpty() }?.let { p.fields[k] = it } }
+        if (insecure) p.fields["allowInsecure"] = "true"
+        return p
+    }
+
+    // Hysteria v1: server + auth; runs on sing-box.
+    if (protocol == Protocol.HYSTERIA1) {
+        p.address = v("address")
+        p.port = v("port").toIntOrNull() ?: 0
+        p.fields = mutableMapOf()
+        listOf("password", "sni", "obfs", "obfsPassword", "upMbps", "downMbps").forEach { k ->
+            v(k).takeIf { it.isNotEmpty() }?.let { p.fields[k] = it }
+        }
+        if (insecure) p.fields["allowInsecure"] = "true"
+        return p
+    }
+
+    // TUIC: server + credentials; engine available via sing-box.
     if (protocol == Protocol.TUIC) {
         p.address = v("address")
         p.port = v("port").toIntOrNull() ?: 0
@@ -360,7 +386,7 @@ private fun XrayFields(
                 TextFieldRow("upMbps", "Скорость отдачи (Mbps, опционально)", value, set, numeric = true)
                 TextFieldRow("downMbps", "Скорость загрузки (Mbps, опционально)", value, set, numeric = true)
             }
-            Protocol.WIREGUARD, Protocol.AMNEZIAWG, Protocol.OPENVPN, Protocol.HYSTERIA2, Protocol.TUIC -> Unit
+            Protocol.WIREGUARD, Protocol.AMNEZIAWG, Protocol.OPENVPN, Protocol.HYSTERIA2, Protocol.TUIC, Protocol.ANYTLS, Protocol.HYSTERIA1 -> Unit
         }
         TextFieldRow("name", "Название профиля", value, set)
     }
@@ -388,6 +414,22 @@ private fun XrayFields(
                 listOf("sni", "fingerprint", "alpn", "publicKey", "shortId", "spiderX").forEach { k ->
                     if (k in visible) {
                         TextFieldRow(k, securityLabel(k), value, set)
+                    }
+                }
+                if (reality) {
+                    androidx.compose.material3.TextButton(onClick = {
+                        try {
+                            val bin = com.crystaln.vpn.desktop.net.ChildProcess.bin(
+                                com.crystaln.vpn.desktop.AppDirs.binDir(),
+                                com.crystaln.vpn.desktop.net.Binaries.XRAY,
+                            )
+                            val p = ProcessBuilder(bin, "x25519").start()
+                            val out = p.inputStream.bufferedReader().readText()
+                            p.waitFor()
+                            Regex("Public key:\\s*(.+)").find(out)?.groupValues?.get(1)?.trim()?.let { set("publicKey", it) }
+                        } catch (_: Throwable) { }
+                    }) {
+                        Text("Сгенерировать ключи REALITY")
                     }
                 }
                 if (!reality) {
@@ -420,6 +462,56 @@ private fun TuicFields(
         TextFieldRow("sni", "SNI", value, set)
         TextFieldRow("congestionControl", "Congestion control (cubic/bbr)", value, set)
         TextFieldRow("udpRelayMode", "UDP relay mode (native/quic)", value, set)
+        ToggleRow("Разрешить небезопасный TLS", insecure, onInsecure)
+    }
+}
+
+/** Fields for AnyTLS. */
+@Composable
+private fun AnyTlsFields(
+    isDark: Boolean,
+    value: (String) -> String,
+    set: (String, String) -> Unit,
+    insecure: Boolean,
+    onInsecure: (Boolean) -> Unit,
+) {
+    SectionLabel("Сервер")
+    GlassPanel(isDark = isDark) {
+        TextFieldRow("address", "Адрес (host или IP)", value, set)
+        TextFieldRow("port", "Порт", value, set, numeric = true)
+        TextFieldRow("password", "Пароль", value, set)
+        TextFieldRow("name", "Название профиля", value, set)
+    }
+    SectionLabel("AnyTLS (TLS)")
+    GlassPanel(isDark = isDark) {
+        TextFieldRow("sni", "SNI", value, set)
+        ToggleRow("Разрешить небезопасный TLS", insecure, onInsecure)
+    }
+}
+
+/** Fields for Hysteria v1. */
+@Composable
+private fun Hysteria1Fields(
+    isDark: Boolean,
+    value: (String) -> String,
+    set: (String, String) -> Unit,
+    insecure: Boolean,
+    onInsecure: (Boolean) -> Unit,
+) {
+    SectionLabel("Сервер")
+    GlassPanel(isDark = isDark) {
+        TextFieldRow("address", "Адрес (host или IP)", value, set)
+        TextFieldRow("port", "Порт", value, set, numeric = true)
+        TextFieldRow("password", "Пароль (auth)", value, set)
+        TextFieldRow("name", "Название профиля", value, set)
+    }
+    SectionLabel("Hysteria v1")
+    GlassPanel(isDark = isDark) {
+        TextFieldRow("sni", "SNI", value, set)
+        TextFieldRow("obfs", "Obfs (salamander — пусто, если нет)", value, set)
+        TextFieldRow("obfsPassword", "Пароль obfs", value, set)
+        TextFieldRow("upMbps", "Скорость отдачи (Mbps, опционально)", value, set, numeric = true)
+        TextFieldRow("downMbps", "Скорость загрузки (Mbps, опционально)", value, set, numeric = true)
         ToggleRow("Разрешить небезопасный TLS", insecure, onInsecure)
     }
 }

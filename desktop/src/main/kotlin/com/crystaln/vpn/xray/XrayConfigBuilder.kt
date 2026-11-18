@@ -173,6 +173,9 @@ object XrayConfigBuilder {
      */
     const val HYSTERIA_SOCKS_PORT = 17901
 
+    /** Local mixed (SOCKS5+HTTP) port of the sing-box core (TUIC/AnyTLS/Hysteria v1). */
+    const val SINGBOX_MIXED_PORT = 17902
+
     fun buildOutbound(profile: Profile): JSONObject = when {
         profile.isHysteria -> JSONObject().apply {
             put("tag", "proxy")
@@ -185,6 +188,22 @@ object XrayConfigBuilder {
                         JSONObject()
                             .put("address", "127.0.0.1")
                             .put("port", HYSTERIA_SOCKS_PORT),
+                    ),
+                ),
+            )
+        }
+
+        profile.isSingBoxFamily -> JSONObject().apply {
+            put("tag", "proxy")
+            put("protocol", "socks")
+            put(
+                "settings",
+                JSONObject().put(
+                    "servers",
+                    JSONArray().put(
+                        JSONObject()
+                            .put("address", "127.0.0.1")
+                            .put("port", SINGBOX_MIXED_PORT),
                     ),
                 ),
             )
@@ -214,6 +233,8 @@ object XrayConfigBuilder {
             throw IllegalArgumentException("Hysteria2 is routed through its own SOCKS outbound")
         Protocol.TUIC ->
             throw IllegalArgumentException("TUIC requires the sing-box engine (planned)")
+        Protocol.ANYTLS, Protocol.HYSTERIA1 ->
+            throw IllegalArgumentException("AnyTLS/Hysteria v1 require the sing-box engine (planned)")
     }
 
     private fun settingsFor(p: Profile): JSONObject = when (p.protocol) {
@@ -298,6 +319,8 @@ object XrayConfigBuilder {
             throw IllegalArgumentException("Hysteria2 is routed through its own SOCKS outbound")
         Protocol.TUIC ->
             throw IllegalArgumentException("TUIC requires the sing-box engine (planned)")
+        Protocol.ANYTLS, Protocol.HYSTERIA1 ->
+            throw IllegalArgumentException("AnyTLS/Hysteria v1 require the sing-box engine (planned)")
     }
 
     private fun server(p: Profile): JSONObject =

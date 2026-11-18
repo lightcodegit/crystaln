@@ -16,7 +16,9 @@ enum class Protocol(val displayName: String) {
     AMNEZIAWG("AmneziaWG"),
     OPENVPN("OpenVPN"),
     HYSTERIA2("Hysteria2"),
-    TUIC("TUIC");
+    TUIC("TUIC"),
+    ANYTLS("AnyTLS"),
+    HYSTERIA1("Hysteria");
 
     companion object {
         fun fromNameOrNull(name: String?): Protocol? =
@@ -56,6 +58,10 @@ data class Profile(
     /** Hysteria2 runs its own QUIC core; the Xray outbound points at it. */
     val isHysteria: Boolean get() = protocol == Protocol.HYSTERIA2
 
+    /** Sing-box family: TUIC / AnyTLS / Hysteria v1 run on the sing-box core. */
+    val isSingBoxFamily: Boolean
+        get() = protocol == Protocol.TUIC || protocol == Protocol.ANYTLS || protocol == Protocol.HYSTERIA1
+
     /**
      * Stable server identity used by subscription refreshes: the same endpoint
      * and credentials update the existing profile instead of adding a duplicate.
@@ -68,6 +74,7 @@ data class Profile(
             Protocol.VMESS, Protocol.VLESS -> fields["uuid"]
             Protocol.TROJAN, Protocol.SHADOWSOCKS, Protocol.HYSTERIA2 -> fields["password"]
             Protocol.TUIC -> fields["uuid"] ?: fields["password"]
+            Protocol.ANYTLS, Protocol.HYSTERIA1 -> fields["password"]
             Protocol.SOCKS, Protocol.HTTP, Protocol.HTTPS -> fields["username"]?.let { "$it:${fields["password"]}" }
             Protocol.WIREGUARD, Protocol.AMNEZIAWG ->
                 wgConfig.lineSequence()
@@ -103,6 +110,8 @@ data class Profile(
         }
         Protocol.HYSTERIA2 -> "$address:${if (port > 0) port else "?"} · hy2"
         Protocol.TUIC -> "$address:${if (port > 0) port else "?"} · tuic"
+        Protocol.ANYTLS -> "$address:${if (port > 0) port else "?"} · anytls"
+        Protocol.HYSTERIA1 -> "$address:${if (port > 0) port else "?"} · hy1"
         else -> "$address:${if (port > 0) port else "?"} · ${transportLabel()}"
     }
 

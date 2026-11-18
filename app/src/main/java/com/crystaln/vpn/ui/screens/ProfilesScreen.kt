@@ -1041,6 +1041,7 @@ private fun PingChip(
 private fun isPingable(p: Profile): Boolean {
     if (p.isWireGuardFamily || p.isOpenVpn) return false
     if (p.isHysteria || p.protocol == Protocol.TUIC) return false
+    if (p.protocol == Protocol.ANYTLS || p.protocol == Protocol.HYSTERIA1) return false
     if (p.address.isEmpty() || p.port <= 0) return false
     return (p.fields["network"] ?: "tcp") !in setOf("quic", "kcp", "udp")
 }

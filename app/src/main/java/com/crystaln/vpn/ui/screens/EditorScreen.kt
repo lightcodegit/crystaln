@@ -157,6 +157,10 @@ fun EditorScreen(
                         HysteriaFields(isDark, ::value, ::set, insecure, onInsecure = { insecure = it })
                     } else if (protocol == Protocol.TUIC) {
                         TuicFields(isDark, ::value, ::set, insecure, onInsecure = { insecure = it })
+                    } else if (protocol == Protocol.ANYTLS) {
+                        AnyTlsFields(isDark, ::value, ::set, insecure, onInsecure = { insecure = it })
+                    } else if (protocol == Protocol.HYSTERIA1) {
+                        Hysteria1Fields(isDark, ::value, ::set, insecure, onInsecure = { insecure = it })
                     } else {
                         XrayFields(protocol, isDark, ::value, ::set, tls, reality, insecure,
                             onTls = { tls = it }, onReality = { reality = it }, onInsecure = { insecure = it })
@@ -220,6 +224,56 @@ private fun TuicFields(
         TextFieldRow("sni", "SNI", value, set)
         TextFieldRow("congestionControl", "Congestion control (cubic/bbr)", value, set)
         TextFieldRow("udpRelayMode", "UDP relay mode (native/quic)", value, set)
+        ToggleRow(stringResource(R.string.field_hy2_insecure), insecure, onInsecure)
+    }
+}
+
+/** Fields for AnyTLS: credentials. */
+@Composable
+private fun AnyTlsFields(
+    isDark: Boolean,
+    value: (String) -> String,
+    set: (String, String) -> Unit,
+    insecure: Boolean,
+    onInsecure: (Boolean) -> Unit,
+) {
+    SectionLabel(stringResource(R.string.section_server))
+    GlassPanel(isDark = isDark) {
+        TextFieldRow("address", stringResource(R.string.field_address), value, set)
+        TextFieldRow("port", stringResource(R.string.field_port), value, set, numeric = true)
+        TextFieldRow("password", stringResource(R.string.field_password), value, set)
+        TextFieldRow("name", stringResource(R.string.field_profile_name), value, set)
+    }
+    SectionLabel("AnyTLS (TLS)")
+    GlassPanel(isDark = isDark) {
+        TextFieldRow("sni", "SNI", value, set)
+        ToggleRow(stringResource(R.string.field_hy2_insecure), insecure, onInsecure)
+    }
+}
+
+/** Fields for Hysteria v1. */
+@Composable
+private fun Hysteria1Fields(
+    isDark: Boolean,
+    value: (String) -> String,
+    set: (String, String) -> Unit,
+    insecure: Boolean,
+    onInsecure: (Boolean) -> Unit,
+) {
+    SectionLabel(stringResource(R.string.section_server))
+    GlassPanel(isDark = isDark) {
+        TextFieldRow("address", stringResource(R.string.field_address), value, set)
+        TextFieldRow("port", stringResource(R.string.field_port), value, set, numeric = true)
+        TextFieldRow("password", stringResource(R.string.field_password), value, set)
+        TextFieldRow("name", stringResource(R.string.field_profile_name), value, set)
+    }
+    SectionLabel("Hysteria v1")
+    GlassPanel(isDark = isDark) {
+        TextFieldRow("sni", "SNI", value, set)
+        TextFieldRow("obfs", stringResource(R.string.field_hy2_obfs), value, set)
+        TextFieldRow("obfsPassword", stringResource(R.string.field_hy2_obfs_password), value, set)
+        TextFieldRow("upMbps", stringResource(R.string.field_hy2_up), value, set, numeric = true)
+        TextFieldRow("downMbps", stringResource(R.string.field_hy2_down), value, set, numeric = true)
         ToggleRow(stringResource(R.string.field_hy2_insecure), insecure, onInsecure)
     }
 }
@@ -344,8 +398,29 @@ private fun buildProfile(
         return p
     }
 
-    // TUIC: server + credentials; engine not available yet (sing-box planned),
-    // but profiles can be created/imported/shared.
+    // AnyTLS: server + password; runs on sing-box.
+    if (protocol == Protocol.ANYTLS) {
+        p.address = v("address")
+        p.port = v("port").toIntOrNull() ?: 0
+        p.fields = mutableMapOf()
+        listOf("password", "sni").forEach { k -> v(k).takeIf { it.isNotEmpty() }?.let { p.fields[k] = it } }
+        if (insecure) p.fields["allowInsecure"] = "true"
+        return p
+    }
+
+    // Hysteria v1: server + auth; runs on sing-box.
+    if (protocol == Protocol.HYSTERIA1) {
+        p.address = v("address")
+        p.port = v("port").toIntOrNull() ?: 0
+        p.fields = mutableMapOf()
+        listOf("password", "sni", "obfs", "obfsPassword", "upMbps", "downMbps").forEach { k ->
+            v(k).takeIf { it.isNotEmpty() }?.let { p.fields[k] = it }
+        }
+        if (insecure) p.fields["allowInsecure"] = "true"
+        return p
+    }
+
+    // TUIC: server + credentials; engine available via sing-box.
     if (protocol == Protocol.TUIC) {
         p.address = v("address")
         p.port = v("port").toIntOrNull() ?: 0
@@ -450,7 +525,7 @@ private fun XrayFields(
                 TextFieldRow("username", stringResource(R.string.field_username_opt), value, set)
                 TextFieldRow("password", stringResource(R.string.field_password_opt), value, set)
             }
-            Protocol.WIREGUARD, Protocol.AMNEZIAWG, Protocol.OPENVPN, Protocol.HYSTERIA2, Protocol.TUIC -> Unit
+            Protocol.WIREGUARD, Protocol.AMNEZIAWG, Protocol.OPENVPN, Protocol.HYSTERIA2, Protocol.TUIC, Protocol.ANYTLS, Protocol.HYSTERIA1 -> Unit
         }
         TextFieldRow("name", stringResource(R.string.field_profile_name), value, set)
     }

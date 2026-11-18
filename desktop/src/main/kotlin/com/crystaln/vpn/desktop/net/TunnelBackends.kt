@@ -53,6 +53,10 @@ internal fun TunnelManager.connectXray(p: Profile) {
         if (p.isHysteria) {
             HysteriaRunner.start(p)
         }
+        if (p.isSingBoxFamily) {
+            SingBoxRunner.start(p)
+        }
+
 
         logLine("Запуск xray (${if (opts.blockAds) "с geosite" else "без geosite"})…")
         val env = mutableListOf("XRAY_LOCATION_ASSET=${bin.absolutePath}")
@@ -605,6 +609,8 @@ internal fun TunnelManager.teardownAll() {
         xray?.stop()
         xray = null
         HysteriaRunner.stop()
+        HysteriaRunner.stop()
+        SingBoxRunner.stop()
         if (stoppedSomething) logLine("Туннель остановлен")
     }
 
@@ -667,4 +673,63 @@ internal fun openVpnCredentialText(user: String?, pass: String?): String? {
     val u = user?.trim().orEmpty()
     val p = pass?.trim().orEmpty()
     return if (u.isEmpty() && p.isEmpty()) null else "$u\n$p\n"
+}
+internal fun TunnelManager.connectSingBox(p: Profile) {
+    val dataDir = AppDirs.configDir()
+    val socksPort = SettingsStore.socksPort(dataDir)
+    val httpPort = SettingsStore.httpPort(dataDir)
+    val opts = XrayConfigBuilder.Options(
+        dnsViaTunnel = SettingsStore.dnsViaTunnel(dataDir),
+        dnsServer = SettingsStore.dnsServer(dataDir),
+        blockAds = SettingsStore.blockAds(dataDir),
+    )
+    val bin = AppDirs.binDir()
+    val st = Binaries.status()
+    if (!st.xrayReady) throw IllegalStateException("xray not found")
+    if (!st.singboxReady) throw IllegalStateException("sing-box not found")
+    if (SettingsStore.tunnelMode(dataDir) == SettingsStore.TunnelMode.TUN && !st.tun2socksReady) {
+        throw IllegalStateException("tun2socks not found")
+    }
+    if (SettingsStore.tunnelMode(dataDir) == SettingsStore.TunnelMode.TUN && !st.wintunReady) {
+        throw IllegalStateException("wintun not found")
+    }
+    SingBoxRunner.start(p)
+    val config = XrayConfigBuilder.buildProxy(p, opts, socksPort, httpPort)
+    val configFile = File(AppDirs.dataDir(), "xray-config.json")
+    configFile.writeText(config)
+    xray = ChildProcess(
+        "xray",
+        listOf(ChildProcess.bin(bin, Binaries.XRAY), "run", "-c", configFile.absolutePath),
+    ) { logLine("[xray] $it") }
+    Thread.sleep(500)
+    if (xray?.alive != true) {
+        SingBoxRunner.stop()
+        throw IllegalStateException("xray exited immediately")
+    }
+    var socksUp = false
+    repeat(30) {
+        socksUp = try { Socket().use { s -> s.connect(InetSocketAddress("127.0.0.1", socksPort), 300); true } } catch (_: Throwable) { Thread.sleep(200); false }
+        if (socksUp) return@repeat
+    }
+    if (!socksUp) { SingBoxRunner.stop(); xray?.stop(); throw IllegalStateException("xray proxy port not opened") }
+    val mode = SettingsStore.tunnelMode(dataDir)
+    if (mode == SettingsStore.TunnelMode.PROXY) { markConnected(p, "proxy"); return }
+    if (com.crystaln.vpn.desktop.Platform.isWindows) {
+        SingBoxRunner.stop(); xray?.stop(); throw IllegalStateException("TUN mode for sing-box on Windows not supported yet - use proxy mode")
+    }
+    origGateway = defaultGateway()
+    val dev = "crystaln0"
+    val setup = listOf("ip tuntap add mode tun dev $dev", "ip addr add 198.18.0.1/15 dev $dev", "ip link set $dev up", "ip route replace default dev $dev")
+    val res = Privileges.runScript("tun-setup", setup)
+    if (res != Privileges.Result.Ok) {
+        teardownTunQuietly(); xray?.stop(); SingBoxRunner.stop()
+        throw IllegalStateException("TUN setup failed")
+    }
+    tun2socks = ChildProcess("tun2socks", listOf(ChildProcess.bin(bin, Binaries.TUN2SOCKS), "--device", dev, "--proxy", "socks5://127.0.0.1:$socksPort", "--loglevel", "warn")) { logLine("[tun2socks] $it") }
+    Thread.sleep(700)
+    if (tun2socks?.alive != true) {
+        teardownTunQuietly(); xray?.stop(); SingBoxRunner.stop()
+        throw IllegalStateException("tun2socks exited")
+    }
+    markConnected(p, "tun")
 }

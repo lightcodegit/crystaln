@@ -28,6 +28,10 @@ object ShareLinkParser {
             parseHysteria2(line)
         line.startsWith("tuic://", ignoreCase = true) ->
             parseTuic(line)
+        line.startsWith("anytls://", ignoreCase = true) ->
+            parseAnytls(line)
+        line.startsWith("hysteria://", ignoreCase = true) ->
+            parseHysteria1(line)
         line.startsWith("http://", ignoreCase = true) || line.startsWith("https://", ignoreCase = true) ->
             parseHttpUrl(line)
         else -> null
@@ -327,6 +331,45 @@ object ShareLinkParser {
         } catch (_: Exception) {
             null
         }
+    }
+
+    private fun parseAnytls(link: String): Profile? {
+        return try {
+            val uri = splitUri(link) ?: return null
+            val p = Profile(
+                name = nameOf(uri.fragment, "AnyTLS"),
+                protocol = Protocol.ANYTLS,
+                address = uri.host ?: return null,
+                port = uri.port.takeIf { it > 0 } ?: 443,
+            )
+            p.fields["password"] = uri.userInfo ?: return null
+            uri.query["sni"]?.takeIf { it.isNotEmpty() }?.let { p.fields["sni"] = it }
+            when (uri.query["insecure"] ?: uri.query["allow_insecure"]) {
+                "1", "true" -> p.fields["allowInsecure"] = "true"
+            }
+            p
+        } catch (_: Exception) { null }
+    }
+
+    private fun parseHysteria1(link: String): Profile? {
+        return try {
+            val uri = splitUri(link) ?: return null
+            val p = Profile(
+                name = nameOf(uri.fragment, "Hysteria"),
+                protocol = Protocol.HYSTERIA1,
+                address = uri.host ?: return null,
+                port = uri.port.takeIf { it > 0 } ?: 443,
+            )
+            (uri.query["auth"])?.takeIf { it.isNotEmpty() }?.let { p.fields["password"] = it }
+            (uri.query["peer"])?.takeIf { it.isNotEmpty() }?.let { p.fields["sni"] = it }
+            (uri.query["upmbps"] ?: uri.query["up"])?.toIntOrNull()?.takeIf { it > 0 }?.let { p.fields["upMbps"] = it.toString() }
+            (uri.query["downmbps"] ?: uri.query["down"])?.toIntOrNull()?.takeIf { it > 0 }?.let { p.fields["downMbps"] = it.toString() }
+            when (uri.query["insecure"] ?: uri.query["allowInsecure"]) {
+                "1", "true" -> p.fields["allowInsecure"] = "true"
+            }
+            if (p.fields["password"].isNullOrEmpty()) return null
+            p
+        } catch (_: Exception) { null }
     }
 
     private fun parseHttpUrl(link: String): Profile? {

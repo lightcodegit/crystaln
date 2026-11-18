@@ -137,6 +137,8 @@ object ConnectionDiagnostics {
                 if (profile.fields["uuid"].isNullOrBlank()) problems += "uuid"
                 if (profile.fields["password"].isNullOrBlank()) problems += "password"
             }
+            Protocol.ANYTLS -> if (profile.fields["password"].isNullOrBlank()) problems += "password"
+            Protocol.HYSTERIA1 -> if (profile.fields["password"].isNullOrBlank()) problems += "password"
 
             Protocol.WIREGUARD, Protocol.AMNEZIAWG -> {
                 val cfg = profile.wgConfig

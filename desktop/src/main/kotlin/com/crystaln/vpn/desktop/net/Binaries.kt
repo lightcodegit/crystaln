@@ -23,6 +23,9 @@ object Binaries {
     const val AWG_GO = "amneziawg-go"
     const val AWG = "awg"
 
+    /** Официальный клиент sing-box (TUIC / AnyTLS / Hysteria v1). */
+    const val SINGBOX = "sing-box"
+
     /** Официальный клиент Hysteria2 (child-процесс с локальным SOCKS5). */
     const val HYSTERIA = "hysteria"
 
@@ -48,6 +51,7 @@ object Binaries {
         val geositeReady: Boolean,
         val awgReady: Boolean,
         val hysteriaReady: Boolean,
+        val singboxReady: Boolean,
         /** Windows: wintun.dll лежит рядом с tun2socks/openvpn (иначе TUN нем). */
         val wintunReady: Boolean = true,
         /** Windows: портативный openvpn извлечён в bin/openvpn (на Linux системный). */
@@ -67,6 +71,7 @@ object Binaries {
             tun2socksReady = executable(File(bin, p.binName(TUN2SOCKS))),
             geositeReady = File(bin, "geosite.dat").exists(),
             hysteriaReady = executable(File(bin, p.binName(HYSTERIA))),
+            singboxReady = executable(File(bin, p.binName(SINGBOX))),
             awgReady = if (p.isWindows) {
                 executable(File(bin, p.binName(AWG_SERVICE))) &&
                     executable(File(bin, p.binName(AWG)))
@@ -112,6 +117,7 @@ object Binaries {
         needAwg: Boolean = true,
         needOpenVpn: Boolean = true,
         needHysteria: Boolean = true,
+        needSingbox: Boolean = true,
         progress: (String) -> Unit = {},
     ) {
         val bin = AppDirs.binDir()
@@ -134,6 +140,41 @@ object Binaries {
             )
             val out = File(bin, p.binName(HYSTERIA))
             if (!tmp.renameTo(out)) out.writeBytes(tmp.readBytes())
+            out.setExecutable(true)
+        }
+        if (needSingbox && !status().singboxReady) {
+            progress("Загрузка sing-box…")
+            val asset = if (isWin) "sing-box-windows-amd64.zip" else "sing-box-linux-amd64.tar.gz"
+            val tmp = File(bin, "singbox.tmp")
+            val downloaded = downloadTo(
+                "https://github.com/SagerNet/sing-box/releases/download/v1.14.4/${asset}",
+                tmp,
+            )
+            progress("Распаковка sing-box…")
+            val out = File(bin, p.binName(SINGBOX))
+            if (isWin) {
+                ZipFile(downloaded).use { zf ->
+                    zf.entries().asSequence().firstOrNull { it.name.endsWith("sing-box.exe") }?.let { e ->
+                        zf.getInputStream(e).use { input -> out.outputStream().use { input.copyTo(it) } }
+                    }
+                }
+            } else {
+                // tar.gz
+                val tar = File(bin, "singbox.tar.gz")
+                downloaded.renameTo(tar)
+                // use tar command
+                val extractDir = File(bin, "singbox-extract")
+                extractDir.mkdirs()
+                ProcessBuilder("tar", "-xzf", tar.absolutePath, "-C", extractDir.absolutePath).start().waitFor()
+                val found = extractDir.walkTopDown().firstOrNull { it.name == "sing-box" && it.isFile }
+                if (found != null) {
+                    out.writeBytes(found.readBytes())
+                    out.setExecutable(true)
+                }
+                extractDir.deleteRecursively()
+                tar.delete()
+            }
+            downloaded.delete()
             out.setExecutable(true)
         }
         if (needXray && !status().xrayReady) {

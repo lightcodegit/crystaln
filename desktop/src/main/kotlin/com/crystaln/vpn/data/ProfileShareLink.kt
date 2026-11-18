@@ -29,6 +29,8 @@ object ProfileShareLink {
         Protocol.OPENVPN -> p.ovpnConfig.ifEmpty { null }
         Protocol.HYSTERIA2 -> shareHysteria2(p)
         Protocol.TUIC -> shareTuic(p)
+        Protocol.ANYTLS -> shareAnytls(p)
+        Protocol.HYSTERIA1 -> shareHysteria1(p)
     }
 
     /** hysteria2://password@host:port?params#name */
@@ -150,6 +152,29 @@ object ProfileShareLink {
         val query = if (q.isEmpty()) "" else "?" + q.joinToString("&")
         val auth = if (pass.isNotEmpty()) "${enc(uuid)}:${enc(pass)}" else enc(uuid)
         return "tuic://$auth@${hostPort(p)}$query#${fragment(p)}"
+    }
+
+    private fun shareAnytls(p: Profile): String? {
+        val password = p.fields["password"]?.takeIf { it.isNotEmpty() } ?: return null
+        if (p.address.isEmpty() || p.port <= 0) return null
+        val q = mutableListOf<String>()
+        p.fields["sni"]?.takeIf { it.isNotEmpty() }?.let { q += "sni=${enc(it)}" }
+        if (p.fields["allowInsecure"] == "true") q += "allow_insecure=1"
+        val query = if (q.isEmpty()) "" else "?" + q.joinToString("&")
+        return "anytls://${enc(password)}@${hostPort(p)}$query#${fragment(p)}"
+    }
+
+    private fun shareHysteria1(p: Profile): String? {
+        val password = p.fields["password"]?.takeIf { it.isNotEmpty() } ?: return null
+        if (p.address.isEmpty() || p.port <= 0) return null
+        val q = mutableListOf<String>()
+        p.fields["sni"]?.takeIf { it.isNotEmpty() }?.let { q += "peer=${enc(it)}" }
+        q += "auth=${enc(password)}"
+        p.fields["upMbps"]?.takeIf { it.isNotEmpty() }?.let { q += "upmbps=$it" }
+        p.fields["downMbps"]?.takeIf { it.isNotEmpty() }?.let { q += "downmbps=$it" }
+        if (p.fields["allowInsecure"] == "true") q += "insecure=1"
+        val query = "?" + q.joinToString("&")
+        return "hysteria://${p.address}:${p.port}$query#${fragment(p)}"
     }
 
     /** Bare IPv6 hosts are bracketed so the port is unambiguous. */

@@ -126,7 +126,7 @@ object TunnelManager {
                     profile.protocol == Protocol.WIREGUARD -> connectWireGuard(profile)
                     profile.protocol == Protocol.AMNEZIAWG -> connectAmneziaWg(profile)
                     profile.protocol == Protocol.OPENVPN -> connectOpenVpn(profile)
-                    profile.protocol == Protocol.TUIC -> fail("TUIC requires the sing-box engine (planned)", myGen)
+                    profile.isSingBoxFamily -> connectSingBox(profile)
                     else -> connectXray(profile)
                 }
             } catch (t: Throwable) {

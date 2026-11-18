@@ -91,6 +91,8 @@ fun protocolColor(p: Protocol): Color = when (p) {
     Protocol.OPENVPN -> Color(0xFFC9A23F)
     Protocol.HYSTERIA2 -> Color(0xFFB04FF6)
     Protocol.TUIC -> Color(0xFF3FA8BF)
+    Protocol.ANYTLS -> Color(0xFFBF6A3F)
+    Protocol.HYSTERIA1 -> Color(0xFFBF3F6A)
 }
 
 /**

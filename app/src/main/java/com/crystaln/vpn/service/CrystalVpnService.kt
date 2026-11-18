@@ -15,6 +15,7 @@ import com.crystaln.vpn.data.Profile
 import com.crystaln.vpn.data.ProfileStore
 import com.crystaln.vpn.data.SettingsStore
 import com.crystaln.vpn.hysteria.HysteriaCore
+import com.crystaln.vpn.singbox.SingBoxCore
 import com.crystaln.vpn.ui.MainActivity
 import com.crystaln.vpn.xray.XrayConfigBuilder
 import com.crystaln.vpn.xray.XrayCore
@@ -86,6 +87,15 @@ class CrystalVpnService : VpnService() {
                         HysteriaCore.start(applicationContext, profile)
                     } catch (t: Throwable) {
                         fail(t.message ?: "hysteria core failed to start")
+                        return@launch
+                    }
+                }
+                // Sing-box family (TUIC/AnyTLS/Hysteria v1): same pattern.
+                if (profile.isSingBoxFamily) {
+                    try {
+                        SingBoxCore.start(applicationContext, profile)
+                    } catch (t: Throwable) {
+                        fail(t.message ?: "sing-box core failed to start")
                         return@launch
                     }
                 }
@@ -214,6 +224,7 @@ class CrystalVpnService : VpnService() {
         running = false
         XrayCore.stop()
         HysteriaCore.stop()
+        SingBoxCore.stop()
         try {
             tun?.close()
         } catch (_: Exception) {
