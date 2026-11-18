@@ -109,6 +109,12 @@ private fun trayProfile(): com.crystaln.vpn.data.Profile? {
 }
 
 fun main() {
+    // A previous process may have crashed while the kill-switch was engaged;
+    // clean up its stale firewall rules before anything else.
+    try {
+        com.crystaln.vpn.desktop.net.KillSwitch.cleanupStale()
+    } catch (_: Throwable) {
+    }
     // Children (xray, tun2socks, openvpn watchers) must not outlive the app:
     // a normal exit and a crash both run this hook and tear everything down.
     Runtime.getRuntime().addShutdownHook(Thread { TunnelManager.shutdownAll() })

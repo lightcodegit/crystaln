@@ -89,6 +89,10 @@ object TunnelManager {
     @Volatile
     private var statsFile: File? = null
 
+    /** Kill-switch armed for the current TUN session; disengaged on clean stop. */
+    @Volatile
+    private var killArmed = false
+
     @Volatile
     internal var awgIface: String? = null
 
@@ -163,6 +167,10 @@ object TunnelManager {
         }
         Thread {
             teardownAll()
+            if (killArmed) {
+                KillSwitch.disengage()
+                killArmed = false
+            }
             synchronized(lock) {
                 if (generation == myGen) _ui.value = UiState(State.OFF)
             }
@@ -182,6 +190,17 @@ object TunnelManager {
             }
         }
         startTrafficPoller(p, mode)
+        // Kill-switch: while the tunnel is up, only the VPN interface may
+        // carry traffic. When it drops, the rule fails closed (no interface
+        // matches) until the user stops/reconnects.
+        if (SettingsStore.killSwitch(AppDirs.configDir()) && mode in setOf("tun", "wg", "awg", "openvpn")) {
+            KillSwitch.engage(
+                sessionId = "gen-${generation}",
+                allowIface = if (!com.crystaln.vpn.desktop.Platform.isWindows) statDevice else null,
+            )
+            killArmed = true
+            logLine("Kill-switch включён")
+        }
     }
 
     /**
@@ -302,6 +321,10 @@ object TunnelManager {
         try {
             polling = false
             teardownAll()
+            if (killArmed) {
+                KillSwitch.disengage()
+                killArmed = false
+            }
         } catch (_: Throwable) {
         }
         _ui.value = UiState(State.OFF)
