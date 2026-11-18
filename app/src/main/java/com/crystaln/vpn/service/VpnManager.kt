@@ -251,7 +251,7 @@ object VpnManager {
                 val t = WireGuardTunnel(context, profile)
                 tunnel = t
                 t.up()
-                notifyChecking(true)
+                if (generation.get() == myGeneration) notifyChecking(true)
                 when (awaitHandshake({ t.handshakeHappened() }, myGeneration)) {
                     null -> {
                         // A newer connect()/stop() superseded this attempt.
@@ -306,7 +306,7 @@ object VpnManager {
                 val t = AwgTunnel(context, profile)
                 tunnel = t
                 t.up()
-                notifyChecking(true)
+                if (generation.get() == myGeneration) notifyChecking(true)
                 when (awaitHandshake({ t.handshakeHappened() }, myGeneration)) {
                     null -> {
                         try {
