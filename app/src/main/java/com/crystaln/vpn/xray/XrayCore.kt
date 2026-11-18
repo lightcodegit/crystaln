@@ -31,12 +31,19 @@ object XrayCore {
         }
     }
 
-    /** Stable per-install key for XUDP; persisted in prefs. */
+    /** Stable per-install key for XUDP: must be a Base64URL-encoded 32-byte
+     *  value (Xray's common/xudp decodes it and requires exactly 32 bytes). */
     private fun deviceKey(context: Context): String {
         val prefs = context.getSharedPreferences("crystaln", Context.MODE_PRIVATE)
-        return prefs.getString("xudp_key", null) ?: UUID.randomUUID().toString().also {
-            prefs.edit().putString("xudp_key", it).apply()
-        }
+        val stored = prefs.getString("xudp_key", null)
+        val valid = stored != null && try {
+            java.util.Base64.getUrlDecoder().decode(stored).size == 32
+        } catch (_: Throwable) { false }
+        if (valid) return stored!!
+        val key = ByteArray(32).also { java.security.SecureRandom().nextBytes(it) }
+        val encoded = java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(key)
+        prefs.edit().putString("xudp_key", encoded).apply()
+        return encoded
     }
 
     fun version(): String = try {
