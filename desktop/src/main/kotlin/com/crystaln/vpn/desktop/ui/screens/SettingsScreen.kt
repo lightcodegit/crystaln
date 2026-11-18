@@ -91,6 +91,8 @@ fun SettingsScreen(
     blockAds: Boolean,
     onBlockAdsChange: (Boolean) -> Unit,
     blockAdsBusy: Boolean,
+    killSwitch: Boolean,
+    onKillSwitchChange: (Boolean) -> Unit,
     tunnelMode: SettingsStore.TunnelMode,
     onTunnelModeChange: (SettingsStore.TunnelMode) -> Unit,
     socksPort: String,
@@ -314,6 +316,13 @@ fun SettingsScreen(
                             checked = blockAds,
                             enabled = !blockAdsBusy,
                             onChange = onBlockAdsChange,
+                        )
+                        GlassDivider(Modifier.padding(vertical = 14.dp))
+                        SwitchRow(
+                            title = "Kill-switch",
+                            subtitle = "При падении VPN блокировать трафик, кроме VPN-интерфейса (нужны права root/администратора)",
+                            checked = killSwitch,
+                            onChange = onKillSwitchChange,
                         )
                     }
 

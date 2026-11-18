@@ -106,6 +106,7 @@ fun CrystalnApp() {
     var dnsServer by remember { mutableStateOf(SettingsStore.dnsServer(cfg)) }
     var blockAds by remember { mutableStateOf(SettingsStore.blockAds(cfg)) }
     var blockAdsBusy by remember { mutableStateOf(false) }
+    var killSwitch by remember { mutableStateOf(SettingsStore.killSwitch(cfg)) }
     var tunnelMode by remember { mutableStateOf(SettingsStore.tunnelMode(cfg)) }
     var socksPort by remember { mutableStateOf(SettingsStore.socksPort(cfg).toString()) }
     var httpPort by remember { mutableStateOf(SettingsStore.httpPort(cfg).toString()) }
@@ -684,6 +685,11 @@ fun CrystalnApp() {
                         blockAds = blockAds,
                         onBlockAdsChange = { on -> toggleBlockAds(on) },
                         blockAdsBusy = blockAdsBusy,
+                        killSwitch = killSwitch,
+                        onKillSwitchChange = { on ->
+                            killSwitch = on
+                            SettingsStore.setKillSwitch(cfg, on)
+                        },
                         tunnelMode = tunnelMode,
                         onTunnelModeChange = { m ->
                             tunnelMode = m
