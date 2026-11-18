@@ -1336,6 +1336,13 @@ class MainActivity : FragmentActivity() {
     }
 
     private fun downloadText(url: String): String {
+        // Only http(s) are valid for a subscription/import fetch; casting any
+        // other URL to HttpURLConnection throws and could reach file:/jar:.
+        if (!url.startsWith("http://", ignoreCase = true) &&
+            !url.startsWith("https://", ignoreCase = true)
+        ) {
+            throw java.io.IOException("Unsupported URL scheme")
+        }
         val conn = (java.net.URL(url).openConnection() as java.net.HttpURLConnection).apply {
             connectTimeout = 10_000
             readTimeout = 10_000

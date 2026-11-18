@@ -58,6 +58,13 @@ object SubscriptionRefresher {
             .map { it to refresh(context, it) }
 
     private fun download(url: String): String {
+        // Reject non-HTTP schemes before the cast (file:/jar: would otherwise
+        // be accepted by URL.openConnection and crash or read local files).
+        if (!url.startsWith("http://", ignoreCase = true) &&
+            !url.startsWith("https://", ignoreCase = true)
+        ) {
+            throw java.io.IOException("Unsupported URL scheme")
+        }
         val conn = (URL(url).openConnection() as HttpURLConnection).apply {
             connectTimeout = CONNECT_TIMEOUT_MS
             readTimeout = READ_TIMEOUT_MS
