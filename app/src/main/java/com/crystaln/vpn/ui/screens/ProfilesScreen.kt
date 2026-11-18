@@ -161,9 +161,19 @@ fun ProfilesScreen(
     var filter by remember { mutableStateOf(FILTER_ALL) }
     var groupsDialog by remember { mutableStateOf(false) }
 
-    // Favorites first; a stable sort keeps the original order within each
-    // group (plain alphabetical/reverse not needed — pinned just float up).
-    val ordered = remember(profiles) { profiles.sortedByDescending { it.favorite } }
+    // Favorites first; then sort by the chosen mode (name / ping / traffic).
+    val sortMode = remember { mutableStateOf(0) }
+    val ordered = remember(profiles, sortMode.value, pingResults, trafficStats) {
+        val base = profiles.sortedByDescending { it.favorite }
+        when (sortMode.value) {
+            1 -> base.sortedWith(compareByDescending<Profile> { it.favorite }
+                .thenBy { pingResults[it.id] ?: Long.MAX_VALUE })
+            2 -> base.sortedWith(compareByDescending<Profile> { it.favorite }
+                .thenByDescending { trafficStats[it.id]?.rx ?: 0L + (trafficStats[it.id]?.tx ?: 0L) })
+            else -> base.sortedWith(compareByDescending<Profile> { it.favorite }
+                .thenBy { it.name.lowercase() })
+        }
+    }
 
     // Privacy mask labels: flag emoji + 1-based index per profile id.
     val aliasLabels = remember(profiles, anonymizeNames) {
@@ -278,6 +288,17 @@ fun ProfilesScreen(
                         // ungrouped (only when groups exist).
                         if (groups.isNotEmpty() || ordered.any { !it.group.isNullOrEmpty() }) {
                             item { FilterChipsRow(groups, ordered, filter, onPick = { filter = it }) }
+                        }
+                        item {
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                listOf(0 to "Имя", 1 to "Пинг", 2 to "Трафик").forEach { (m, label) ->
+                                    androidx.compose.material3.FilterChip(
+                                        selected = sortMode.value == m,
+                                        onClick = { sortMode.value = m },
+                                        label = { Text(label) },
+                                    )
+                                }
+                            }
                         }
                     }
 

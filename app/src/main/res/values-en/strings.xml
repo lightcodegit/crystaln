@@ -195,6 +195,15 @@
     <string name="anon_names_title">Anonymize server names</string>
     <string name="anon_names_sub">Show a country flag and index instead of profile names: "🇩🇪 #4"</string>
 
+    <!-- Auto-reconnect / split tunnel / traffic limit / url-test -->
+    <string name="auto_reconnect_title">Auto-reconnect</string>
+    <string name="auto_reconnect_sub">Automatically reconnect on tunnel drop (up to 3 attempts), then fall back to the fallback profile</string>
+    <string name="traffic_limit_label">Monthly traffic limit (MB, 0 = off)</string>
+    <string name="traffic_limit_sub">A warning appears when the limit is reached; counter resets next month</string>
+    <string name="traffic_limit_reached">Monthly traffic limit reached</string>
+    <string name="split_tunnel_title">Split tunneling (app selection)</string>
+    <string name="url_test_title">URL-test: connect the fastest</string>
+
     <!-- Jelly mini game -->
     <string name="jelly_title">CrystalN Jelly</string>
     <string name="jelly_hint">Drag the jelly logo — it springs and bounces</string>

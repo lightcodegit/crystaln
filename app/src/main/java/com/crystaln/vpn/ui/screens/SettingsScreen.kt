@@ -25,6 +25,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.FileOpen
@@ -33,6 +34,7 @@ import androidx.compose.material.icons.filled.NetworkCheck
 import androidx.compose.material.icons.filled.PowerSettingsNew
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.SportsEsports
 import androidx.compose.material.icons.filled.Wallpaper
 import androidx.compose.material3.AlertDialog
@@ -118,6 +120,14 @@ fun SettingsScreen(
     onCheckUrlChange: (String) -> Unit,
     checkTimeoutSec: Int,
     onCheckTimeoutSecChange: (Int) -> Unit,
+    autoReconnect: Boolean,
+    onAutoReconnectChange: (Boolean) -> Unit,
+    fallbackProfileId: String?,
+    onFallbackProfileIdChange: (String?) -> Unit,
+    trafficLimitMb: Int,
+    onTrafficLimitMbChange: (Int) -> Unit,
+    onSplitTunnel: () -> Unit,
+    onUrlTestGroup: () -> Unit,
     blockAdsBusy: Boolean,
     subscriptions: List<Subscription>,
     subscriptionsBusy: Boolean,
@@ -348,6 +358,47 @@ fun SettingsScreen(
                             stringResource(R.string.check_timeout_sub),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        GlassDivider(Modifier.padding(vertical = 14.dp))
+                        SwitchRow(
+                            title = stringResource(R.string.auto_reconnect_title),
+                            subtitle = stringResource(R.string.auto_reconnect_sub),
+                            checked = autoReconnect,
+                            onChange = onAutoReconnectChange,
+                        )
+                        GlassDivider(Modifier.padding(vertical = 14.dp))
+                        OutlinedTextField(
+                            value = trafficLimitMb.toString(),
+                            onValueChange = { v -> v.toIntOrNull()?.let { onTrafficLimitMbChange(it) } },
+                            singleLine = true,
+                            label = { Text(stringResource(R.string.traffic_limit_label)) },
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            stringResource(R.string.traffic_limit_sub),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        GlassDivider(Modifier.padding(vertical = 14.dp))
+                        PillButton(
+                            text = stringResource(R.string.split_tunnel_title),
+                            icon = Icons.Default.Apps,
+                            accent = false,
+                            isDark = glassDark,
+                            overWallpaper = overWallpaper,
+                            onClick = onSplitTunnel,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        GlassDivider(Modifier.padding(vertical = 14.dp))
+                        PillButton(
+                            text = stringResource(R.string.url_test_title),
+                            icon = Icons.Default.Speed,
+                            accent = false,
+                            isDark = glassDark,
+                            overWallpaper = overWallpaper,
+                            onClick = onUrlTestGroup,
+                            modifier = Modifier.fillMaxWidth(),
                         )
                         GlassDivider(Modifier.padding(vertical = 14.dp))
                         PillButton(

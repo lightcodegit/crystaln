@@ -134,6 +134,30 @@ class CrystalVpnService : VpnService() {
             .addDnsServer("8.8.8.8")
         // The core's own outbound traffic must not loop back into the TUN.
         builder.addDisallowedApplication(packageName)
+        // Split tunneling: exclude/include selected apps.
+        val splitMode = SettingsStore.splitMode(applicationContext)
+        val splitApps = SettingsStore.splitApps(applicationContext)
+        if (splitMode == 1) {
+            // Exclude selected apps from the VPN.
+            splitApps.forEach { pkg ->
+                try { builder.addDisallowedApplication(pkg) } catch (_: Throwable) { }
+            }
+        } else if (splitMode == 2) {
+            // Only selected apps use the VPN: allow them, disallow everything else.
+            // Android VpnService has no "disallow all except", so we mark the
+            // whole installed set as disallowed first, then re-allow selected.
+            // (Best-effort: apps installed after connect won't be covered.)
+            try {
+                applicationContext.packageManager.getInstalledApplications(0).forEach { ai ->
+                    if (ai.packageName != packageName) {
+                        try { builder.addDisallowedApplication(ai.packageName) } catch (_: Throwable) { }
+                    }
+                }
+            } catch (_: Throwable) { }
+            splitApps.forEach { pkg ->
+                try { builder.addAllowedApplication(pkg) } catch (_: Throwable) { }
+            }
+        }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             builder.setMetered(false)
         }

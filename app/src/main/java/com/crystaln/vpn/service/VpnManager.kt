@@ -10,7 +10,9 @@ import android.net.NetworkRequest
 import androidx.core.content.ContextCompat
 import com.crystaln.vpn.R
 import com.crystaln.vpn.data.Profile
+import com.crystaln.vpn.data.ProfileStore
 import com.crystaln.vpn.data.Protocol
+import com.crystaln.vpn.data.SettingsStore
 import com.crystaln.vpn.data.TrafficStatsStore
 import com.crystaln.vpn.openvpn.OpenVpnService
 import com.crystaln.vpn.openvpn.OpenVpnStats
@@ -124,6 +126,19 @@ object VpnManager {
     private var lastSampleRx = 0L
     private var lastSampleTx = 0L
 
+    /** Auto-reconnect bookkeeping. */
+    private var autoReconnectAttempts = 0
+
+    /** Rolling 60-sample speed history for the live sparkline (bytes/s). */
+    private val _rxHistory = kotlinx.coroutines.flow.MutableStateFlow<List<Long>>(emptyList())
+    private val _txHistory = kotlinx.coroutines.flow.MutableStateFlow<List<Long>>(emptyList())
+    val rxHistory: kotlinx.coroutines.flow.StateFlow<List<Long>> = _rxHistory
+    val txHistory: kotlinx.coroutines.flow.StateFlow<List<Long>> = _txHistory
+
+    /** True once the monthly traffic limit has been crossed this session. */
+    private val _limitReached = kotlinx.coroutines.flow.MutableStateFlow(false)
+    val limitReached: kotlinx.coroutines.flow.StateFlow<Boolean> = _limitReached
+
     fun current(): UiState = _ui.value
 
     fun isRunning(): Boolean = _ui.value.state == State.STARTING ||
@@ -131,6 +146,8 @@ object VpnManager {
 
     fun connect(context: Context, profile: Profile) {
         appContext = context.applicationContext
+        autoReconnectAttempts = 0
+        _limitReached.value = false
         val myGeneration = synchronized(lifecycleLock) {
             stopLocked(context)
             // Fresh state also clears any stale error from previous attempts
@@ -364,6 +381,7 @@ object VpnManager {
         }
         pushWidgetUpdate()
         VpnStatusNotification.stop()
+        maybeAutoReconnect(profile)
     }
 
     /** Caller must hold [lifecycleLock]. */
@@ -420,11 +438,13 @@ object VpnManager {
     }
 
     fun notifyError(message: String) {
+        val failed = _ui.value.profile
         synchronized(lifecycleLock) {
             _ui.value = _ui.value.copy(state = State.OFF, error = message, checking = false)
         }
         VpnStatusNotification.stop()
         pushWidgetUpdate()
+        maybeAutoReconnect(failed)
     }
 
     /** Mirrors state transitions onto home-screen widgets, best-effort. */
@@ -493,10 +513,47 @@ object VpnManager {
         val dTx = (tx - lastSampleTx).coerceAtLeast(0)
         lastSampleRx = rx
         lastSampleTx = tx
+        // rolling speed history (bytes/s ≈ delta per second)
+        _rxHistory.value = (_rxHistory.value + dRx).takeLast(60)
+        _txHistory.value = (_txHistory.value + dTx).takeLast(60)
         try {
             TrafficStatsStore.add(ctx, id, dRx, dTx, seconds = 1)
+            // Monthly traffic limit accounting.
+            val mb = SettingsStore.trafficLimitMb(ctx)
+            if (mb > 0) {
+                val used = SettingsStore.addTrafficLimitUsage(ctx, dRx + dTx)
+                if (used >= mb && !_limitReached.value) {
+                    _limitReached.value = true
+                }
+            }
         } catch (_: Throwable) {
         }
+    }
+
+    private fun maybeAutoReconnect(failed: Profile?) {
+        val ctx = appContext ?: return
+        if (!SettingsStore.autoReconnect(ctx)) return
+        if (autoReconnectAttempts >= 3) { autoReconnectAttempts = 0; return }
+        autoReconnectAttempts++
+        val target = resolveFallbackProfile(ctx, failed) ?: return
+        engineScope.launch {
+            kotlinx.coroutines.delay(5000)
+            if (_ui.value.state != State.OFF) return@launch
+            connect(ctx, target)
+        }
+    }
+
+    private fun resolveFallbackProfile(ctx: Context, failed: Profile?): Profile? {
+        val id = SettingsStore.fallbackProfileId(ctx)
+        if (id != null) {
+            ProfileStore.load(ctx).firstOrNull { it.id == id }?.let { return it }
+        }
+        val list = ProfileStore.load(ctx)
+        if (list.isEmpty()) return failed
+        if (failed == null) return list.first()
+        val idx = list.indexOfFirst { it.id == failed.id }
+        if (idx < 0) return list.first()
+        return list.getOrElse(idx + 1) { list.first() }
     }
 
     /**

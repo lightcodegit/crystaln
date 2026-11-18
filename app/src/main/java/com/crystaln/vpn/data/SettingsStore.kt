@@ -27,6 +27,13 @@ object SettingsStore {
     private const val KEY_ANON_NAMES = "anonymize_names"
     private const val KEY_CHECK_URL = "check_url"
     private const val KEY_CHECK_TIMEOUT = "check_timeout_sec"
+    private const val KEY_SPLIT_MODE = "split_mode"
+    private const val KEY_SPLIT_APPS = "split_apps"
+    private const val KEY_AUTO_RECONNECT = "auto_reconnect"
+    private const val KEY_FALLBACK_PROFILE = "fallback_profile"
+    private const val KEY_TRAFFIC_LIMIT_MB = "traffic_limit_mb"
+    private const val KEY_TRAFFIC_LIMIT_MONTH = "traffic_limit_month"
+    private const val KEY_TRAFFIC_LIMIT_USED = "traffic_limit_used"
 
     /** First-run wizard completed (or explicitly skipped). */
     fun onboarded(context: Context): Boolean =
@@ -198,6 +205,79 @@ object SettingsStore {
             .edit().putBoolean(KEY_LIQUID, value).apply()
     }
 
+    /** Split-tunnel mode: 0 = off (all traffic via VPN), 1 = exclude selected
+     *  apps from the VPN, 2 = only selected apps use the VPN. */
+    fun splitMode(context: Context): Int =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getInt(KEY_SPLIT_MODE, 0)
+
+    fun setSplitMode(context: Context, mode: Int) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit().putInt(KEY_SPLIT_MODE, mode.coerceIn(0, 2)).apply()
+    }
+
+    /** Comma-separated package names participating in split tunneling. */
+    fun splitApps(context: Context): Set<String> =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getString(KEY_SPLIT_APPS, "")?.split(",")?.filter { it.isNotEmpty() }?.toSet()
+            ?: emptySet()
+
+    fun setSplitApps(context: Context, pkgs: Set<String>) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit().putString(KEY_SPLIT_APPS, pkgs.joinToString(",")).apply()
+    }
+
+    fun autoReconnect(context: Context): Boolean =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getBoolean(KEY_AUTO_RECONNECT, false)
+
+    fun setAutoReconnect(context: Context, value: Boolean) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit().putBoolean(KEY_AUTO_RECONNECT, value).apply()
+    }
+
+    fun fallbackProfileId(context: Context): String? =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getString(KEY_FALLBACK_PROFILE, null)
+
+    fun setFallbackProfileId(context: Context, id: String?) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit().putString(KEY_FALLBACK_PROFILE, id).apply()
+    }
+
+    /** Monthly traffic limit in MB (0 = off). */
+    fun trafficLimitMb(context: Context): Int =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getInt(KEY_TRAFFIC_LIMIT_MB, 0)
+
+    fun setTrafficLimitMb(context: Context, mb: Int) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit().putInt(KEY_TRAFFIC_LIMIT_MB, mb.coerceAtLeast(0)).apply()
+    }
+
+    /** Month key ("YYYY-MM") the accumulated [trafficLimitUsedMb] belongs to. */
+    fun trafficLimitMonth(context: Context): String =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getString(KEY_TRAFFIC_LIMIT_MONTH, "") ?: ""
+
+    fun trafficLimitUsedMb(context: Context): Long =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getLong(KEY_TRAFFIC_LIMIT_USED, 0L)
+
+    /** Adds [mb] (may be fractional via KB) to this month's counter, rolling
+     *  over automatically when the month changes. Returns the new total. */
+    fun addTrafficLimitUsage(context: Context, bytes: Long): Long {
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val now = java.text.SimpleDateFormat("yyyy-MM", java.util.Locale.US)
+            .format(java.util.Date())
+        val storedMonth = prefs.getString(KEY_TRAFFIC_LIMIT_MONTH, "") ?: ""
+        val current = if (storedMonth == now) prefs.getLong(KEY_TRAFFIC_LIMIT_USED, 0L) else 0L
+        val next = current + bytes / (1024 * 1024)
+        prefs.edit()
+            .putString(KEY_TRAFFIC_LIMIT_MONTH, now)
+            .putLong(KEY_TRAFFIC_LIMIT_USED, next)
+            .apply()
+        return next
+    }
+
     /**
      * Privacy mask: profile names are replaced in the UI with a country flag
      * (guessed from the server hostname) and an index — "🇩🇪 #4". Names stay
@@ -247,6 +327,11 @@ object SettingsStore {
         .put("dnsViaTunnel", dnsViaTunnel(context))
         .put("dnsServer", dnsServer(context))
         .put("blockAds", blockAds(context))
+        .put("splitMode", splitMode(context))
+        .put("splitApps", splitApps(context).joinToString(","))
+        .put("autoReconnect", autoReconnect(context))
+        .put("fallbackProfileId", fallbackProfileId(context) ?: "")
+        .put("trafficLimitMb", trafficLimitMb(context))
         .put("anonymizeNames", anonymizeNames(context))
         .put("checkUrl", checkUrl(context))
         .put("checkTimeoutSec", checkTimeoutSec(context))
@@ -263,6 +348,11 @@ object SettingsStore {
         setDnsViaTunnel(context, o.optBoolean("dnsViaTunnel", false))
         o.optString("dnsServer").takeIf { it.isNotEmpty() }?.let { setDnsServer(context, it) }
         setBlockAds(context, o.optBoolean("blockAds", false))
+        setSplitMode(context, o.optInt("splitMode", 0))
+        setSplitApps(context, o.optString("splitApps").split(",").filter { it.isNotEmpty() }.toSet())
+        setAutoReconnect(context, o.optBoolean("autoReconnect", false))
+        o.optString("fallbackProfileId").takeIf { it.isNotEmpty() }?.let { setFallbackProfileId(context, it) }
+        setTrafficLimitMb(context, o.optInt("trafficLimitMb", 0))
         setAnonymizeNames(context, o.optBoolean("anonymizeNames", false))
         o.optString("checkUrl").takeIf { it.isNotEmpty() }?.let { setCheckUrl(context, it) }
         o.optInt("checkTimeoutSec", 0).takeIf { it > 0 }?.let { setCheckTimeoutSec(context, it) }

@@ -194,6 +194,15 @@
     <string name="anon_names_title">Обезличивать имена серверов</string>
     <string name="anon_names_sub">Показывать флаг страны и номер вместо названий профилей: «🇩🇪 #4»</string>
 
+    <!-- Auto-reconnect / split tunnel / traffic limit / url-test -->
+    <string name="auto_reconnect_title">Автопереподключение</string>
+    <string name="auto_reconnect_sub">При падении туннеля автоматически подключаться снова (до 3 попыток), затем перейти на fallback-профиль</string>
+    <string name="traffic_limit_label">Лимит трафика в месяц (МБ, 0 = без лимита)</string>
+    <string name="traffic_limit_sub">При достижении лимита появится предупреждение; счётчик сбрасывается в новом месяце</string>
+    <string name="traffic_limit_reached">Достигнут месячный лимит трафика</string>
+    <string name="split_tunnel_title">Split tunneling (выбор приложений)</string>
+    <string name="url_test_title">URL-test: подключить самый быстрый</string>
+
     <!-- Jelly mini game -->
     <string name="jelly_title">CrystalN Jelly</string>
     <string name="jelly_hint">Потяни желейный логотип — он пружинит и отскакивает</string>

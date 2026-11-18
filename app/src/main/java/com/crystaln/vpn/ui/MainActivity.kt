@@ -97,6 +97,7 @@ import com.crystaln.vpn.ui.screens.CheckSummary
 import com.crystaln.vpn.ui.screens.MainScreen
 import com.crystaln.vpn.ui.screens.ProfilesScreen
 import com.crystaln.vpn.ui.screens.SettingsScreen
+import com.crystaln.vpn.ui.screens.SplitTunnelScreen
 import com.crystaln.vpn.ui.theme.CrystalNTheme
 import java.io.File
 import java.net.URL
@@ -148,6 +149,10 @@ class MainActivity : FragmentActivity() {
     private val locked = mutableStateOf(false)
     private val liquidBackground = mutableStateOf(false)
     private val anonymizeNames = mutableStateOf(false)
+    private val splitTunnelVisible = mutableStateOf(false)
+    private val autoReconnect = mutableStateOf(false)
+    private val fallbackProfileId = mutableStateOf<String?>(null)
+    private val trafficLimitMb = mutableStateOf(0)
     private val checkUrlText = mutableStateOf(SettingsStore.DEFAULT_CHECK_URL)
     private val checkTimeoutSec = mutableStateOf(15)
     private val autoConnect = mutableStateOf(false)
@@ -321,7 +326,16 @@ class MainActivity : FragmentActivity() {
         appLock.value = SettingsStore.appLock(this)
         locked.value = appLock.value
         liquidBackground.value = SettingsStore.liquidBackground(this)
+        lifecycleScope.launch {
+            VpnManager.limitReached.collect { reached ->
+                if (reached) Toast.makeText(this@MainActivity, R.string.traffic_limit_reached, Toast.LENGTH_LONG).show()
+            }
+        }
         anonymizeNames.value = SettingsStore.anonymizeNames(this)
+        autoReconnect.value = SettingsStore.autoReconnect(this)
+        fallbackProfileId.value = SettingsStore.fallbackProfileId(this)
+        trafficLimitMb.value = SettingsStore.trafficLimitMb(this)
+        checkUrlText.value = SettingsStore.checkUrl(this)
         checkUrlText.value = SettingsStore.checkUrl(this)
         checkTimeoutSec.value = SettingsStore.checkTimeoutSec(this)
         autoConnect.value = SettingsStore.autoConnect(this)
@@ -498,6 +512,8 @@ class MainActivity : FragmentActivity() {
                             it.id == (uiState.profile?.id ?: selectedId.value)
                         }?.let { ServerAlias.label(it, profiles.value.indexOf(it)) },
                         wallpaperPath = wallpaperPath.value,
+                        rxHistory = VpnManager.rxHistory.collectAsStateWithLifecycle().value,
+                        txHistory = VpnManager.txHistory.collectAsStateWithLifecycle().value,
                         onConnect = { onConnectClicked() },
                         onSettings = { goto(Nav.SETTINGS) },
                         onProfiles = { goto(Nav.PROFILES) },
@@ -575,7 +591,23 @@ class MainActivity : FragmentActivity() {
                         onDismissShare = { shareProfile.value = null },
                     )
 
-                    Nav.SETTINGS -> SettingsScreen(
+                    Nav.SETTINGS -> if (splitTunnelVisible.value) {
+                        SplitTunnelScreen(
+                            isDark = dark,
+                            mode = SettingsStore.splitMode(this@MainActivity),
+                            selected = SettingsStore.splitApps(this@MainActivity),
+                            onModeChange = { m ->
+                                SettingsStore.setSplitMode(this@MainActivity, m)
+                            },
+                            onToggleApp = { pkg ->
+                                val cur = SettingsStore.splitApps(this@MainActivity).toMutableSet()
+                                if (pkg in cur) cur.remove(pkg) else cur.add(pkg)
+                                SettingsStore.setSplitApps(this@MainActivity, cur)
+                            },
+                            onBack = { splitTunnelVisible.value = false },
+                        )
+                    } else {
+                        SettingsScreen(
                         isDark = dark,
                         themeMode = themeMode.value,
                         onThemeChange = { mode ->
@@ -650,6 +682,23 @@ class MainActivity : FragmentActivity() {
                             checkTimeoutSec.value = sec.coerceIn(3, 60)
                             SettingsStore.setCheckTimeoutSec(this@MainActivity, sec)
                         },
+                        autoReconnect = autoReconnect.value,
+                        onAutoReconnectChange = { on ->
+                            autoReconnect.value = on
+                            SettingsStore.setAutoReconnect(this@MainActivity, on)
+                        },
+                        fallbackProfileId = fallbackProfileId.value,
+                        onFallbackProfileIdChange = { id ->
+                            fallbackProfileId.value = id
+                            SettingsStore.setFallbackProfileId(this@MainActivity, id)
+                        },
+                        trafficLimitMb = trafficLimitMb.value,
+                        onTrafficLimitMbChange = { mb ->
+                            trafficLimitMb.value = mb
+                            SettingsStore.setTrafficLimitMb(this@MainActivity, mb)
+                        },
+                        onSplitTunnel = { splitTunnelVisible.value = true },
+                        onUrlTestGroup = { urlTestVisibleProfiles() },
                         subscriptions = subscriptions.value,
                         subscriptionsBusy = subscriptionsBusy.value,
                         subscriptionBusyId = subscriptionBusyId.value,
@@ -683,6 +732,7 @@ class MainActivity : FragmentActivity() {
                         },
                         onBack = { goBack() },
                     )
+                    }
 
                     Nav.DIAGNOSTICS -> DiagnosticsScreen(
                         isDark = dark,
@@ -1033,6 +1083,35 @@ class MainActivity : FragmentActivity() {
     }
 
     private fun tcpPing(host: String, port: Int): Long = TcpPing.measure(host, port)
+
+    private fun urlTestVisibleProfiles() {
+        val list = ProfileStore.load(this)
+        if (list.isEmpty()) return
+        lifecycleScope.launch(Dispatchers.IO) {
+            pingAllRunning.value = true
+            pingResults.clear()
+            try {
+                val done = java.util.concurrent.atomic.AtomicInteger()
+                coroutineScope {
+                    list.forEach { p ->
+                        launch {
+                            val ms = tcpPing(p.address, p.port)
+                            pingResults[p.id] = ms
+                            pingAllProgress.value = done.incrementAndGet() to list.size
+                        }
+                    }
+                }
+                val live = list.filter { (pingResults[it.id] ?: -1L) >= 0 }
+                val best = live.minByOrNull { pingResults[it.id] ?: Long.MAX_VALUE }
+                withContext(Dispatchers.Main) {
+                    if (best != null) VpnManager.connect(this@MainActivity, best)
+                }
+            } finally {
+                pingAllRunning.value = false
+                pingAllProgress.value = 0 to 0
+            }
+        }
+    }
 
     private fun importClipboard() {
         val cm = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager

@@ -106,6 +106,8 @@ fun MainScreen(
     /** Anonymized display name (flag + index) when the privacy mask is on. */
     selectedLabel: String? = null,
     wallpaperPath: String? = null,
+    rxHistory: List<Long> = emptyList(),
+    txHistory: List<Long> = emptyList(),
     onConnect: () -> Unit,
     onSettings: () -> Unit,
     onProfiles: () -> Unit,
@@ -152,6 +154,8 @@ fun MainScreen(
                         selectedLabel = selectedLabel,
                         isDark = glassDark,
                         overWallpaper = overWallpaper,
+                        rxHistory = rxHistory,
+                        txHistory = txHistory,
                         onConnect = onConnect,
                     )
                 }
@@ -322,6 +326,8 @@ private fun HeroStatus(
     selectedLabel: String?,
     isDark: Boolean,
     overWallpaper: Boolean,
+    rxHistory: List<Long> = emptyList(),
+    txHistory: List<Long> = emptyList(),
     onConnect: () -> Unit,
 ) {
     Column(
@@ -381,6 +387,33 @@ private fun HeroStatus(
                     color = com.crystaln.vpn.ui.theme.StatusConnected,
                     modifier = Modifier.padding(top = 6.dp),
                 )
+            }
+        }
+
+        // Live speed sparkline while connected.
+        if (state.state == VpnManager.State.CONNECTED && (rxHistory.isNotEmpty() || txHistory.isNotEmpty())) {
+            val max = (rxHistory + txHistory).maxOrNull()?.coerceAtLeast(1L) ?: 1L
+            Canvas(
+                Modifier
+                    .fillMaxWidth()
+                    .height(44.dp)
+                    .padding(top = 8.dp),
+            ) {
+                val w = size.width
+                val h = size.height
+                fun draw(series: List<Long>, color: androidx.compose.ui.graphics.Color) {
+                    if (series.size < 2) return
+                    val step = w / (series.size - 1).coerceAtLeast(1)
+                    val path = androidx.compose.ui.graphics.Path()
+                    series.forEachIndexed { i, v ->
+                        val x = i * step
+                        val y = h - (v.toFloat() / max * h * 0.9f)
+                        if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
+                    }
+                    drawPath(path, color, style = androidx.compose.ui.graphics.drawscope.Stroke(2.dp.toPx()))
+                }
+                draw(rxHistory, androidx.compose.ui.graphics.Color(0xFF4F6AF6))
+                draw(txHistory, androidx.compose.ui.graphics.Color(0xFF3FBF7F))
             }
         }
 
