@@ -79,7 +79,9 @@ internal object HysteriaRunner {
     /** Client-mode config in hysteria's own YAML schema. */
     internal fun buildConfig(p: Profile): String {
         val sb = StringBuilder()
-        sb.append("server: ${p.address.trim()}:${p.port}\n")
+        // Address is untrusted (may come from an imported link) — quote it so
+        // newlines/colon can't inject arbitrary YAML keys.
+        sb.append("server: ${yaml("${p.address.trim()}:${p.port}")}\n")
         p.fields["password"]?.takeIf { it.isNotEmpty() }?.let {
             sb.append("auth: ${yaml(it)}\n")
         }
@@ -110,8 +112,23 @@ internal object HysteriaRunner {
     /** Minimal YAML scalar quoting for values that may contain special chars. */
     private fun yaml(v: String): String {
         val needsQuote = v.isEmpty() || v.any { c ->
-            c in ":#{}[]&*!|>'\"%@`,\n" || c == ' ' || c.code < 32
+            c in ":#{}[]&*!|>'\"%@`," || c == ' ' || c.code < 32 || c.code == 127
         }
-        return if (needsQuote) "\"" + v.replace("\\", "\\\\").replace("\"", "\\\"") + "\"" else v
+        if (!needsQuote) return v
+        val escaped = buildString {
+            for (c in v) {
+                when (c) {
+                    '\\' -> append("\\\\")
+                    '"' -> append("\\\"")
+                    '\n' -> append("\\n")
+                    '\r' -> append("\\r")
+                    '\t' -> append("\\t")
+                    else -> if (c.code < 32 || c.code == 127) {
+                        append("\\x%02X".format(c.code))
+                    } else append(c)
+                }
+            }
+        }
+        return "\"$escaped\""
     }
 }
