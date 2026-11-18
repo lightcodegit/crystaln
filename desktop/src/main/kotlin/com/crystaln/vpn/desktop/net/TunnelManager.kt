@@ -1,6 +1,7 @@
 package com.crystaln.vpn.desktop.net
 
 import com.crystaln.vpn.data.Profile
+import com.crystaln.vpn.data.ProfileStore
 import com.crystaln.vpn.data.Protocol
 import com.crystaln.vpn.data.SettingsStore
 import com.crystaln.vpn.desktop.AppDirs
@@ -40,6 +41,8 @@ object TunnelManager {
         /** Session byte counters (0 when the backend has no visible device). */
         val rx: Long = 0,
         val tx: Long = 0,
+        /** Transient warning shown on the main screen (monthly limit ...). */
+        val notice: String? = null,
     )
 
     internal val _ui = MutableStateFlow(UiState())
@@ -119,6 +122,10 @@ object TunnelManager {
     fun connect(profile: Profile) {
         val myGen: Int
         synchronized(lock) {
+            // A user-initiated connect restarts the auto-reconnect ladder.
+            autoReconnectProfileId = null
+            autoReconnectSwitched = false
+            autoReconnectAttempts = 0
             if (_ui.value.state == State.STARTING || _ui.value.state == State.CONNECTED) return
             generation++
             myGen = generation
@@ -266,6 +273,17 @@ object TunnelManager {
                     }
                 }
                 TrafficStatsStore.add(dataDir, p.id, drx, dtx, 1)
+                if (ticks % 30 == 0) updateTrafficLimitNotice(dataDir)
+                // Watchdog: if our xray child died, the tunnel is gone while
+                // the UI still says CONNECTED. stop() bumps the generation
+                // first, so the loop can't race a clean disconnect; fail()
+                // tears down, engages the kill-switch and runs the ladder.
+                if (mode in setOf("tun", "proxy") && xray?.alive == false) {
+                    polling = false
+                    TrafficStatsStore.flush(dataDir)
+                    fail("xray завершился — туннель потерян", myGen)
+                    return@Thread
+                }
             }
             TrafficStatsStore.flush(dataDir)
         }.apply {
@@ -288,8 +306,32 @@ object TunnelManager {
         0L
     }
 
-    private fun fail(message: String, myGen: Int) {
+    /**
+     * Monthly-limit watchdog: every ~30 s compares the calendar-month total
+     * with the configured cap and publishes a hero-banner notice at 80% /
+     * 100% (mirrors Android's limitReached flag, which also never force-
+     * disconnects — the provider's throttle, not our kill-switch).
+     */
+    private fun updateTrafficLimitNotice(dataDir: File) {
+        val limitMb = SettingsStore.trafficLimitMb(dataDir)
+        if (limitMb <= 0) return
+        val used = TrafficStatsStore.monthTotal(dataDir).let { it.rx + it.tx }
+        val pct = used * 100.0 / (limitMb * 1024.0 * 1024.0)
+        val msg = when {
+            pct >= 100.0 -> "Месячный лимит трафика исчерпан (${limitMb} МБ)"
+            pct >= 80.0 -> "Использовано %.0f%% месячного лимита (%d МБ)".format(pct, limitMb)
+            else -> return
+        }
         synchronized(lock) {
+            if (_ui.value.notice != msg) _ui.value = _ui.value.copy(notice = msg)
+        }
+        logLine(msg)
+    }
+
+    private fun fail(message: String, myGen: Int) {
+        var failedProfile: Profile?
+        synchronized(lock) {
+            failedProfile = _ui.value.profile
             if (generation == myGen) {
                 teardownAll()
                 if (killArmed && com.crystaln.vpn.desktop.Platform.isWindows) {
@@ -300,6 +342,60 @@ object TunnelManager {
                 logLine("Ошибка: $message")
             }
         }
+        maybeAutoReconnect(failedProfile)
+    }
+
+    private var autoReconnectAttempts = 0
+    private var autoReconnectProfileId: String? = null
+    private var autoReconnectSwitched = false
+
+    /**
+     * After a failure: up to 3 attempts on the same profile, then 3 more on
+     * the fallback (explicit pick, else next in list — parity with Android's
+     * VpnManager). A user-initiated connect resets the ladder.
+     */
+    private fun maybeAutoReconnect(failed: Profile?) {
+        val dataDir = AppDirs.configDir()
+        if (!SettingsStore.autoReconnect(dataDir)) return
+        if (failed == null) return
+        if (autoReconnectProfileId != failed.id) {
+            autoReconnectProfileId = failed.id
+            autoReconnectAttempts = 0
+            autoReconnectSwitched = false
+        }
+        if (autoReconnectAttempts >= 3) {
+            if (autoReconnectSwitched) return
+            autoReconnectSwitched = true
+            autoReconnectAttempts = 0
+        }
+        autoReconnectAttempts++
+        val target = if (autoReconnectSwitched) resolveFallbackProfile(dataDir, failed) ?: failed else failed
+        val myGen = generation
+        Thread {
+            Thread.sleep(5_000)
+            synchronized(lock) {
+                if (generation == myGen && _ui.value.state == State.OFF) {
+                    logLine(
+                        if (autoReconnectSwitched) "Автоподключение: переходим на fallback-профиль"
+                        else "Автоподключение: попытка $autoReconnectAttempts из 3",
+                    )
+                }
+            }
+            if (_ui.value.state == State.OFF) connect(target)
+        }.apply { isDaemon = true; name = "crystaln-reconnect" }.start()
+    }
+
+    private fun resolveFallbackProfile(dataDir: File, failed: Profile?): Profile? {
+        val id = SettingsStore.fallbackProfileId(dataDir)
+        if (id != null) {
+            ProfileStore.load(dataDir).firstOrNull { it.id == id }?.let { return it }
+        }
+        val list = ProfileStore.load(dataDir)
+        if (list.isEmpty()) return failed
+        if (failed == null) return list.first()
+        val idx = list.indexOfFirst { it.id == failed.id }
+        if (idx < 0) return list.first()
+        return list.getOrElse(idx + 1) { list.first() }
     }
 
     private fun describeMode(mode: String) = when (mode) {

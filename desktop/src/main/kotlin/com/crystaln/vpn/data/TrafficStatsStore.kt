@@ -2,6 +2,8 @@ package com.crystaln.vpn.data
 
 import org.json.JSONObject
 import java.io.File
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 
 /** Accumulated usage counters for one profile. */
 data class TrafficStats(
@@ -11,18 +13,30 @@ data class TrafficStats(
     val seconds: Long = 0,
 )
 
+/** Usage counters for one calendar day (all profiles summed). */
+data class DailyTraffic(
+    val date: LocalDate,
+    val rx: Long = 0,
+    val tx: Long = 0,
+    val seconds: Long = 0,
+)
+
 /**
- * JSON-file backed per-profile usage totals. Desktop port of the Android
- * store: the 1 Hz poller in [com.crystaln.vpn.desktop.net.TunnelManager] adds
- * session deltas here; saves are debounced so the file is written at most
- * once a minute plus once on session end, never per tick.
+ * JSON-file backed per-profile usage totals plus a per-day history used by
+ * the monthly traffic limit. Desktop port of the Android store: the 1 Hz
+ * poller in [com.crystaln.vpn.desktop.net.TunnelManager] adds session deltas
+ * here; saves are debounced so the file is written at most once a minute plus
+ * once on session end, never per tick.
  */
 object TrafficStatsStore {
     private const val FILE = "traffic_stats.json"
     private const val SAVE_PERIOD_TICKS = 60 // 1 Hz poller → once a minute
+    private const val KEEP_DAYS = 90
+    private val DAY_FMT = DateTimeFormatter.ISO_LOCAL_DATE
 
     private val lock = Any()
     private val stats = HashMap<String, TrafficStats>()
+    private val daily = HashMap<String, DailyTraffic>()
     private var ticksSinceSave = 0
     private var loadedDir: File? = null
 
@@ -30,6 +44,7 @@ object TrafficStatsStore {
     internal fun resetForTest() {
         synchronized(lock) {
             stats.clear()
+            daily.clear()
             ticksSinceSave = 0
             loadedDir = null
         }
@@ -43,12 +58,27 @@ object TrafficStatsStore {
         try {
             val root = JSONObject(f.readText())
             root.keys().forEach { id ->
-                val o = root.getJSONObject(id)
-                stats[id] = TrafficStats(
-                    rx = o.optLong("rx"),
-                    tx = o.optLong("tx"),
-                    seconds = o.optLong("seconds"),
-                )
+                if (id == "daily") {
+                    val d = root.getJSONObject(id)
+                    d.keys().forEach { day ->
+                        val o = d.getJSONObject(day)
+                        runCatching { LocalDate.parse(day, DAY_FMT) }.getOrNull()?.let { date ->
+                            daily[day] = DailyTraffic(
+                                date = date,
+                                rx = o.optLong("rx"),
+                                tx = o.optLong("tx"),
+                                seconds = o.optLong("seconds"),
+                            )
+                        }
+                    }
+                } else {
+                    val o = root.getJSONObject(id)
+                    stats[id] = TrafficStats(
+                        rx = o.optLong("rx"),
+                        tx = o.optLong("tx"),
+                        seconds = o.optLong("seconds"),
+                    )
+                }
             }
         } catch (_: Exception) {
             // Corrupt stats are disposable usage counters, not user data.
@@ -79,12 +109,38 @@ object TrafficStatsStore {
             tx = old.tx + tx,
             seconds = old.seconds + seconds,
         )
+        val key = LocalDate.now().format(DAY_FMT)
+        val day = daily[key] ?: DailyTraffic(LocalDate.now())
+        daily[key] = day.copy(rx = day.rx + rx, tx = day.tx + tx, seconds = day.seconds + seconds)
         if (++ticksSinceSave >= SAVE_PERIOD_TICKS) save(dataDir)
     }
 
     fun get(dataDir: File, profileId: String): TrafficStats = synchronized(lock) {
         loadIfNeeded(dataDir)
         stats[profileId] ?: TrafficStats()
+    }
+
+    /** Per-day history, newest first, capped at [KEEP_DAYS] entries. */
+    fun dailyHistory(dataDir: File): List<DailyTraffic> = synchronized(lock) {
+        loadIfNeeded(dataDir)
+        daily.values.sortedByDescending { it.date }
+    }
+
+    /** Sum of the current calendar month (all profiles), for the limit check. */
+    fun monthTotal(dataDir: File): TrafficStats = synchronized(lock) {
+        loadIfNeeded(dataDir)
+        val month = LocalDate.now().withDayOfMonth(1).toString()
+        var rx = 0L
+        var tx = 0L
+        var sec = 0L
+        daily.values.forEach { d ->
+            if (d.date.withDayOfMonth(1).toString() == month) {
+                rx += d.rx
+                tx += d.tx
+                sec += d.seconds
+            }
+        }
+        TrafficStats(rx = rx, tx = tx, seconds = sec)
     }
 
     fun clear(dataDir: File, profileId: String): Unit = synchronized(lock) {
@@ -105,6 +161,14 @@ object TrafficStatsStore {
         stats.forEach { (id, s) ->
             root.put(id, JSONObject().put("rx", s.rx).put("tx", s.tx).put("seconds", s.seconds))
         }
+        // Keep the history bounded: drop days older than KEEP_DAYS.
+        val cutoff = LocalDate.now().minusDays(KEEP_DAYS.toLong()).format(DAY_FMT)
+        daily.keys.filter { it < cutoff }.forEach { daily.remove(it) }
+        val d = JSONObject()
+        daily.forEach { (day, s) ->
+            d.put(day, JSONObject().put("rx", s.rx).put("tx", s.tx).put("seconds", s.seconds))
+        }
+        root.put("daily", d)
         dataDir.mkdirs()
         val f = File(dataDir, FILE)
         val tmp = File(dataDir, "$FILE.tmp")

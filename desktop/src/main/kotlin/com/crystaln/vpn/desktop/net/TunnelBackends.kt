@@ -12,6 +12,28 @@ import java.io.File
 import java.net.InetSocketAddress
 import java.net.Socket
 
+/** Active connectivity check: HTTP through the local socks inbound. */
+internal fun probeThroughTunnel(url: String, socksPort: Int, timeoutSec: Int): Boolean {
+    val deadline = System.currentTimeMillis() + timeoutSec * 1000L
+    while (System.currentTimeMillis() < deadline) {
+        try {
+            val conn = java.net.URL(url).openConnection(
+                java.net.Proxy(java.net.Proxy.Type.SOCKS, java.net.InetSocketAddress("127.0.0.1", socksPort)),
+            ) as java.net.HttpURLConnection
+            conn.connectTimeout = 4000
+            conn.readTimeout = 4000
+            conn.instanceFollowRedirects = false
+            conn.useCaches = false
+            val code = conn.responseCode
+            conn.disconnect()
+            if (code in 200..399) return true
+        } catch (_: Throwable) {
+        }
+        Thread.sleep(600)
+    }
+    return false
+}
+
 internal fun TunnelManager.connectXray(p: Profile) {
         val dataDir = AppDirs.configDir()
         val socksPort = SettingsStore.socksPort(dataDir)
@@ -20,6 +42,8 @@ internal fun TunnelManager.connectXray(p: Profile) {
             dnsViaTunnel = SettingsStore.dnsViaTunnel(dataDir),
             dnsServer = SettingsStore.dnsServer(dataDir),
             blockAds = SettingsStore.blockAds(dataDir),
+            splitTunnelMode = SettingsStore.splitTunnelMode(dataDir),
+            splitTunnelRules = SettingsStore.splitTunnelRules(dataDir),
         )
         val bin = AppDirs.binDir()
         val st = Binaries.status()
@@ -81,9 +105,18 @@ internal fun TunnelManager.connectXray(p: Profile) {
         if (!socksUp) throw IllegalStateException("xray не открыл локальный прокси-порт")
 
         val mode = SettingsStore.tunnelMode(dataDir)
+        // PROXY mode: this app's own traffic never enters the tunnel (the
+        // SOCKS inbound serves third-party apps), so an active check here
+        // would only produce false failures — the check runs in TUN mode.
         if (mode == SettingsStore.TunnelMode.PROXY) {
             markConnected(p, "proxy")
             return
+        }
+
+        // Active connectivity check through the tunnel.
+        if (!probeThroughTunnel(SettingsStore.checkUrl(dataDir), socksPort, SettingsStore.checkTimeoutSec(dataDir))) {
+            xray?.stop()
+            throw IllegalStateException("Сервер не отвечает через туннель")
         }
 
         // ── TUN mode ─────────────────────────────────────────────────────
@@ -680,6 +713,8 @@ internal fun TunnelManager.connectSingBox(p: Profile) {
         dnsViaTunnel = SettingsStore.dnsViaTunnel(dataDir),
         dnsServer = SettingsStore.dnsServer(dataDir),
         blockAds = SettingsStore.blockAds(dataDir),
+        splitTunnelMode = SettingsStore.splitTunnelMode(dataDir),
+        splitTunnelRules = SettingsStore.splitTunnelRules(dataDir),
     )
     val bin = AppDirs.binDir()
     val st = Binaries.status()

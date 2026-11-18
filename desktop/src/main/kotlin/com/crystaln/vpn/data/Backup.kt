@@ -12,6 +12,9 @@ import java.io.File
  * The old crystaln/1 export kept only profiles; the same vault encryption
  * (see [ProfileVault]) wraps this payload, so a password-protected backup
  * now restores the whole app configuration, not just servers.
+ *
+ * crystaln/3 is a settings-only export (no profiles, no subscriptions) for
+ * moving preferences between machines without touching the server list.
  */
 object Backup {
 
@@ -24,6 +27,12 @@ object Backup {
             JSONArray().apply { ProfileStore.load(dataDir).forEach { put(it.toJson()) } },
         )
         .put("subscriptions", SubscriptionsStore.exportJson(dataDir))
+        .put("settings", SettingsStore.exportJson(dataDir))
+        .toString(2)
+
+    /** Settings only — no profiles, no subscriptions. */
+    fun exportSettingsOnly(dataDir: File): String = JSONObject()
+        .put("format", "crystaln/3")
         .put("settings", SettingsStore.exportJson(dataDir))
         .toString(2)
 
@@ -61,5 +70,21 @@ object Backup {
             }
             if (isEmpty()) append("Настройки восстановлены")
         }
+    }
+
+    /**
+     * Imports a crystaln/3 settings-only export. Returns a user-facing
+     * summary, or null when the text is not a crystaln/3 backup.
+     */
+    fun importSettingsOnly(dataDir: File, text: String): String? {
+        val root = try {
+            JSONObject(text.trim())
+        } catch (_: Exception) {
+            return null
+        }
+        if (root.optString("format") != "crystaln/3") return null
+        root.optJSONObject("settings")?.let { SettingsStore.importJson(dataDir, it) }
+            ?: return null
+        return "Настройки восстановлены"
     }
 }

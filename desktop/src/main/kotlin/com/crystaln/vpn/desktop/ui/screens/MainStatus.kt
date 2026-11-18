@@ -103,6 +103,7 @@ import com.google.zxing.EncodeHintType
 import com.google.zxing.qrcode.QRCodeWriter
 import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel
 import java.awt.image.BufferedImage
+import java.time.LocalTime
 
 /** App identity row: gradient logo mark, name, live status chip. */
 @Composable
@@ -185,6 +186,37 @@ internal fun HeroStatus(
         Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
+        // Monthly-limit warning from the traffic watchdog (80% / 100%).
+        state.notice?.takeIf { it.isNotBlank() }?.let { msg ->
+            Text(
+                msg,
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.error,
+                modifier = Modifier
+                    .padding(bottom = 8.dp)
+                    .clip(RoundedCornerShape(999.dp))
+                    .background(MaterialTheme.colorScheme.error.copy(alpha = 0.12f))
+                    .padding(horizontal = 12.dp, vertical = 5.dp),
+            )
+        }
+
+        // Time-of-day greeting — fades away once the tunnel is up.
+        if (state.state == TunnelManager.State.OFF) {
+            Text(
+                when (LocalTime.now().hour) {
+                    in 5..10 -> "Доброе утро."
+                    in 11..17 -> "Добрый день."
+                    in 18..22 -> "Добрый вечер."
+                    else -> "Доброй ночи."
+                },
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(bottom = 10.dp),
+            )
+        }
+
         ConnectRing(state = state, isDark = isDark, onConnect = onConnect)
 
         Spacer(Modifier.height(12.dp))

@@ -3,6 +3,9 @@ package com.crystaln.vpn.desktop.ui.screens
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -25,10 +28,19 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.FileOpen
+import androidx.compose.material.icons.filled.Apps
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Lan
+import androidx.compose.material.icons.filled.NetworkCheck
+import androidx.compose.material.icons.filled.Speed
+import androidx.compose.material.icons.filled.FileUpload
 import androidx.compose.material.icons.filled.PowerSettingsNew
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalContentColor
@@ -38,21 +50,43 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import kotlin.math.abs
+import kotlin.math.atan2
+import kotlin.math.cos
+import kotlin.math.hypot
+import kotlin.math.sin
+import com.crystaln.vpn.data.Profile
 import com.crystaln.vpn.data.SettingsStore
+import com.crystaln.vpn.data.DailyTraffic
+import com.crystaln.vpn.data.TrafficStatsStore
+import com.crystaln.vpn.desktop.AppDirs
+import com.crystaln.vpn.ui.ServerAlias
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 import com.crystaln.vpn.data.Subscription
 import com.crystaln.vpn.data.SubscriptionsStore
 import com.crystaln.vpn.desktop.ui.LiquidBlobs
@@ -93,6 +127,26 @@ fun SettingsScreen(
     blockAdsBusy: Boolean,
     anonymizeNames: Boolean,
     onAnonymizeNamesChange: (Boolean) -> Unit,
+    checkUrl: String,
+    onCheckUrlChange: (String) -> Unit,
+    checkTimeoutSec: Int,
+    onCheckTimeoutSecChange: (Int) -> Unit,
+    autoReconnect: Boolean,
+    onAutoReconnectChange: (Boolean) -> Unit,
+    fallbackProfileId: String?,
+    onFallbackProfileIdChange: (String?) -> Unit,
+    profiles: List<Profile>,
+    trafficLimitMb: Int,
+    onTrafficLimitMbChange: (Int) -> Unit,
+    splitTunnelMode: SettingsStore.SplitTunnelMode,
+    onSplitTunnelModeChange: (SettingsStore.SplitTunnelMode) -> Unit,
+    splitTunnelRules: List<String>,
+    onSplitTunnelRulesChange: (List<String>) -> Unit,
+    onUrlTest: () -> Unit,
+    urlTestBusy: Boolean,
+    onPingTool: () -> Unit,
+    onExportSettings: () -> Unit,
+    onImportSettings: () -> Unit,
     killSwitch: Boolean,
     onKillSwitchChange: (Boolean) -> Unit,
     tunnelMode: SettingsStore.TunnelMode,
@@ -122,6 +176,18 @@ fun SettingsScreen(
 ) {
     val glassDark = isDark
     var addSubscriptionVisible by remember { mutableStateOf(false) }
+    var trafficLimitText by remember(trafficLimitMb) { mutableStateOf(trafficLimitMb.toString()) }
+    var splitTunnelText by remember(splitTunnelRules) {
+        mutableStateOf(splitTunnelRules.joinToString("\n"))
+    }
+    var daily by remember { mutableStateOf(emptyList<DailyTraffic>()) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            daily = withContext(Dispatchers.IO) { TrafficStatsStore.dailyHistory(AppDirs.configDir()) }
+            delay(10_000)
+        }
+    }
+    var jellyGame by remember { mutableStateOf(false) }
 
     BoxWithConstraints(
         Modifier
@@ -333,6 +399,169 @@ fun SettingsScreen(
                             checked = killSwitch,
                             onChange = onKillSwitchChange,
                         )
+                        }
+
+                    // ── Reliability & tools ────────────────────────────────
+                    SectionLabel("Надёжность и инструменты")
+                    SettingsPanel(isDark = glassDark) {
+                        OutlinedTextField(
+                            value = checkUrl,
+                            onValueChange = onCheckUrlChange,
+                            singleLine = true,
+                            label = { Text("Ссылка для проверки подключения") },
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        OutlinedTextField(
+                            value = checkTimeoutSec.toString(),
+                            onValueChange = { v ->
+                                v.toIntOrNull()?.let { onCheckTimeoutSecChange(it) }
+                            },
+                            singleLine = true,
+                            label = { Text("Таймаут проверки (сек)") },
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        GlassDivider(Modifier.padding(vertical = 14.dp))
+                        SwitchRow(
+                            title = "Автопереподключение",
+                            subtitle = "Переподключаться при падении туннеля (до 3 попыток), затем переходить на fallback-профиль",
+                            checked = autoReconnect,
+                            onChange = onAutoReconnectChange,
+                        )
+                        if (autoReconnect) {
+                            Spacer(Modifier.height(8.dp))
+                            Text(
+                                "Fallback-профиль при падении туннеля:",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Spacer(Modifier.height(4.dp))
+                            var fallbackExpanded by remember { mutableStateOf(false) }
+                            Box {
+                                PillButton(
+                                    text = fallbackProfileId?.let { id ->
+                                        profiles.firstOrNull { it.id == id }?.let { p ->
+                                            if (anonymizeNames) ServerAlias.label(p, profiles.indexOf(p)) else p.name
+                                        } ?: "следующий в списке"
+                                    } ?: "следующий в списке",
+                                    icon = Icons.Default.ArrowDropDown,
+                                    accent = false,
+                                    isDark = glassDark,
+                                    onClick = { fallbackExpanded = true },
+                                )
+                                DropdownMenu(
+                                    expanded = fallbackExpanded,
+                                    onDismissRequest = { fallbackExpanded = false },
+                                ) {
+                                    DropdownMenuItem(
+                                        text = { Text("Следующий в списке") },
+                                        onClick = {
+                                            onFallbackProfileIdChange(null)
+                                            fallbackExpanded = false
+                                        },
+                                    )
+                                    profiles.forEach { p ->
+                                        DropdownMenuItem(
+                                            text = { Text(if (anonymizeNames) ServerAlias.label(p, profiles.indexOf(p)) else p.name) },
+                                            onClick = {
+                                                onFallbackProfileIdChange(p.id)
+                                                fallbackExpanded = false
+                                            },
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                        Spacer(Modifier.height(10.dp))
+                        GlassDivider(Modifier.padding(vertical = 6.dp))
+                        // ── URL-test: ping all profiles, connect the fastest ──
+                        PillButton(
+                            text = if (urlTestBusy) "Тестирую…" else "URL-тест: подключить самый быстрый",
+                            icon = Icons.Default.Speed,
+                            accent = true,
+                            isDark = glassDark,
+                            enabled = !urlTestBusy && profiles.isNotEmpty(),
+                            onClick = onUrlTest,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        Spacer(Modifier.height(10.dp))
+                        GlassDivider(Modifier.padding(vertical = 6.dp))
+                        // ── Ping tool for any address ──
+                        PillButton(
+                            text = "Ping-инструмент",
+                            icon = Icons.Default.NetworkCheck,
+                            accent = false,
+                            isDark = glassDark,
+                            onClick = onPingTool,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        Spacer(Modifier.height(10.dp))
+                        GlassDivider(Modifier.padding(vertical = 6.dp))
+                        // ── Monthly traffic limit ──
+                        Text(
+                            "Лимит трафика в месяц (МБ, 0 = без лимита)",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        OutlinedTextField(
+                            value = trafficLimitText,
+                            onValueChange = { v ->
+                                trafficLimitText = v
+                                v.toIntOrNull()?.let(onTrafficLimitMbChange)
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            placeholder = { Text("0") },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        )
+                    }
+
+                    // ── Split tunneling ─────────────────────────────────
+                    SectionLabel("Split tunneling")
+                    SettingsPanel(isDark = glassDark) {
+                        Text(
+                            "Какие адреса идут через туннель (для Xray-профилей). Домен, IP или CIDR — по одному в строке.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            listOf(
+                                "Выкл" to SettingsStore.SplitTunnelMode.OFF,
+                                "Исключить" to SettingsStore.SplitTunnelMode.EXCLUDE,
+                                "Только эти" to SettingsStore.SplitTunnelMode.ONLY,
+                            ).forEach { (label, mode) ->
+                                PillButton(
+                                    text = label,
+                                    icon = null,
+                                    accent = splitTunnelMode == mode,
+                                    isDark = glassDark,
+                                    onClick = { onSplitTunnelModeChange(mode) },
+                                    modifier = Modifier.weight(1f),
+                                )
+                            }
+                        }
+                        if (splitTunnelMode != SettingsStore.SplitTunnelMode.OFF) {
+                            Spacer(Modifier.height(8.dp))
+                            OutlinedTextField(
+                                value = splitTunnelText,
+                                onValueChange = { v ->
+                                    splitTunnelText = v
+                                    onSplitTunnelRulesChange(v.lines().map { it.trim() }.filter { it.isNotEmpty() })
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                                placeholder = { Text("example.com\n10.0.0.0/8") },
+                                minLines = 3,
+                                maxLines = 8,
+                            )
+                        }
+                    }
+
+                    // ── Traffic history ──────────────────────────────────
+                    SectionLabel("История трафика")
+                    SettingsPanel(isDark = glassDark) {
+                        DailyHistoryChart(daily)
                     }
 
                     // ── Subscriptions ───────────────────────────────────
@@ -453,6 +682,25 @@ fun SettingsScreen(
                                 modifier = Modifier.weight(1f),
                             )
                         }
+                        Spacer(Modifier.height(10.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            PillButton(
+                                text = "Только настройки",
+                                icon = Icons.Default.FileUpload,
+                                accent = false,
+                                isDark = glassDark,
+                                onClick = onExportSettings,
+                                modifier = Modifier.weight(1f),
+                            )
+                            PillButton(
+                                text = "Настройки из файла",
+                                icon = Icons.Default.FileOpen,
+                                accent = false,
+                                isDark = glassDark,
+                                onClick = onImportSettings,
+                                modifier = Modifier.weight(1f),
+                            )
+                        }
                     }
 
                     // ── About ──────────────────────────────────────────
@@ -463,6 +711,7 @@ fun SettingsScreen(
                                 "CrystalN",
                                 style = MaterialTheme.typography.bodyLarge,
                                 fontWeight = FontWeight.Bold,
+                                modifier = Modifier.clickable { jellyGame = true },
                             )
                             Spacer(Modifier.width(8.dp))
                             Text(
@@ -505,7 +754,9 @@ fun SettingsScreen(
             }
         }
 
-        if (addSubscriptionVisible) {
+        if (jellyGame) JellyGameOverlay(isDark = isDark, onDismiss = { jellyGame = false })
+
+    if (addSubscriptionVisible) {
             AddSubscriptionDialog(
                 initialUrl = "",
                 busy = subscriptionsBusy,
@@ -530,6 +781,184 @@ fun SettingsScreen(
                 .align(Alignment.BottomCenter)
                 .padding(horizontal = 28.dp, vertical = 12.dp),
         )
+    }
+}
+
+/** Compact 14-day bar chart of daily traffic (newest on the right). */
+@Composable
+internal fun DailyHistoryChart(daily: List<DailyTraffic>) {
+    val days = daily.take(14).sortedBy { it.date }
+    if (days.isEmpty()) {
+        Text(
+            "Пока нет данных: история появится после первой сессии.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        return
+    }
+    val maxV = days.maxOf { it.rx + it.tx }.coerceAtLeast(1L)
+    Row(
+        Modifier.fillMaxWidth().height(96.dp),
+        verticalAlignment = Alignment.Bottom,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        days.forEach { d ->
+            val v = d.rx + d.tx
+            Column(
+                Modifier.weight(1f),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Text(
+                    d.date.dayOfMonth.toString(),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(4.dp))
+                Box(
+                    Modifier
+                        .fillMaxWidth(0.7f)
+                        .height((78f * v / maxV).dp.coerceAtLeast(3.dp))
+                        .clip(RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp))
+                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.75f)),
+                )
+            }
+        }
+    }
+    Spacer(Modifier.height(8.dp))
+    Text(
+        "Всего за период: ${formatBytes(days.sumOf { it.rx + it.tx })} · лучший день: ${formatBytes(maxV)}",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+}
+
+/**
+ * Hidden mini game, desktop port of the Android JellyGameOverlay: a jelly
+ * logo you can flick around — it glides with inertia, bounces off the
+ * walls and wobbles. Physics integrates per frame; transforms are read
+ * inside graphicsLayer so animation does not recompose the tree.
+ */
+@Composable
+fun JellyGameOverlay(isDark: Boolean, onDismiss: () -> Unit) {
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false),
+    ) {
+        BoxWithConstraints(
+            Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background.copy(alpha = 0.97f)),
+        ) {
+            val jellySize = 96.dp
+            val maxX = with(LocalDensity.current) { (maxWidth - jellySize).toPx() }
+            val maxY = with(LocalDensity.current) { (maxHeight - jellySize).toPx() }
+
+            var pos by remember { mutableStateOf(Offset(maxX / 2f, maxY / 3f)) }
+            var vel by remember { mutableStateOf(Offset.Zero) }
+            var dragging by remember { mutableStateOf(false) }
+            var stretch by remember { mutableStateOf(0f) }
+            var angle by remember { mutableStateOf(0f) }
+            var tilt by remember { mutableStateOf(0f) }
+            var squish by remember { mutableStateOf(0f) }
+
+            LaunchedEffect(maxX, maxY) {
+                var last = withFrameNanos { it }
+                while (true) {
+                    val now = withFrameNanos { it }
+                    val dt = ((now - last) / 1e9).coerceIn(1e-5, 0.05).toFloat()
+                    last = now
+                    if (!dragging && hypot(vel.x, vel.y) > 1f) {
+                        var x = pos.x
+                        var y = pos.y
+                        x += vel.x * dt
+                        y += vel.y * dt
+                        if (x < 0f) { x = -x; vel = Offset(-vel.x * 0.6f, vel.y); squish = 0.35f }
+                        if (x > maxX) { x = 2 * maxX - x; vel = Offset(-vel.x * 0.6f, vel.y); squish = 0.35f }
+                        if (y < 0f) { y = -y; vel = Offset(vel.x, -vel.y * 0.6f); squish = 0.35f }
+                        if (y > maxY) { y = 2 * maxY - y; vel = Offset(vel.x, -vel.y * 0.6f); squish = 0.35f }
+                        pos = Offset(x.coerceIn(0f, maxX), y.coerceIn(0f, maxY))
+                        vel = vel * 0.985f
+                    }
+                    val speed = hypot(vel.x, vel.y)
+                    val target = (speed / 2600f).coerceIn(0f, 0.40f)
+                    stretch += (target - stretch) * 0.22f
+                    if (speed > 1f) {
+                        angle = Math.toDegrees(atan2(vel.y.toDouble(), vel.x.toDouble())).toFloat()
+                    }
+                    tilt += ((vel.x * 0.03f).coerceIn(-16f, 16f) - tilt) * 0.2f
+                    squish *= 0.88f
+                }
+            }
+
+            Column(Modifier.fillMaxSize().padding(horizontal = 24.dp)) {
+                Spacer(Modifier.height(10.dp))
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            "Желейный CrystalN",
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.Black,
+                        )
+                        Text(
+                            "Хлопни и толкни логотип — он желейный.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    CircleGlassButton(
+                        icon = Icons.Default.Close,
+                        contentDescription = "Close",
+                        isDark = isDark,
+                        onClick = onDismiss,
+                    )
+                }
+            }
+
+            Box(
+                Modifier
+                    .size(jellySize)
+                    .graphicsLayer {
+                        translationX = pos.x
+                        translationY = pos.y
+                        val s = stretch + squish
+                        val ca = abs(cos(Math.toRadians(angle.toDouble()))).toFloat()
+                        val sa = abs(sin(Math.toRadians(angle.toDouble()))).toFloat()
+                        scaleX = 1f + s * ca - s * 0.30f * sa
+                        scaleY = 1f + s * sa - s * 0.30f * ca
+                        rotationZ = tilt
+                    }
+                    .pointerInput(Unit) {
+                        detectDragGestures(
+                            onDragStart = {
+                                dragging = true
+                                vel = Offset.Zero
+                            },
+                            onDrag = { change, dragAmount ->
+                                change.consume()
+                                vel = Offset(dragAmount.x / 0.016f, dragAmount.y / 0.016f)
+                                pos = Offset(
+                                    (pos.x + dragAmount.x).coerceIn(0f, maxX),
+                                    (pos.y + dragAmount.y).coerceIn(0f, maxY),
+                                )
+                            },
+                            onDragEnd = { dragging = false },
+                            onDragCancel = { dragging = false },
+                        )
+                    }
+                    .clip(RoundedCornerShape(28.dp))
+                    .background(
+                        Brush.linearGradient(listOf(Color(0xFF6C4FF6), Color(0xFF9D4FF6))),
+                    ),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    Icons.Default.Lan,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(46.dp),
+                )
+            }
+        }
     }
 }
 

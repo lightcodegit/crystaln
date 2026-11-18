@@ -99,6 +99,68 @@ object SettingsStore {
 
     fun setAnonymizeNames(dataDir: File, v: Boolean) = mutate(dataDir) { it.put("anonymizeNames", v) }
 
+    /** URL probed through the tunnel to confirm the connection is live. */
+    fun checkUrl(dataDir: File): String =
+        load(dataDir).optString("checkUrl", "https://www.gstatic.com/generate_204")
+
+    fun setCheckUrl(dataDir: File, v: String) {
+        val u = v.trim()
+        if (u.startsWith("http://", true) || u.startsWith("https://", true)) {
+            mutate(dataDir) { it.put("checkUrl", u) }
+        }
+    }
+
+    /** Seconds allowed for the connection test before declaring failure. */
+    fun checkTimeoutSec(dataDir: File): Int = load(dataDir).optInt("checkTimeoutSec", 15).coerceIn(3, 60)
+
+    fun setCheckTimeoutSec(dataDir: File, v: Int) =
+        mutate(dataDir) { it.put("checkTimeoutSec", v.coerceIn(3, 60)) }
+
+    /** Reconnect automatically after an unexpected tunnel drop. */
+    fun autoReconnect(dataDir: File): Boolean = load(dataDir).optBoolean("autoReconnect", false)
+
+    fun setAutoReconnect(dataDir: File, v: Boolean) = mutate(dataDir) { it.put("autoReconnect", v) }
+
+    /** Profile used as fallback after auto-reconnect attempts are exhausted. */
+    fun fallbackProfileId(dataDir: File): String? = load(dataDir).optString("fallbackProfileId").ifEmpty { null }
+
+    fun setFallbackProfileId(dataDir: File, id: String?) =
+        mutate(dataDir) {
+            if (id == null) it.remove("fallbackProfileId") else it.put("fallbackProfileId", id)
+        }
+
+    /** Monthly traffic limit in MB; 0 = unlimited. */
+    fun trafficLimitMb(dataDir: File): Int = load(dataDir).optInt("trafficLimitMb", 0).coerceAtLeast(0)
+
+    fun setTrafficLimitMb(dataDir: File, v: Int) =
+        mutate(dataDir) { it.put("trafficLimitMb", v.coerceAtLeast(0)) }
+
+    /** Split tunneling mode for Xray-family profiles (routing rules). */
+    enum class SplitTunnelMode { OFF, EXCLUDE, ONLY }
+
+    fun splitTunnelMode(dataDir: File): SplitTunnelMode =
+        when (load(dataDir).optString("splitTunnelMode")) {
+            "EXCLUDE" -> SplitTunnelMode.EXCLUDE
+            "ONLY" -> SplitTunnelMode.ONLY
+            else -> SplitTunnelMode.OFF
+        }
+
+    fun setSplitTunnelMode(dataDir: File, m: SplitTunnelMode) =
+        mutate(dataDir) { it.put("splitTunnelMode", m.name) }
+
+    /** Domains / IPs / CIDRs the split-tunnel rules apply to. */
+    fun splitTunnelRules(dataDir: File): List<String> {
+        val a = load(dataDir).optJSONArray("splitTunnelRules") ?: return emptyList()
+        return (0 until a.length()).mapNotNull { i ->
+            a.optString(i).trim().takeIf { it.isNotEmpty() }
+        }
+    }
+
+    fun setSplitTunnelRules(dataDir: File, rules: List<String>) =
+        mutate(dataDir) {
+            it.put("splitTunnelRules", org.json.JSONArray(rules.filter { r -> r.isNotBlank() }))
+        }
+
     /**
      * Kill-switch: when the tunnel drops unexpectedly, block all non-loopback
      * traffic until the user disconnects/reconnects (or the app restarts).
@@ -161,6 +223,13 @@ object SettingsStore {
         .put("dnsServer", dnsServer(dataDir))
         .put("blockAds", blockAds(dataDir))
         .put("anonymizeNames", anonymizeNames(dataDir))
+        .put("checkUrl", checkUrl(dataDir))
+        .put("checkTimeoutSec", checkTimeoutSec(dataDir))
+        .put("autoReconnect", autoReconnect(dataDir))
+        .put("fallbackProfileId", fallbackProfileId(dataDir) ?: "")
+        .put("trafficLimitMb", trafficLimitMb(dataDir))
+        .put("splitTunnelMode", splitTunnelMode(dataDir).name)
+        .put("splitTunnelRules", org.json.JSONArray(splitTunnelRules(dataDir)))
         .put("killSwitch", killSwitch(dataDir))
         .put("socksPort", socksPort(dataDir))
         .put("httpPort", httpPort(dataDir))
@@ -180,6 +249,17 @@ object SettingsStore {
             o.optString("dnsServer").takeIf { it.isNotEmpty() }?.let { store.put("dnsServer", it) }
             store.put("blockAds", o.optBoolean("blockAds", false))
             store.put("anonymizeNames", o.optBoolean("anonymizeNames", false))
+            o.optString("checkUrl").takeIf { it.startsWith("http") }?.let { store.put("checkUrl", it) }
+            if (o.has("checkTimeoutSec")) store.put("checkTimeoutSec", o.optInt("checkTimeoutSec", 15).coerceIn(3, 60))
+            store.put("autoReconnect", o.optBoolean("autoReconnect", false))
+            o.optString("fallbackProfileId").takeIf { it.isNotEmpty() }?.let { store.put("fallbackProfileId", it) }
+            if (o.has("trafficLimitMb")) store.put("trafficLimitMb", o.optInt("trafficLimitMb", 0).coerceAtLeast(0))
+            when (o.optString("splitTunnelMode")) {
+                "EXCLUDE" -> store.put("splitTunnelMode", "EXCLUDE")
+                "ONLY" -> store.put("splitTunnelMode", "ONLY")
+                "OFF" -> store.put("splitTunnelMode", "OFF")
+            }
+            o.optJSONArray("splitTunnelRules")?.let { store.put("splitTunnelRules", it) }
             store.put("killSwitch", o.optBoolean("killSwitch", false))
             if (o.has("socksPort")) store.put("socksPort", o.optInt("socksPort", 10808).coerceIn(1024, 65535))
             if (o.has("httpPort")) store.put("httpPort", o.optInt("httpPort", 10809).coerceIn(1024, 65535))

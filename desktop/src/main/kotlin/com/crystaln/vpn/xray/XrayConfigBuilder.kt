@@ -2,6 +2,7 @@ package com.crystaln.vpn.xray
 
 import com.crystaln.vpn.data.Profile
 import com.crystaln.vpn.data.Protocol
+import com.crystaln.vpn.data.SettingsStore
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -24,6 +25,10 @@ object XrayConfigBuilder {
         val dnsServer: String = "1.1.1.1",
         /** Drop ad/tracker domains (geosite:category-ads-all → block). */
         val blockAds: Boolean = false,
+        /** Split tunneling: EXCLUDE sends listed hosts direct, ONLY proxies just them. */
+        val splitTunnelMode: SettingsStore.SplitTunnelMode = SettingsStore.SplitTunnelMode.OFF,
+        /** Domains / IPs / CIDRs the split-tunnel rules apply to. */
+        val splitTunnelRules: List<String> = emptyList(),
     )
 
     fun build(profile: Profile): String = build(profile, Options())
@@ -136,9 +141,40 @@ object XrayConfigBuilder {
                             .put("outboundTag", "dns-out"),
                     )
                 }
+                // Split tunneling. EXCLUDE: listed hosts bypass the tunnel.
+                // ONLY: listed hosts go through the tunnel, everything else
+                // falls to the direct catch-all below. Rules must precede the
+                // catch-all so they win.
+                if (options.splitTunnelMode != SettingsStore.SplitTunnelMode.OFF &&
+                    options.splitTunnelRules.isNotEmpty()
+                ) {
+                    val ips = options.splitTunnelRules.filter { isIpLike(it) }
+                    val domains = options.splitTunnelRules.filterNot { isIpLike(it) }
+                    val rule = JSONObject().apply {
+                        if (ips.isNotEmpty()) put("ip", JSONArray(ips))
+                        if (domains.isNotEmpty()) put("domain", JSONArray(domains))
+                        put(
+                            "outboundTag",
+                            if (options.splitTunnelMode == SettingsStore.SplitTunnelMode.EXCLUDE) "direct" else "proxy",
+                        )
+                    }
+                    put(rule)
+                    if (options.splitTunnelMode == SettingsStore.SplitTunnelMode.ONLY) {
+                        // Catch-all: unmatched traffic stays off the tunnel.
+                        put(JSONObject().put("network", "tcp,udp").put("outboundTag", "direct"))
+                    } else {
+                        // EXCLUDE needs the matching catch-all too: xray defaults
+                        // to the first outbound, which is not always "proxy".
+                        put(JSONObject().put("network", "tcp,udp").put("outboundTag", "proxy"))
+                    }
+                }
             },
         )
     }
+
+    /** Xray ip-matcher entry: bare IPv4/IPv6 address or CIDR. */
+    private fun isIpLike(entry: String): Boolean =
+        entry.matches(Regex("[0-9a-fA-F:.]+(/\\d{1,3})?"))
 
     /** DNS forwarded to [server] through the proxy outbound. */
     private fun dnsOutbound(server: String): JSONObject = JSONObject().apply {

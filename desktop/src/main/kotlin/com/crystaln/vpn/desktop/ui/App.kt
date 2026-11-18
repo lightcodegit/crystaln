@@ -67,6 +67,7 @@ import com.crystaln.vpn.desktop.ui.screens.MainScreen
 import com.crystaln.vpn.desktop.ui.screens.SettingsScreen
 import com.crystaln.vpn.desktop.ui.dialogs.ExportDialog
 import com.crystaln.vpn.desktop.ui.dialogs.ImportDialog
+import com.crystaln.vpn.desktop.ui.dialogs.PingToolDialog
 import com.crystaln.vpn.desktop.ui.dialogs.UpdateDialog
 import com.crystaln.vpn.desktop.ui.dialogs.UrlImportDialog
 import com.crystaln.vpn.desktop.ui.dialogs.VaultPasswordDialog
@@ -108,6 +109,15 @@ fun CrystalnApp() {
     var blockAdsBusy by remember { mutableStateOf(false) }
     var killSwitch by remember { mutableStateOf(SettingsStore.killSwitch(cfg)) }
     var anonymizeNames by remember { mutableStateOf(SettingsStore.anonymizeNames(cfg)) }
+    var checkUrl by remember { mutableStateOf(SettingsStore.checkUrl(cfg)) }
+    var checkTimeoutSec by remember { mutableStateOf(SettingsStore.checkTimeoutSec(cfg)) }
+    var autoReconnect by remember { mutableStateOf(SettingsStore.autoReconnect(cfg)) }
+    var fallbackProfileId by remember { mutableStateOf(SettingsStore.fallbackProfileId(cfg)) }
+    var trafficLimitMb by remember { mutableStateOf(SettingsStore.trafficLimitMb(cfg)) }
+    var splitTunnelMode by remember { mutableStateOf(SettingsStore.splitTunnelMode(cfg)) }
+    var splitTunnelRules by remember { mutableStateOf(SettingsStore.splitTunnelRules(cfg)) }
+    var urlTestBusy by remember { mutableStateOf(false) }
+    var pingDialog by remember { mutableStateOf(false) }
     var tunnelMode by remember { mutableStateOf(SettingsStore.tunnelMode(cfg)) }
     var socksPort by remember { mutableStateOf(SettingsStore.socksPort(cfg).toString()) }
     var httpPort by remember { mutableStateOf(SettingsStore.httpPort(cfg).toString()) }
@@ -264,6 +274,118 @@ fun CrystalnApp() {
         }
     }
 
+    /** URL-test, Android's urlTestVisibleProfiles: ping everything, connect
+     * the fastest. Only meaningful while the tunnel is down. */
+    fun urlTest() {
+        if (urlTestBusy) return
+        if (TunnelManager.ui.value.state != TunnelManager.State.OFF) {
+            notice = "Сначала отключите текущее соединение"
+            return
+        }
+        val list = profiles
+        if (list.isEmpty()) return
+        urlTestBusy = true
+        scope.launch(Dispatchers.IO) {
+            try {
+                coroutineScope {
+                    list.forEach { p -> launch { pingResults[p.id] = tcpPing(p.address, p.port) } }
+                }
+                val best = list
+                    .filter { (pingResults[it.id] ?: -1L) >= 0 }
+                    .minByOrNull { pingResults[it.id] ?: Long.MAX_VALUE }
+                withContext(Dispatchers.Main) {
+                    if (best != null) {
+                        ProfileStore.select(cfg, best.id)
+                        refreshProfiles()
+                        // The notice must not leak the real name while the
+                        // anonymization flag is on.
+                        val label = if (anonymizeNames) {
+                            com.crystaln.vpn.ui.ServerAlias.label(best, profiles.indexOf(best).coerceAtLeast(0))
+                        } else {
+                            best.name
+                        }
+                        notice = "Быстрейший: $label (${pingResults[best.id]} мс)"
+                        TunnelManager.connect(best)
+                    } else {
+                        notice = "URL-тест: ни один сервер не ответил"
+                    }
+                }
+            } finally {
+                withContext(Dispatchers.Main) { urlTestBusy = false }
+            }
+        }
+    }
+
+    /** crystaln/3 — settings without profiles/subscriptions, for a fresh PC. */
+    fun exportSettingsOnly() {
+        val chooser = javax.swing.JFileChooser().apply {
+            dialogTitle = "Экспорт только настроек"
+            selectedFile = File("crystaln_settings.json")
+        }
+        Thread {
+            val choice = chooser.showSaveDialog(null)
+            if (choice != javax.swing.JFileChooser.APPROVE_OPTION) return@Thread
+            val file = chooser.selectedFile ?: return@Thread
+            try {
+                file.writeText(Backup.exportSettingsOnly(cfg))
+                notice = "Настройки экспортированы"
+            } catch (t: Throwable) {
+                notice = t.message ?: t.javaClass.simpleName
+            }
+        }.apply { isDaemon = true; start() }
+    }
+
+    /** Applies a crystaln/3 payload and re-reads every mirrored setting. */
+    fun applySettingsOnlyImport(text: String) {
+        val summary = Backup.importSettingsOnly(cfg, text)
+        if (summary == null) {
+            notice = "Это не crystaln/3 экспорт настроек"
+            return
+        }
+        autoConnect = SettingsStore.autoConnect(cfg)
+        autoFastest = SettingsStore.autoFastest(cfg)
+        dnsViaTunnel = SettingsStore.dnsViaTunnel(cfg)
+        dnsServer = SettingsStore.dnsServer(cfg)
+        blockAds = SettingsStore.blockAds(cfg)
+        killSwitch = SettingsStore.killSwitch(cfg)
+        anonymizeNames = SettingsStore.anonymizeNames(cfg)
+        checkUrl = SettingsStore.checkUrl(cfg)
+        checkTimeoutSec = SettingsStore.checkTimeoutSec(cfg)
+        autoReconnect = SettingsStore.autoReconnect(cfg)
+        fallbackProfileId = SettingsStore.fallbackProfileId(cfg)
+        trafficLimitMb = SettingsStore.trafficLimitMb(cfg)
+        splitTunnelMode = SettingsStore.splitTunnelMode(cfg)
+        splitTunnelRules = SettingsStore.splitTunnelRules(cfg)
+        tunnelMode = SettingsStore.tunnelMode(cfg)
+        socksPort = SettingsStore.socksPort(cfg).toString()
+        httpPort = SettingsStore.httpPort(cfg).toString()
+        themeMode = SettingsStore.themeMode(cfg)
+        paletteId = SettingsStore.paletteId(cfg)
+        notice = summary
+    }
+
+    fun importSettingsOnly() {
+        val chooser = javax.swing.JFileChooser().apply {
+            dialogTitle = "Импорт настроек (профили не трогаем)"
+            isAcceptAllFileFilterUsed = true
+        }
+        Thread {
+            val choice = chooser.showOpenDialog(null)
+            if (choice != javax.swing.JFileChooser.APPROVE_OPTION) return@Thread
+            val file = chooser.selectedFile ?: return@Thread
+            try {
+                val bytes = file.inputStream().use { it.readNBytes(MAX_IMPORT_BYTES + 1) }
+                if (bytes.size > MAX_IMPORT_BYTES) {
+                    notice = "Файл слишком велик для конфига"
+                    return@Thread
+                }
+                applySettingsOnlyImport(String(bytes, Charsets.UTF_8))
+            } catch (t: Throwable) {
+                notice = t.message ?: t.javaClass.simpleName
+            }
+        }.apply { isDaemon = true; start() }
+    }
+
     fun refreshBinaries() {
         if (binariesBusy) return
         binariesBusy = true
@@ -294,6 +416,14 @@ fun CrystalnApp() {
         // decrypted payload.
         if (ProfileVault.isVault(text)) {
             vaultPendingText = text
+            return
+        }
+        // Settings-only crystaln/3 export: restore preferences without
+        // touching the server list.
+        if (text.trimStart().startsWith("{\"format\":\"crystaln/3\"") ||
+            text.contains("\"format\": \"crystaln/3\"")
+        ) {
+            applySettingsOnlyImport(text)
             return
         }
         // Full crystaln/2 backup (settings + subscriptions + profiles) first;
@@ -692,6 +822,47 @@ fun CrystalnApp() {
                             anonymizeNames = on
                             SettingsStore.setAnonymizeNames(cfg, on)
                         },
+                        checkUrl = checkUrl,
+                        onCheckUrlChange = { v ->
+                            checkUrl = v
+                            SettingsStore.setCheckUrl(cfg, v)
+                        },
+                        checkTimeoutSec = checkTimeoutSec,
+                        onCheckTimeoutSecChange = { v ->
+                            checkTimeoutSec = v
+                            SettingsStore.setCheckTimeoutSec(cfg, v)
+                        },
+                        autoReconnect = autoReconnect,
+                        onAutoReconnectChange = { on ->
+                            autoReconnect = on
+                            SettingsStore.setAutoReconnect(cfg, on)
+                        },
+                        fallbackProfileId = fallbackProfileId,
+                        onFallbackProfileIdChange = { id ->
+                            fallbackProfileId = id
+                            SettingsStore.setFallbackProfileId(cfg, id)
+                        },
+                        profiles = profiles,
+                        trafficLimitMb = trafficLimitMb,
+                        onTrafficLimitMbChange = { v ->
+                            trafficLimitMb = v
+                            SettingsStore.setTrafficLimitMb(cfg, v)
+                        },
+                        splitTunnelMode = splitTunnelMode,
+                        onSplitTunnelModeChange = { m ->
+                            splitTunnelMode = m
+                            SettingsStore.setSplitTunnelMode(cfg, m)
+                        },
+                        splitTunnelRules = splitTunnelRules,
+                        onSplitTunnelRulesChange = { r ->
+                            splitTunnelRules = r
+                            SettingsStore.setSplitTunnelRules(cfg, r)
+                        },
+                        onUrlTest = { urlTest() },
+                        urlTestBusy = urlTestBusy,
+                        onPingTool = { pingDialog = true },
+                        onExportSettings = { exportSettingsOnly() },
+                        onImportSettings = { importSettingsOnly() },
                         killSwitch = killSwitch,
                         onKillSwitchChange = { on ->
                             killSwitch = on
@@ -825,6 +996,10 @@ fun CrystalnApp() {
                     exportToFile(password)
                 },
             )
+        }
+
+        if (pingDialog) {
+            PingToolDialog(onDismiss = { pingDialog = false })
         }
 
         if (vaultPendingText != null) {
