@@ -343,7 +343,10 @@ fun SettingsScreen(
                         GlassDivider(Modifier.padding(vertical = 14.dp))
                         OutlinedTextField(
                             value = checkUrlText,
-                            onValueChange = { checkUrlText = it },
+                            onValueChange = { v ->
+                                checkUrlText = v
+                                onCheckUrlChange(v)
+                            },
                             singleLine = true,
                             label = { Text(stringResource(R.string.check_url_label)) },
                             modifier = Modifier.fillMaxWidth(),
