@@ -292,6 +292,10 @@ object TunnelManager {
         synchronized(lock) {
             if (generation == myGen) {
                 teardownAll()
+                if (killArmed && com.crystaln.vpn.desktop.Platform.isWindows) {
+                    KillSwitch.blockNow("gen-$myGen")
+                    logLine("Kill-switch: трафик заблокирован после обрыва")
+                }
                 _ui.value = UiState(State.OFF, error = message)
                 logLine("Ошибка: $message")
             }

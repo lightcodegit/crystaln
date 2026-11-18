@@ -33,6 +33,13 @@ object KillSwitch {
         if (engaged) return
         engaged = true
         val res = if (Platform.isWindows) {
+            if (allowIface != null) {
+                // Windows: while the tunnel is up we rely on the route/TUN;
+                // a blanket block here would kill the tunnel too. The block
+                // is applied by blockNow() when the tunnel actually drops.
+                log("armed (session=$sessionId)")
+                return
+            }
             Privileges.runScript(
                 "kill-on",
                 listOf(
@@ -66,6 +73,14 @@ object KillSwitch {
         } else {
             log("engaged (session=$sessionId)")
         }
+    }
+
+    /** Applies the hard block after an unexpected tunnel drop (Windows). On
+     *  Linux the interface-scoped rule fails closed on its own. */
+    fun blockNow(sessionId: String) {
+        if (!Platform.isWindows) return
+        engaged = false
+        engage(sessionId, null)
     }
 
     /** Removes the blocking rules. Always called on clean disconnect. */
