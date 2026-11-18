@@ -107,6 +107,7 @@ fun CrystalnApp() {
     var blockAds by remember { mutableStateOf(SettingsStore.blockAds(cfg)) }
     var blockAdsBusy by remember { mutableStateOf(false) }
     var killSwitch by remember { mutableStateOf(SettingsStore.killSwitch(cfg)) }
+    var anonymizeNames by remember { mutableStateOf(SettingsStore.anonymizeNames(cfg)) }
     var tunnelMode by remember { mutableStateOf(SettingsStore.tunnelMode(cfg)) }
     var socksPort by remember { mutableStateOf(SettingsStore.socksPort(cfg).toString()) }
     var httpPort by remember { mutableStateOf(SettingsStore.httpPort(cfg).toString()) }
@@ -604,6 +605,7 @@ fun CrystalnApp() {
                         state = conn,
                         profiles = profiles,
                         selectedId = selectedId,
+                        anonymizeNames = anonymizeNames,
                         onSelect = { p ->
                             ProfileStore.select(cfg, p.id)
                             refreshProfiles()
@@ -685,6 +687,11 @@ fun CrystalnApp() {
                         blockAds = blockAds,
                         onBlockAdsChange = { on -> toggleBlockAds(on) },
                         blockAdsBusy = blockAdsBusy,
+                        anonymizeNames = anonymizeNames,
+                        onAnonymizeNamesChange = { on ->
+                            anonymizeNames = on
+                            SettingsStore.setAnonymizeNames(cfg, on)
+                        },
                         killSwitch = killSwitch,
                         onKillSwitchChange = { on ->
                             killSwitch = on

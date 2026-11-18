@@ -91,6 +91,8 @@ fun SettingsScreen(
     blockAds: Boolean,
     onBlockAdsChange: (Boolean) -> Unit,
     blockAdsBusy: Boolean,
+    anonymizeNames: Boolean,
+    onAnonymizeNamesChange: (Boolean) -> Unit,
     killSwitch: Boolean,
     onKillSwitchChange: (Boolean) -> Unit,
     tunnelMode: SettingsStore.TunnelMode,
@@ -316,6 +318,13 @@ fun SettingsScreen(
                             checked = blockAds,
                             enabled = !blockAdsBusy,
                             onChange = onBlockAdsChange,
+                        )
+                        GlassDivider(Modifier.padding(vertical = 14.dp))
+                        SwitchRow(
+                            title = "Обезличивать имена серверов",
+                            subtitle = "Показывать флаг страны и номер вместо названий профилей: «🇩🇪 #4»",
+                            checked = anonymizeNames,
+                            onChange = onAnonymizeNamesChange,
                         )
                         GlassDivider(Modifier.padding(vertical = 14.dp))
                         SwitchRow(

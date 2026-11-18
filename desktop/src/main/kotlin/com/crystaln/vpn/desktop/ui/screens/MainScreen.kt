@@ -122,6 +122,8 @@ fun MainScreen(
     state: TunnelManager.UiState,
     profiles: List<Profile>,
     selectedId: String?,
+    /** Privacy mask: show "🇩🇪 #N" instead of profile names. */
+    anonymizeNames: Boolean = false,
     onSelect: (Profile) -> Unit,
     onEdit: (Profile) -> Unit,
     onDelete: (Profile) -> Unit,
@@ -168,6 +170,8 @@ fun MainScreen(
                 HeroStatus(
                     state = state,
                     selected = profiles.firstOrNull { it.id == (state.profile?.id ?: selectedId) },
+                    profiles = profiles,
+                    anonymizeNames = anonymizeNames,
                     isDark = isDark,
                     onConnect = onConnect,
                 )
@@ -240,6 +244,8 @@ fun MainScreen(
                                     onDelete = { onDelete(p) },
                                     onShare = { onShare(p) },
                                     totalTraffic = trafficStats[p.id],
+
+                                    aliasLabel = if (anonymizeNames) com.crystaln.vpn.ui.ServerAlias.label(p, profiles.indexOf(p)) else null,
                                 )
                             }
                         } else if (subscriptionTitles.isNotEmpty()) {
@@ -263,6 +269,8 @@ fun MainScreen(
                                         onDelete = { onDelete(p) },
                                         onShare = { onShare(p) },
                                         totalTraffic = trafficStats[p.id],
+
+                                        aliasLabel = if (anonymizeNames) com.crystaln.vpn.ui.ServerAlias.label(p, profiles.indexOf(p)) else null,
                                     )
                                 }
                             }
@@ -283,6 +291,8 @@ fun MainScreen(
                                         onDelete = { onDelete(p) },
                                         onShare = { onShare(p) },
                                         totalTraffic = trafficStats[p.id],
+
+                                        aliasLabel = if (anonymizeNames) com.crystaln.vpn.ui.ServerAlias.label(p, profiles.indexOf(p)) else null,
                                     )
                                 }
                             }
@@ -300,6 +310,8 @@ fun MainScreen(
                                     onDelete = { onDelete(p) },
                                     onShare = { onShare(p) },
                                     totalTraffic = trafficStats[p.id],
+
+                                    aliasLabel = if (anonymizeNames) com.crystaln.vpn.ui.ServerAlias.label(p, profiles.indexOf(p)) else null,
                                 )
                             }
                         }
@@ -359,3 +371,4 @@ fun formatBytes(v: Long): String = when {
     v >= 1L shl 20 -> "%.1f МБ".format(v / 1048576.0)
     else -> "%.0f КБ".format(v / 1024.0)
 }
+

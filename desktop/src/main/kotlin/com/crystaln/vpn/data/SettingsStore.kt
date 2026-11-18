@@ -95,6 +95,10 @@ object SettingsStore {
 
     fun setBlockAds(dataDir: File, v: Boolean) = mutate(dataDir) { it.put("blockAds", v) }
 
+    fun anonymizeNames(dataDir: File): Boolean = load(dataDir).optBoolean("anonymizeNames", false)
+
+    fun setAnonymizeNames(dataDir: File, v: Boolean) = mutate(dataDir) { it.put("anonymizeNames", v) }
+
     /**
      * Kill-switch: when the tunnel drops unexpectedly, block all non-loopback
      * traffic until the user disconnects/reconnects (or the app restarts).
@@ -156,6 +160,7 @@ object SettingsStore {
         .put("dnsViaTunnel", dnsViaTunnel(dataDir))
         .put("dnsServer", dnsServer(dataDir))
         .put("blockAds", blockAds(dataDir))
+        .put("anonymizeNames", anonymizeNames(dataDir))
         .put("killSwitch", killSwitch(dataDir))
         .put("socksPort", socksPort(dataDir))
         .put("httpPort", httpPort(dataDir))
@@ -174,9 +179,11 @@ object SettingsStore {
             store.put("dnsViaTunnel", o.optBoolean("dnsViaTunnel", false))
             o.optString("dnsServer").takeIf { it.isNotEmpty() }?.let { store.put("dnsServer", it) }
             store.put("blockAds", o.optBoolean("blockAds", false))
+            store.put("anonymizeNames", o.optBoolean("anonymizeNames", false))
             store.put("killSwitch", o.optBoolean("killSwitch", false))
             if (o.has("socksPort")) store.put("socksPort", o.optInt("socksPort", 10808).coerceIn(1024, 65535))
             if (o.has("httpPort")) store.put("httpPort", o.optInt("httpPort", 10809).coerceIn(1024, 65535))
         }
     }
 }
+

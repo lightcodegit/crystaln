@@ -163,6 +163,8 @@ internal fun ProfileCard(
     onDelete: () -> Unit,
     onShare: () -> Unit = {},
     totalTraffic: TrafficStats? = null,
+    /** Privacy mask: "🇩🇪 #4" instead of the real name (null = off). */
+    aliasLabel: String? = null,
 ) {
     val pc = protocolColor(profile.protocol)
     val shape = RoundedCornerShape(22.dp)
@@ -210,7 +212,7 @@ internal fun ProfileCard(
             Spacer(Modifier.width(10.dp))
             Column(Modifier.weight(1f)) {
                 Text(
-                    profile.name,
+                    aliasLabel ?: profile.name,
                     style = MaterialTheme.typography.bodyLarge,
                     fontWeight = FontWeight.SemiBold,
                     maxLines = 1,

@@ -177,6 +177,8 @@ internal fun HeroStatus(
     state: TunnelManager.UiState,
     selected: Profile?,
     isDark: Boolean,
+    profiles: List<Profile> = emptyList(),
+    anonymizeNames: Boolean = false,
     onConnect: () -> Unit,
 ) {
     Column(
@@ -256,7 +258,7 @@ internal fun HeroStatus(
                 Box(Modifier.size(8.dp).clip(CircleShape).background(protocolColor(p.protocol)))
                 Spacer(Modifier.width(7.dp))
                 Text(
-                    p.name,
+                    if (anonymizeNames) com.crystaln.vpn.ui.ServerAlias.label(p, profiles.indexOf(p).coerceAtLeast(0)) else p.name,
                     style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.SemiBold,
                     maxLines = 1,
@@ -476,4 +478,5 @@ internal fun StatCard(
         }
     }
 }
+
 
