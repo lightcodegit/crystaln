@@ -39,6 +39,7 @@
     <string name="stat_download">Download</string>
     <string name="stat_upload">Upload</string>
     <string name="tab_connect">Connect</string>
+    <string name="tab_tools">Tools</string>
     <string name="tab_settings">Settings</string>
     <string name="tab_profiles">Profiles</string>
     <string name="server_unreachable">Server unreachable</string>

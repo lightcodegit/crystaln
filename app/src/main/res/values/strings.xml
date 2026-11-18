@@ -39,6 +39,7 @@
     <string name="stat_download">Загрузка</string>
     <string name="stat_upload">Отдача</string>
     <string name="tab_connect">Подключение</string>
+    <string name="tab_tools">Инструменты</string>
     <string name="tab_settings">Настройки</string>
     <string name="tab_profiles">Профили</string>
     <string name="server_unreachable">Сервер недоступен</string>

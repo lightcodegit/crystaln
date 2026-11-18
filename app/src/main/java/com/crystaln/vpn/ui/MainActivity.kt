@@ -98,6 +98,7 @@ import com.crystaln.vpn.ui.screens.MainScreen
 import com.crystaln.vpn.ui.screens.ProfilesScreen
 import com.crystaln.vpn.ui.screens.SettingsScreen
 import com.crystaln.vpn.ui.screens.SplitTunnelScreen
+import com.crystaln.vpn.ui.screens.ToolsScreen
 import com.crystaln.vpn.ui.theme.CrystalNTheme
 import java.io.File
 import java.net.URL
@@ -123,7 +124,7 @@ class MainActivity : FragmentActivity() {
     private val maxWallpaperBytes = 25L * 1024 * 1024
 
     // Simple in-process navigation state.
-    private enum class Nav { MAIN, PROFILES, SETTINGS, DIAGNOSTICS, EDITOR, ONBOARDING }
+    private enum class Nav { MAIN, PROFILES, SETTINGS, TOOLS, DIAGNOSTICS, EDITOR, ONBOARDING }
 
     private val nav = mutableStateOf(Nav.MAIN)
     /** Back stack for the hardware/gesture back button. */
@@ -548,6 +549,7 @@ class MainActivity : FragmentActivity() {
                         onConnect = { onConnectClicked() },
                         onSettings = { goto(Nav.SETTINGS) },
                         onProfiles = { goto(Nav.PROFILES) },
+                        onTools = { goto(Nav.TOOLS) },
                     )
 
                     Nav.PROFILES -> ProfilesScreen(
@@ -583,6 +585,7 @@ class MainActivity : FragmentActivity() {
                         onImport = { importMenu.value = true },
                         onBack = { goBack() },
                         onSettings = { goto(Nav.SETTINGS) },
+                        onTools = { goto(Nav.TOOLS) },
                         pingResults = pingResults,
                         onPing = { p -> pingProfile(p) },
                         pingAllRunning = pingAllRunning.value,
@@ -737,6 +740,8 @@ class MainActivity : FragmentActivity() {
                         onUrlTestGroup = { urlTestVisibleProfiles() },
                         onExportSettings = { exportSettingsLauncher.launch("crystaln_settings.json") },
                         onImportSettings = { importSettingsLauncher.launch(arrayOf("application/json", "text/plain")) },
+                        onProfiles = { goto(Nav.PROFILES) },
+                        onTools = { goto(Nav.TOOLS) },
                         subscriptions = subscriptions.value,
                         subscriptionsBusy = subscriptionsBusy.value,
                         subscriptionBusyId = subscriptionBusyId.value,
@@ -782,6 +787,21 @@ class MainActivity : FragmentActivity() {
                         running = diagRunning.value,
                         onRun = { runDiagnostics() },
                         onBack = { goBack() },
+                    )
+
+                    Nav.TOOLS -> ToolsScreen(
+                        isDark = dark,
+                        killSwitch = killSwitch.value,
+                        onKillSwitchChange = { on ->
+                            killSwitch.value = on
+                            SettingsStore.setKillSwitch(this@MainActivity, on)
+                        },
+                        onSplitTunnel = { splitTunnelVisible.value = true },
+                        onDiagnostics = {
+                            diagResults.value = null
+                            goto(Nav.DIAGNOSTICS)
+                        },
+                        onUrlTest = { urlTestVisibleProfiles() },
                     )
 
                     Nav.EDITOR -> EditorScreen(

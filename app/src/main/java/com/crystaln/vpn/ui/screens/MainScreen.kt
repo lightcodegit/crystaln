@@ -34,6 +34,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
+import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Lan
 import androidx.compose.material.icons.filled.PowerSettingsNew
@@ -114,6 +115,7 @@ fun MainScreen(
     onConnect: () -> Unit,
     onSettings: () -> Unit,
     onProfiles: () -> Unit,
+    onTools: () -> Unit,
 ) {
     val wallpaper = rememberWallpaper(wallpaperPath)
     val overWallpaper = wallpaper != null
@@ -148,7 +150,7 @@ fun MainScreen(
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                     contentPadding = PaddingValues(top = 10.dp, bottom = 170.dp),
                 ) {
-                item { Header(state = state, dark = glassDark) }
+                item { Header(state = state, selected = selected, selectedLabel = selectedLabel, dark = glassDark) }
 
                 item {
                     HeroStatus(
@@ -184,13 +186,15 @@ fun MainScreen(
             tabs = listOf(
                 GlassTab(Icons.Default.PowerSettingsNew, stringResource(R.string.tab_connect)),
                 GlassTab(Icons.Default.Lan, stringResource(R.string.tab_profiles)),
+                GlassTab(Icons.Default.Build, stringResource(R.string.tab_tools)),
                 GlassTab(Icons.Default.Settings, stringResource(R.string.tab_settings)),
             ),
             selected = 0,
             onSelect = { index ->
                 when (index) {
                     1 -> onProfiles()
-                    2 -> onSettings()
+                    2 -> onTools()
+                    3 -> onSettings()
                 }
             },
             modifier = Modifier
@@ -259,7 +263,12 @@ private fun ProfilesEntry(
 
 /** App identity row: gradient logo mark, name, live status chip. */
 @Composable
-private fun Header(state: VpnManager.UiState, dark: Boolean) {
+private fun Header(
+    state: VpnManager.UiState,
+    selected: Profile?,
+    selectedLabel: String?,
+    dark: Boolean,
+) {
     val palette = LocalCrystalPalette.current
     Row(verticalAlignment = Alignment.CenterVertically) {
         Box(
@@ -277,12 +286,22 @@ private fun Header(state: VpnManager.UiState, dark: Boolean) {
             )
         }
         Spacer(Modifier.width(9.dp))
-        Text(
-            stringResource(R.string.app_name),
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Black,
-        )
-        Spacer(Modifier.weight(1f))
+        Column(Modifier.weight(1f)) {
+            Text(
+                stringResource(R.string.app_name),
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Black,
+            )
+            if (selected != null) {
+                Text(
+                    selectedLabel ?: selected.name,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
         StatusChip(state)
     }
 }

@@ -31,6 +31,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
@@ -131,6 +132,7 @@ fun ProfilesScreen(
     onImport: () -> Unit,
     onBack: () -> Unit,
     onSettings: () -> Unit,
+    onTools: () -> Unit,
     /** Measured TCP ping per profile id (ms), -1 = unreachable. */
     pingResults: Map<String, Long> = emptyMap(),
     onPing: (Profile) -> Unit = {},
@@ -416,12 +418,14 @@ fun ProfilesScreen(
             tabs = listOf(
                 GlassTab(Icons.Default.PowerSettingsNew, stringResource(R.string.tab_connect)),
                 GlassTab(Icons.Default.Lan, stringResource(R.string.tab_profiles)),
+                GlassTab(Icons.Default.Build, stringResource(R.string.tab_tools)),
                 GlassTab(Icons.Default.Settings, stringResource(R.string.tab_settings)),
             ),
             selected = 1,
             onSelect = { index -> when (index) {
                 0 -> onBack()
-                2 -> onSettings()
+                2 -> onTools()
+                3 -> onSettings()
             } },
             modifier = Modifier
                 .align(Alignment.BottomCenter)

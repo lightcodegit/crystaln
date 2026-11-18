@@ -27,6 +27,8 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.Bolt
+import androidx.compose.material.icons.filled.Build
+import androidx.compose.material.icons.filled.Lan
 import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.FileUpload
 import androidx.compose.material.icons.filled.FileDownload
@@ -134,6 +136,8 @@ fun SettingsScreen(
     onUrlTestGroup: () -> Unit,
     onExportSettings: () -> Unit,
     onImportSettings: () -> Unit,
+    onProfiles: () -> Unit,
+    onTools: () -> Unit,
     blockAdsBusy: Boolean,
     subscriptions: List<Subscription>,
     subscriptionsBusy: Boolean,
@@ -678,10 +682,18 @@ fun SettingsScreen(
             overWallpaper = overWallpaper,
             tabs = listOf(
                 GlassTab(Icons.Default.PowerSettingsNew, stringResource(R.string.tab_connect)),
+                GlassTab(Icons.Default.Lan, stringResource(R.string.tab_profiles)),
+                GlassTab(Icons.Default.Build, stringResource(R.string.tab_tools)),
                 GlassTab(Icons.Default.Settings, stringResource(R.string.tab_settings)),
             ),
-            selected = 1,
-            onSelect = { index -> if (index == 0) onBack() },
+            selected = 3,
+            onSelect = { index ->
+                when (index) {
+                    0 -> onBack()
+                    1 -> onProfiles()
+                    2 -> onTools()
+                }
+            },
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .navigationBarsPadding()
