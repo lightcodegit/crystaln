@@ -163,6 +163,8 @@ object ConnectionDiagnostics {
                     // hard contradiction (inline credentials absent) softly.
                 }
             }
+
+            else -> Unit // future protocols: address/port checked above
         }
 
         val ok = problems.isEmpty()
