@@ -49,9 +49,9 @@ object SettingsStore {
         val f = file(dataDir)
         val tmp = File(dataDir, "$FILE.tmp")
         try {
-            tmp.writeText(o.toString(2))
+            com.crystaln.vpn.desktop.net.SecureFiles.writeText(tmp, o.toString(2))
             if (!tmp.renameTo(f)) {
-                f.writeText(o.toString(2))
+                com.crystaln.vpn.desktop.net.SecureFiles.writeText(f, o.toString(2))
                 tmp.delete()
             }
         } catch (_: Exception) {

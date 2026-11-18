@@ -35,7 +35,7 @@ internal object HysteriaRunner {
             throw IllegalStateException("Бинарник hysteria не найден — нажмите «Обновить бинарники»")
         }
         val cfgFile = File(AppDirs.dataDir(), "hysteria-config.yaml")
-        cfgFile.writeText(buildConfig(p))
+        SecureFiles.writeText(cfgFile, buildConfig(p))
         configFile = cfgFile
 
         val proc = ChildProcess(

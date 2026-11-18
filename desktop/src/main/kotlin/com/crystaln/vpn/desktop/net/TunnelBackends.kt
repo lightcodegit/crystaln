@@ -46,7 +46,7 @@ internal fun TunnelManager.connectXray(p: Profile) {
 
         val config = XrayConfigBuilder.buildProxy(p, opts, socksPort, httpPort)
         val configFile = File(AppDirs.dataDir(), "xray-config.json")
-        configFile.writeText(config)
+        SecureFiles.writeText(configFile, config)
 
         // Hysteria2: the hysteria core (child process) must be up and serving
         // its local SOCKS before xray starts — its outbound points there.
@@ -198,7 +198,7 @@ internal fun TunnelManager.connectWgService(p: Profile, mode: String) {
         val iface = ifaceName(p)
         val confFile = File(File(AppDirs.dataDir(), "tunnels"), "$iface.conf")
         confFile.parentFile?.mkdirs()
-        confFile.writeText(buildServiceConf(parsed))
+        SecureFiles.writeText(confFile, buildServiceConf(parsed))
         val exe = File(AppDirs.binDir(), "${Binaries.AWG_SERVICE}.exe").absolutePath
         logLine("Подключение ${if (mode == "awg") "AmneziaWG" else "WireGuard"} ($iface)…")
         val cmds = listOf(
@@ -263,7 +263,7 @@ internal fun TunnelManager.connectOpenVpnWindows(p: Profile) {
         val user = p.fields["ovpnUser"]?.trim().orEmpty()
         val pass = p.fields["ovpnPass"]?.trim().orEmpty()
         val authFile = openVpnCredentialText(user, pass)?.let {
-            File(dir, "$base.auth").apply { writeText(it) }
+            File(dir, "$base.auth").apply { SecureFiles.writeText(this, it) }
         }
         val logFile = File(dir, "$base.log")
         val pidFile = File(dir, "$base.pid")
@@ -373,7 +373,7 @@ internal fun TunnelManager.connectWireGuard(p: Profile) {
         logLine("Подключение wg-quick ($name)…")
         // wg-quick needs the config file inside /etc/wireguard with strict perms.
         val tmp = File.createTempFile(name, ".conf")
-        tmp.writeText(conf)
+        SecureFiles.writeText(tmp, conf)
         tmp.setReadable(false, false)
         tmp.setReadable(true, true)
         val setup = listOf(
@@ -423,7 +423,7 @@ internal fun TunnelManager.connectAwgBackend(p: Profile, mode: String) {
         // amneziawg-go невидима (вывод больше не идёт в /dev/null).
         val logFile = "/var/run/amneziawg/$iface.log"
         val tmp = File.createTempFile(iface, ".conf")
-        tmp.writeText(parsed.setconf)
+        SecureFiles.writeText(tmp, parsed.setconf)
         tmp.setReadable(false, false)
         tmp.setReadable(true, true)
         logLine("Запуск amneziawg-go ($iface)…")
@@ -511,7 +511,7 @@ internal fun TunnelManager.connectOpenVpn(p: Profile) {
             throw IllegalStateException("В профиле нет конфигурации OpenVPN")
         }
         val file = File.createTempFile("crystaln-", ".ovpn")
-        file.writeText(conf)
+        SecureFiles.writeText(file, conf)
         // OpenVPN runs as root and reads these files before dropping privileges.
         // Keep secrets owner-readable on disk, even before pkexec starts it.
         file.setReadable(false, false)
@@ -522,11 +522,7 @@ internal fun TunnelManager.connectOpenVpn(p: Profile) {
         val pass = p.fields["ovpnPass"]?.trim().orEmpty()
         val authFile = openVpnCredentialText(user, pass)?.let { credentials ->
             File.createTempFile("crystaln-", ".auth").apply {
-                writeText(credentials)
-                setReadable(false, false)
-                setReadable(true, true)
-                setWritable(false, false)
-                setWritable(true, true)
+                SecureFiles.writeText(this, credentials)
             }
         }
         logLine("Запуск openvpn…")
@@ -698,7 +694,7 @@ internal fun TunnelManager.connectSingBox(p: Profile) {
     SingBoxRunner.start(p)
     val config = XrayConfigBuilder.buildProxy(p, opts, socksPort, httpPort)
     val configFile = File(AppDirs.dataDir(), "xray-config.json")
-    configFile.writeText(config)
+    SecureFiles.writeText(configFile, config)
     xray = ChildProcess(
         "xray",
         listOf(ChildProcess.bin(bin, Binaries.XRAY), "run", "-c", configFile.absolutePath),

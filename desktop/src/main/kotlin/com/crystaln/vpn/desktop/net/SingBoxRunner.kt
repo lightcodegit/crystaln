@@ -23,7 +23,7 @@ internal object SingBoxRunner {
             throw IllegalStateException("Бинарник sing-box не найден — нажмите «Обновить бинарники»")
         }
         val cfgFile = File(AppDirs.dataDir(), "singbox-config.json")
-        cfgFile.writeText(SingBoxCoreConfig.build(p))
+        SecureFiles.writeText(cfgFile, SingBoxCoreConfig.build(p))
         configFile = cfgFile
 
         process = ChildProcess(

@@ -77,9 +77,9 @@ object ProfileStore {
         val f = file(dataDir)
         val tmp = File(dataDir, "$FILE.tmp")
         try {
-            tmp.writeText(root.toString())
+            com.crystaln.vpn.desktop.net.SecureFiles.writeText(tmp, root.toString())
             if (!tmp.renameTo(f)) {
-                f.writeText(root.toString())
+                com.crystaln.vpn.desktop.net.SecureFiles.writeText(f, root.toString())
                 tmp.delete()
             }
         } catch (_: Exception) {
