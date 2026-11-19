@@ -220,14 +220,6 @@ fun ProfilesScreen(
                     // Header: glass back button + big title.
                     item {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            CircleGlassButton(
-                                icon = Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = "Back",
-                                isDark = glassDark,
-                                overWallpaper = overWallpaper,
-                                onClick = onBack,
-                            )
-                            Spacer(Modifier.width(12.dp))
                             Text(
                                 stringResource(R.string.tab_profiles),
                                 style = MaterialTheme.typography.headlineSmall,

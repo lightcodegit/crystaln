@@ -130,10 +130,7 @@ fun SettingsScreen(
     onFallbackProfileIdChange: (String?) -> Unit,
     trafficLimitMb: Int,
     onTrafficLimitMbChange: (Int) -> Unit,
-    killSwitch: Boolean,
-    onKillSwitchChange: (Boolean) -> Unit,
-    onSplitTunnel: () -> Unit,
-    onUrlTestGroup: () -> Unit,
+
     onExportSettings: () -> Unit,
     onImportSettings: () -> Unit,
     onProfiles: () -> Unit,
@@ -152,7 +149,6 @@ fun SettingsScreen(
     onClearWallpaper: () -> Unit,
     onImport: () -> Unit,
     onExport: () -> Unit,
-    onDiagnostics: () -> Unit,
     onBack: () -> Unit,
 ) {
     val wallpaper = rememberWallpaper(SettingsStore.wallpaper(LocalContext.current))
@@ -191,14 +187,6 @@ fun SettingsScreen(
 
                 // Header: glass back button + big title.
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    CircleGlassButton(
-                        icon = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = "Back",
-                        isDark = glassDark,
-                        overWallpaper = overWallpaper,
-                        onClick = onBack,
-                    )
-                    Spacer(Modifier.width(12.dp))
                     Text(
                         stringResource(R.string.tab_settings),
                         style = MaterialTheme.typography.headlineSmall,
@@ -405,33 +393,6 @@ fun SettingsScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                         GlassDivider(Modifier.padding(vertical = 14.dp))
-                        SwitchRow(
-                            title = stringResource(R.string.kill_switch_title),
-                            subtitle = stringResource(R.string.kill_switch_sub),
-                            checked = killSwitch,
-                            onChange = onKillSwitchChange,
-                        )
-                        GlassDivider(Modifier.padding(vertical = 14.dp))
-                        PillButton(
-                            text = stringResource(R.string.split_tunnel_title),
-                            icon = Icons.Default.Apps,
-                            accent = false,
-                            isDark = glassDark,
-                            overWallpaper = overWallpaper,
-                            onClick = onSplitTunnel,
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                        GlassDivider(Modifier.padding(vertical = 14.dp))
-                        PillButton(
-                            text = stringResource(R.string.url_test_title),
-                            icon = Icons.Default.Speed,
-                            accent = false,
-                            isDark = glassDark,
-                            overWallpaper = overWallpaper,
-                            onClick = onUrlTestGroup,
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                        GlassDivider(Modifier.padding(vertical = 14.dp))
                         PillButton(
                             text = stringResource(R.string.settings_export_title),
                             icon = Icons.Default.FileUpload,
@@ -449,16 +410,6 @@ fun SettingsScreen(
                             isDark = glassDark,
                             overWallpaper = overWallpaper,
                             onClick = onImportSettings,
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                        GlassDivider(Modifier.padding(vertical = 14.dp))
-                        PillButton(
-                            text = stringResource(R.string.diag_title),
-                            icon = Icons.Default.Bolt,
-                            accent = false,
-                            isDark = glassDark,
-                            overWallpaper = overWallpaper,
-                            onClick = onDiagnostics,
                             modifier = Modifier.fillMaxWidth(),
                         )
                     }

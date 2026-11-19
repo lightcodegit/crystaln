@@ -47,7 +47,6 @@ fun SplitTunnelScreen(
     val ctx = LocalContext.current
     val apps = remember {
         ctx.packageManager.getInstalledApplications(PackageManager.GET_META_DATA)
-            .filter { ctx.packageManager.getLaunchIntentForPackage(it.packageName) != null }
             .sortedBy { ctx.packageManager.getApplicationLabel(it).toString() }
     }
     Column(

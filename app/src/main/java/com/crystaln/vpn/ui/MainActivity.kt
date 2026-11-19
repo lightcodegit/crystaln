@@ -624,23 +624,7 @@ class MainActivity : FragmentActivity() {
                         onDismissShare = { shareProfile.value = null },
                     )
 
-                    Nav.SETTINGS -> if (splitTunnelVisible.value) {
-                        SplitTunnelScreen(
-                            isDark = dark,
-                            mode = SettingsStore.splitMode(this@MainActivity),
-                            selected = SettingsStore.splitApps(this@MainActivity),
-                            onModeChange = { m ->
-                                SettingsStore.setSplitMode(this@MainActivity, m)
-                            },
-                            onToggleApp = { pkg ->
-                                val cur = SettingsStore.splitApps(this@MainActivity).toMutableSet()
-                                if (pkg in cur) cur.remove(pkg) else cur.add(pkg)
-                                SettingsStore.setSplitApps(this@MainActivity, cur)
-                            },
-                            onBack = { splitTunnelVisible.value = false },
-                        )
-                    } else {
-                        SettingsScreen(
+                    Nav.SETTINGS -> SettingsScreen(
                         isDark = dark,
                         themeMode = themeMode.value,
                         onThemeChange = { mode ->
@@ -732,13 +716,6 @@ class MainActivity : FragmentActivity() {
                             trafficLimitMb.value = mb
                             SettingsStore.setTrafficLimitMb(this@MainActivity, mb)
                         },
-                        killSwitch = killSwitch.value,
-                        onKillSwitchChange = { on ->
-                            killSwitch.value = on
-                            SettingsStore.setKillSwitch(this@MainActivity, on)
-                        },
-                        onSplitTunnel = { splitTunnelVisible.value = true },
-                        onUrlTestGroup = { urlTestVisibleProfiles() },
                         onExportSettings = { exportSettingsLauncher.launch("crystaln_settings.json") },
                         onImportSettings = { importSettingsLauncher.launch(arrayOf("application/json", "text/plain")) },
                         onProfiles = { goto(Nav.PROFILES) },
@@ -770,13 +747,8 @@ class MainActivity : FragmentActivity() {
                             importMenu.value = false
                             fileExport.launch("crystaln_profiles.json")
                         },
-                        onDiagnostics = {
-                            diagResults.value = null
-                            goto(Nav.DIAGNOSTICS)
-                        },
                         onBack = { goBack() },
                     )
-                    }
 
                     Nav.DIAGNOSTICS -> DiagnosticsScreen(
                         isDark = dark,
@@ -792,6 +764,7 @@ class MainActivity : FragmentActivity() {
 
                     Nav.TOOLS -> ToolsScreen(
                         isDark = dark,
+                        wallpaperPath = wallpaperPath.value,
                         killSwitch = killSwitch.value,
                         onKillSwitchChange = { on ->
                             killSwitch.value = on
@@ -803,6 +776,9 @@ class MainActivity : FragmentActivity() {
                             goto(Nav.DIAGNOSTICS)
                         },
                         onUrlTest = { urlTestVisibleProfiles() },
+                        onBack = { goBack() },
+                        onProfiles = { goto(Nav.PROFILES) },
+                        onSettings = { goto(Nav.SETTINGS) },
                     )
 
                     Nav.EDITOR -> EditorScreen(
@@ -818,6 +794,23 @@ class MainActivity : FragmentActivity() {
                         onBack = { goBack() },
                     )
                     }
+                }
+
+                if (splitTunnelVisible.value) {
+                    SplitTunnelScreen(
+                        isDark = dark,
+                        mode = SettingsStore.splitMode(this@MainActivity),
+                        selected = SettingsStore.splitApps(this@MainActivity),
+                        onModeChange = { m ->
+                            SettingsStore.setSplitMode(this@MainActivity, m)
+                        },
+                        onToggleApp = { pkg ->
+                            val cur = SettingsStore.splitApps(this@MainActivity).toMutableSet()
+                            if (pkg in cur) cur.remove(pkg) else cur.add(pkg)
+                            SettingsStore.setSplitApps(this@MainActivity, cur)
+                        },
+                        onBack = { splitTunnelVisible.value = false },
+                    )
                 }
 
                 if (importMenu.value) {

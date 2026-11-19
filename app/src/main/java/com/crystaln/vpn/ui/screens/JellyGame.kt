@@ -37,6 +37,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -191,10 +192,9 @@ fun JellyGameOverlay(onDismiss: () -> Unit) {
                     ),
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(
-                    Icons.Default.Lan,
+                androidx.compose.foundation.Image(
+                    painter = painterResource(R.drawable.ic_launcher),
                     contentDescription = null,
-                    tint = Color.White,
                     modifier = Modifier.size(46.dp),
                 )
             }
