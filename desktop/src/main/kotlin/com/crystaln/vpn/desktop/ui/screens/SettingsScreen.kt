@@ -803,8 +803,10 @@ fun JellyGameOverlay(isDark: Boolean, onDismiss: () -> Unit) {
                 .background(MaterialTheme.colorScheme.background.copy(alpha = 0.97f)),
         ) {
             val jellySize = 96.dp
-            val maxX = with(LocalDensity.current) { (maxWidth - jellySize).toPx() }
-            val maxY = with(LocalDensity.current) { (maxHeight - jellySize).toPx() }
+            // Guard against a very small window: a negative upper bound makes
+            // coerceIn() throw.
+            val maxX = with(LocalDensity.current) { (maxWidth - jellySize).toPx() }.coerceAtLeast(0f)
+            val maxY = with(LocalDensity.current) { (maxHeight - jellySize).toPx() }.coerceAtLeast(0f)
 
             var pos by remember { mutableStateOf(Offset(maxX / 2f, maxY / 3f)) }
             var vel by remember { mutableStateOf(Offset.Zero) }

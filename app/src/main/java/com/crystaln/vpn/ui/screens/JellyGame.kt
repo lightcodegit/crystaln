@@ -71,8 +71,10 @@ fun JellyGameOverlay(onDismiss: () -> Unit) {
                 .systemBarsPadding(),
         ) {
             val jellySize = 96.dp
-            val maxX = with(LocalDensity.current) { (maxWidth - jellySize).toPx() }
-            val maxY = with(LocalDensity.current) { (maxHeight - jellySize).toPx() }
+            // Guard against tiny windows (landscape phones, multi-window):
+            // a negative upper bound makes coerceIn() throw.
+            val maxX = with(LocalDensity.current) { (maxWidth - jellySize).toPx() }.coerceAtLeast(0f)
+            val maxY = with(LocalDensity.current) { (maxHeight - jellySize).toPx() }.coerceAtLeast(0f)
 
             // Physics state (px inside the padded box).
             var pos by remember { mutableStateOf(Offset(maxX / 2f, maxY / 3f)) }
@@ -193,7 +195,7 @@ fun JellyGameOverlay(onDismiss: () -> Unit) {
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
-                    painter = painterResource(R.drawable.ic_launcher),
+                    painter = painterResource(R.drawable.crystaln_logo),
                     contentDescription = null,
                     tint = Color.Unspecified,
                     modifier = Modifier.size(46.dp),
