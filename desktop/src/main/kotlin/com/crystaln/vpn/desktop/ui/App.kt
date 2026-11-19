@@ -203,6 +203,20 @@ fun CrystalnApp() {
 
     val conn by TunnelManager.ui.collectAsState()
 
+    // Pre-download missing engine binaries on first launch so the first
+    // connect does not block on a long download.
+    LaunchedEffect(Unit) {
+        if (!Binaries.status().xrayReady) {
+            scope.launch(Dispatchers.IO) {
+                try {
+                    Binaries.downloadAll { step -> notice = step }
+                } catch (t: Throwable) {
+                    notice = "Ошибка загрузки бинарников: ${t.message ?: t.javaClass.simpleName}"
+                }
+            }
+        }
+    }
+
     fun onConnect() {
         when (conn.state) {
             TunnelManager.State.OFF -> {
