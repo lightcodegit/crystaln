@@ -321,7 +321,6 @@ object WindowsHelper {
     private val HELPER_SCRIPT = """
         |param([string]${'$'}Dir, [string]${'$'}TokenFile)
         |${'$'}ErrorActionPreference = 'Continue'
-        |${'$'}Token = [System.IO.File]::ReadAllText(${'$'}TokenFile).Trim()
         |${'$'}cmdDir = Join-Path ${'$'}Dir 'cmd'
         |${'$'}respDir = Join-Path ${'$'}Dir 'resp'
         |${'$'}stopFile = Join-Path ${'$'}Dir 'stop'
@@ -331,6 +330,7 @@ object WindowsHelper {
         |[System.IO.File]::WriteAllText((Join-Path ${'$'}Dir 'ready'), 'ok')
         |while (${'$'}true) {
         |  if (Test-Path ${'$'}stopFile) { break }
+        |  try { ${'$'}Token = [System.IO.File]::ReadAllText(${'$'}TokenFile).Trim() } catch {}
         |  ${'$'}files = @()
         |  try { ${'$'}files = Get-ChildItem ${'$'}cmdDir -Filter '*.txt' -ErrorAction SilentlyContinue | Sort-Object LastWriteTime } catch {}
         |  foreach (${'$'}f in ${'$'}files) {
