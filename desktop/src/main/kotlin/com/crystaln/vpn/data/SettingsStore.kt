@@ -191,8 +191,11 @@ object SettingsStore {
     fun setThemeMode(dataDir: File, m: ThemeMode) = mutate(dataDir) { it.put("themeMode", m.name) }
 
     fun paletteId(dataDir: File): String = load(dataDir).optString("palette").ifEmpty { "indigo" }
-
+    
     fun setPaletteId(dataDir: File, id: String) = mutate(dataDir) { it.put("palette", id) }
+
+    fun amoledMode(dataDir: File): Boolean = load(dataDir).optBoolean("amoled", false)
+    fun setAmoledMode(dataDir: File, v: Boolean) = mutate(dataDir) { it.put("amoled", v) }
 
     /** Before connecting, ping all servers and pick the fastest alive one. */
     /** First-run wizard completed (or explicitly skipped). */

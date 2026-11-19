@@ -28,7 +28,7 @@ data class CrystalPalette(
     private val surfaceDark = lerp(Color(0xFF111322), accent, 0.06f)
     private val variantDark = lerp(Color(0xFF232741), accent, 0.10f)
 
-    fun scheme(dark: Boolean): ColorScheme =
+    fun scheme(dark: Boolean, amoled: Boolean = false): ColorScheme =
         if (dark) {
             darkColorScheme(
                 primary = accentDark,
@@ -40,12 +40,12 @@ data class CrystalPalette(
                 secondaryContainer = lerp(Color(0xFF1B1F33), accent2, 0.48f),
                 onSecondaryContainer = lerp(Color(0xFFE6EBFF), accent2, 0.35f),
                 tertiary = lerp(accent2, accent, 0.45f),
-                surface = surfaceDark,
+                surface = if (amoled) Color.Black else surfaceDark,
                 onSurface = Color(0xFFE7EAF6),
-                surfaceVariant = variantDark,
+                surfaceVariant = if (amoled) Color(0xFF0A0A0A) else variantDark,
                 onSurfaceVariant = lerp(Color(0xFFB0B4CE), accent, 0.12f),
                 error = Color(0xFFFF6E5E),
-                background = hueDark,
+                background = if (amoled) Color.Black else hueDark,
                 onBackground = Color(0xFFE7EAF6),
                 outline = lerp(Color(0xFF4A5068), accent, 0.22f),
             )

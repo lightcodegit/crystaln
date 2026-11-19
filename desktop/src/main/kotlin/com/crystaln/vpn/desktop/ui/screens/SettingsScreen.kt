@@ -116,6 +116,8 @@ fun SettingsScreen(
     onThemeChange: (SettingsStore.ThemeMode) -> Unit,
     paletteId: String,
     onPaletteChange: (String) -> Unit,
+    amoledMode: Boolean = false,
+    onAmoledModeChange: (Boolean) -> Unit = {},
     autoConnect: Boolean,
     onAutoConnectChange: (Boolean) -> Unit,
     autoFastest: Boolean,
@@ -259,6 +261,13 @@ fun SettingsScreen(
                         PalettePicker(
                             paletteId = paletteId,
                             onPaletteChange = onPaletteChange,
+                        )
+                        GlassDivider(Modifier.padding(vertical = 14.dp))
+                        SwitchRow(
+                            title = "AMOLED (чёрный фон)",
+                            subtitle = "Чисто чёрный фон в тёмной теме для OLED-экранов",
+                            checked = amoledMode,
+                            onChange = onAmoledModeChange,
                         )
                     }
 

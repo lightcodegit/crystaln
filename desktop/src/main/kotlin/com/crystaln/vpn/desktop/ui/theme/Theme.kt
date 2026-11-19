@@ -10,12 +10,13 @@ import androidx.compose.ui.graphics.Color
 fun CrystalNTheme(
     darkTheme: Boolean,
     paletteId: String = IndigoPalette.id,
+    amoledMode: Boolean = false,
     content: @Composable () -> Unit,
 ) {
     val palette = paletteById(paletteId)
     CompositionLocalProvider(LocalCrystalPalette provides palette) {
         MaterialTheme(
-            colorScheme = palette.scheme(darkTheme),
+            colorScheme = palette.scheme(darkTheme, amoledMode),
             content = content,
         )
     }

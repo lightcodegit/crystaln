@@ -94,6 +94,7 @@ fun CrystalnApp() {
     // ── theme ────────────────────────────────────────────────────────────
     var themeMode by remember { mutableStateOf(SettingsStore.themeMode(cfg)) }
     var paletteId by remember { mutableStateOf(SettingsStore.paletteId(cfg)) }
+    var amoledMode by remember { mutableStateOf(SettingsStore.amoledMode(cfg)) }
     val dark = when (themeMode) {
         SettingsStore.ThemeMode.SYSTEM -> remember { systemDark() }
         SettingsStore.ThemeMode.LIGHT -> false
@@ -699,7 +700,7 @@ fun CrystalnApp() {
         }
     }
 
-    CrystalNTheme(darkTheme = dark, paletteId = paletteId) {
+    CrystalNTheme(darkTheme = dark, paletteId = paletteId, amoledMode = amoledMode) {
         Box(Modifier.background(MaterialTheme.colorScheme.background)) {
             AnimatedContent(
                 targetState = nav,
@@ -796,6 +797,11 @@ fun CrystalnApp() {
                             SettingsStore.setThemeMode(cfg, mode)
                         },
                         paletteId = paletteId,
+                        amoledMode = amoledMode,
+                        onAmoledModeChange = { on ->
+                            amoledMode = on
+                            SettingsStore.setAmoledMode(cfg, on)
+                        },
                         onPaletteChange = { id ->
                             paletteId = id
                             SettingsStore.setPaletteId(cfg, id)
