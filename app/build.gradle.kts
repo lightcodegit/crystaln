@@ -69,7 +69,7 @@ implementation("androidx.biometric:biometric:1.1.0")
     implementation("androidx.activity:activity-compose:1.9.3")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
     implementation("androidx.work:work-runtime-ktx:2.12.0")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0")
 
     // BOM 2026.09+ (Compose 1.12) требует compileSdk 37 и AGP 9.1 — вернуть,
     // когда обновим тулчейн (см. также ignore в dependabot.yml).
