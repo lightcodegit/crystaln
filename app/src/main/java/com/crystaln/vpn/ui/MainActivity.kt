@@ -124,7 +124,7 @@ class MainActivity : FragmentActivity() {
     private val maxWallpaperBytes = 25L * 1024 * 1024
 
     // Simple in-process navigation state.
-    private enum class Nav { MAIN, PROFILES, SETTINGS, TOOLS, DIAGNOSTICS, EDITOR, ONBOARDING }
+    private enum class Nav { MAIN, PROFILES, SETTINGS, TOOLS, SPLIT_TUNNEL, DIAGNOSTICS, EDITOR, ONBOARDING }
 
     private val nav = mutableStateOf(Nav.MAIN)
     /** Back stack for the hardware/gesture back button. */
@@ -176,7 +176,6 @@ class MainActivity : FragmentActivity() {
             Toast.makeText(this, "Ошибка импорта", Toast.LENGTH_SHORT).show()
         }
     }
-    private val splitTunnelVisible = mutableStateOf(false)
     private val autoReconnect = mutableStateOf(false)
     private val fallbackProfileId = mutableStateOf<String?>(null)
     private val trafficLimitMb = mutableStateOf(0)
@@ -770,7 +769,7 @@ class MainActivity : FragmentActivity() {
                             killSwitch.value = on
                             SettingsStore.setKillSwitch(this@MainActivity, on)
                         },
-                        onSplitTunnel = { splitTunnelVisible.value = true },
+                        onSplitTunnel = { goto(Nav.SPLIT_TUNNEL) },
                         onDiagnostics = {
                             diagResults.value = null
                             goto(Nav.DIAGNOSTICS)
@@ -779,6 +778,21 @@ class MainActivity : FragmentActivity() {
                         onBack = { goBack() },
                         onProfiles = { goto(Nav.PROFILES) },
                         onSettings = { goto(Nav.SETTINGS) },
+                    )
+
+                    Nav.SPLIT_TUNNEL -> SplitTunnelScreen(
+                        isDark = dark,
+                        mode = SettingsStore.splitMode(this@MainActivity),
+                        selected = SettingsStore.splitApps(this@MainActivity),
+                        onModeChange = { m ->
+                            SettingsStore.setSplitMode(this@MainActivity, m)
+                        },
+                        onToggleApp = { pkg ->
+                            val cur = SettingsStore.splitApps(this@MainActivity).toMutableSet()
+                            if (pkg in cur) cur.remove(pkg) else cur.add(pkg)
+                            SettingsStore.setSplitApps(this@MainActivity, cur)
+                        },
+                        onBack = { goBack() },
                     )
 
                     Nav.EDITOR -> EditorScreen(
@@ -794,23 +808,6 @@ class MainActivity : FragmentActivity() {
                         onBack = { goBack() },
                     )
                     }
-                }
-
-                if (splitTunnelVisible.value) {
-                    SplitTunnelScreen(
-                        isDark = dark,
-                        mode = SettingsStore.splitMode(this@MainActivity),
-                        selected = SettingsStore.splitApps(this@MainActivity),
-                        onModeChange = { m ->
-                            SettingsStore.setSplitMode(this@MainActivity, m)
-                        },
-                        onToggleApp = { pkg ->
-                            val cur = SettingsStore.splitApps(this@MainActivity).toMutableSet()
-                            if (pkg in cur) cur.remove(pkg) else cur.add(pkg)
-                            SettingsStore.setSplitApps(this@MainActivity, cur)
-                        },
-                        onBack = { splitTunnelVisible.value = false },
-                    )
                 }
 
                 if (importMenu.value) {
