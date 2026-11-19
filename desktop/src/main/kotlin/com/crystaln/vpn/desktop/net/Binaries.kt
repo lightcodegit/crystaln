@@ -63,7 +63,35 @@ object Binaries {
 
     private val p = com.crystaln.vpn.desktop.Platform
 
+    /** Extracts binaries bundled in the app resources (MSI installer) on first run. */
+    fun ensureBundled() {
+        val bin = AppDirs.binDir()
+        try { bin.mkdirs() } catch (_: Throwable) { }
+        val loader = Binaries::class.java.classLoader
+        val manifest = loader.getResourceAsStream("crystaln/bin/manifest.txt") ?: return
+        manifest.bufferedReader().use { reader ->
+            reader.readLines().forEach { rel ->
+                val name = rel.trim()
+                if (name.isEmpty()) return@forEach
+                val target = File(bin, name)
+                if (target.exists()) return@forEach
+                val stream = loader.getResourceAsStream("crystaln/bin/$name") ?: return@forEach
+                try {
+                    target.parentFile?.mkdirs()
+                    stream.use { input ->
+                        target.outputStream().use { out -> input.copyTo(out) }
+                    }
+                    if (name.endsWith(".exe") || name == "xray" || name == "awg" || name.endsWith("tun2socks")) {
+                        target.setExecutable(true)
+                    }
+                } catch (_: Throwable) {
+                }
+            }
+        }
+    }
+
     fun status(): Status {
+        ensureBundled()
         val bin = AppDirs.binDir()
         // На Windows файлы называются xray.exe и т.д. — через Platform.binName.
         return Status(
