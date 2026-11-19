@@ -40,6 +40,7 @@ import androidx.compose.material.icons.filled.FileUpload
 import androidx.compose.material.icons.filled.PowerSettingsNew
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.SportsEsports
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -671,6 +672,17 @@ fun SettingsScreen(
                             enabled = !updatesBusy,
                             onClick = onCheckUpdates,
                             modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
+
+                    // Hidden-ish easter egg: the jelly logo mini game.
+                    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                        CircleGlassButton(
+                            icon = Icons.Default.SportsEsports,
+                            contentDescription = "CrystalN jelly",
+                            isDark = glassDark,
+                            size = 40.dp,
+                            onClick = { jellyGame = true },
                         )
                     }
 
