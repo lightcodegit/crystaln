@@ -168,6 +168,9 @@ object WindowsHelper {
         privDir.mkdirs()
         helper.writeText(HELPER_SCRIPT)
         val tokenFile = File(privDir, "token")
+        // Remove a stale token file from a previous run: its ACL may only
+        // grant read access, which would make overwriting it fail.
+        tokenFile.delete()
         tokenFile.writeText(token)
         try {
             ProcessBuilder(
