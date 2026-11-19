@@ -582,6 +582,7 @@ class MainActivity : FragmentActivity() {
                         },
                         onImport = { importMenu.value = true },
                         onBack = { goBack() },
+                        onMain = { goto(Nav.MAIN) },
                         onSettings = { goto(Nav.SETTINGS) },
                         onTools = { goto(Nav.TOOLS) },
                         pingResults = pingResults,
@@ -718,6 +719,7 @@ class MainActivity : FragmentActivity() {
                         onExportSettings = { exportSettingsLauncher.launch("crystaln_settings.json") },
                         onImportSettings = { importSettingsLauncher.launch(arrayOf("application/json", "text/plain")) },
                         onProfiles = { goto(Nav.PROFILES) },
+                        onMain = { goto(Nav.MAIN) },
                         onTools = { goto(Nav.TOOLS) },
                         subscriptions = subscriptions.value,
                         subscriptionsBusy = subscriptionsBusy.value,
@@ -776,6 +778,7 @@ class MainActivity : FragmentActivity() {
                         },
                         onUrlTest = { urlTestVisibleProfiles() },
                         onBack = { goBack() },
+                        onMain = { goto(Nav.MAIN) },
                         onProfiles = { goto(Nav.PROFILES) },
                         onSettings = { goto(Nav.SETTINGS) },
                     )
@@ -1157,7 +1160,10 @@ class MainActivity : FragmentActivity() {
                 val live = list.filter { (pingResults[it.id] ?: -1L) >= 0 }
                 val best = live.minByOrNull { pingResults[it.id] ?: Long.MAX_VALUE }
                 withContext(Dispatchers.Main) {
-                    if (best != null) VpnManager.connect(this@MainActivity, best)
+                    if (best != null) {
+                        VpnManager.connect(this@MainActivity, best)
+                        Toast.makeText(this@MainActivity, "URL-тест: ${best.name}", Toast.LENGTH_SHORT).show()
+                    }
                 }
             } finally {
                 pingAllRunning.value = false

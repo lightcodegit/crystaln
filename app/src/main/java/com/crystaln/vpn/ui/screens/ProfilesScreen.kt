@@ -131,6 +131,7 @@ fun ProfilesScreen(
     onAdd: () -> Unit,
     onImport: () -> Unit,
     onBack: () -> Unit,
+    onMain: () -> Unit = {},
     onSettings: () -> Unit,
     onTools: () -> Unit,
     /** Measured TCP ping per profile id (ms), -1 = unreachable. */
@@ -415,7 +416,7 @@ fun ProfilesScreen(
             ),
             selected = 1,
             onSelect = { index -> when (index) {
-                0 -> onBack()
+                0 -> onMain()
                 2 -> onTools()
                 3 -> onSettings()
             } },

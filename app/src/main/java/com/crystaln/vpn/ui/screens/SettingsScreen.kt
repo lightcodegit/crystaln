@@ -134,6 +134,7 @@ fun SettingsScreen(
     onExportSettings: () -> Unit,
     onImportSettings: () -> Unit,
     onProfiles: () -> Unit,
+    onMain: () -> Unit = {},
     onTools: () -> Unit,
     blockAdsBusy: Boolean,
     subscriptions: List<Subscription>,
@@ -651,7 +652,7 @@ fun SettingsScreen(
             selected = 3,
             onSelect = { index ->
                 when (index) {
-                    0 -> onBack()
+                    0 -> onMain()
                     1 -> onProfiles()
                     2 -> onTools()
                 }

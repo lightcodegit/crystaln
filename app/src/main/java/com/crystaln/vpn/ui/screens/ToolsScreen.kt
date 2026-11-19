@@ -66,6 +66,7 @@ fun ToolsScreen(
     onDiagnostics: () -> Unit,
     onUrlTest: () -> Unit,
     onBack: () -> Unit = {},
+    onMain: () -> Unit = {},
     onProfiles: () -> Unit = {},
     onSettings: () -> Unit = {},
 ) {
@@ -133,7 +134,7 @@ fun ToolsScreen(
             selected = 2,
             onSelect = { index ->
                 when (index) {
-                    0 -> onBack()
+                    0 -> onMain()
                     1 -> onProfiles()
                     3 -> onSettings()
                 }
