@@ -1,5 +1,6 @@
 package com.crystaln.vpn.desktop.ui.screens
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -90,6 +91,7 @@ import kotlinx.coroutines.withContext
 import com.crystaln.vpn.data.Subscription
 import com.crystaln.vpn.data.SubscriptionsStore
 import com.crystaln.vpn.desktop.ui.LiquidBlobs
+import com.crystaln.vpn.desktop.resourcePainter
 import com.crystaln.vpn.desktop.ui.glass.CircleGlassButton
 import com.crystaln.vpn.desktop.ui.glass.Glass
 import com.crystaln.vpn.desktop.ui.glass.GlassDivider
@@ -951,12 +953,21 @@ fun JellyGameOverlay(isDark: Boolean, onDismiss: () -> Unit) {
                     ),
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(
-                    Icons.Default.Lan,
-                    contentDescription = null,
-                    tint = Color.White,
-                    modifier = Modifier.size(46.dp),
-                )
+                val logo = remember { resourcePainter("crystaln/icon.png") }
+                if (logo != null) {
+                    Image(
+                        painter = logo,
+                        contentDescription = null,
+                        modifier = Modifier.size(46.dp),
+                    )
+                } else {
+                    Icon(
+                        Icons.Default.Lan,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(46.dp),
+                    )
+                }
             }
         }
     }
