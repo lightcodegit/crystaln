@@ -33,6 +33,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
+import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
@@ -131,6 +132,7 @@ fun MainScreen(
     onImport: () -> Unit,
     onConnect: () -> Unit,
     onSettings: () -> Unit,
+    onTools: () -> Unit = {},
     /** Measured TCP ping per profile id (ms), -1 = unreachable, absent = not measured. */
     pingResults: Map<String, Long> = emptyMap(),
     onPing: (Profile) -> Unit = {},
@@ -325,10 +327,16 @@ fun MainScreen(
             isDark = isDark,
             tabs = listOf(
                 GlassTab(Icons.Default.PowerSettingsNew, "Подключение"),
+                GlassTab(Icons.Default.Build, "Инструменты"),
                 GlassTab(Icons.Default.Settings, "Настройки"),
             ),
             selected = 0,
-            onSelect = { index -> if (index == 1) onSettings() },
+            onSelect = { index ->
+                when (index) {
+                    1 -> onTools()
+                    2 -> onSettings()
+                }
+            },
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .padding(horizontal = 28.dp, vertical = 12.dp),

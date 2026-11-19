@@ -27,6 +27,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Bolt
+import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.FileOpen
 import androidx.compose.material.icons.filled.Apps
@@ -140,17 +141,9 @@ fun SettingsScreen(
     profiles: List<Profile>,
     trafficLimitMb: Int,
     onTrafficLimitMbChange: (Int) -> Unit,
-    splitTunnelMode: SettingsStore.SplitTunnelMode,
-    onSplitTunnelModeChange: (SettingsStore.SplitTunnelMode) -> Unit,
-    splitTunnelRules: List<String>,
-    onSplitTunnelRulesChange: (List<String>) -> Unit,
-    onUrlTest: () -> Unit,
-    urlTestBusy: Boolean,
     onPingTool: () -> Unit,
     onExportSettings: () -> Unit,
     onImportSettings: () -> Unit,
-    killSwitch: Boolean,
-    onKillSwitchChange: (Boolean) -> Unit,
     tunnelMode: SettingsStore.TunnelMode,
     onTunnelModeChange: (SettingsStore.TunnelMode) -> Unit,
     socksPort: String,
@@ -173,15 +166,13 @@ fun SettingsScreen(
     onCheckUpdates: () -> Unit,
     updatesBusy: Boolean,
     updateAvailable: String?,
-    onDiagnostics: () -> Unit,
     onBack: () -> Unit,
+    onTools: () -> Unit = {},
 ) {
     val glassDark = isDark
     var addSubscriptionVisible by remember { mutableStateOf(false) }
     var trafficLimitText by remember(trafficLimitMb) { mutableStateOf(trafficLimitMb.toString()) }
-    var splitTunnelText by remember(splitTunnelRules) {
-        mutableStateOf(splitTunnelRules.joinToString("\n"))
-    }
+
     var daily by remember { mutableStateOf(emptyList<DailyTraffic>()) }
     LaunchedEffect(Unit) {
         while (true) {
@@ -295,15 +286,6 @@ fun SettingsScreen(
                                 onChange = onStartWithSystemChange,
                             )
                         }
-                        GlassDivider(Modifier.padding(vertical = 14.dp))
-                        PillButton(
-                            text = "Диагностика",
-                            icon = Icons.Default.Bolt,
-                            accent = false,
-                            isDark = glassDark,
-                            onClick = onDiagnostics,
-                            modifier = Modifier.fillMaxWidth(),
-                        )
                     }
 
                     // ── Desktop engine (desktop-only: no such section on Android) ──
@@ -394,13 +376,7 @@ fun SettingsScreen(
                             checked = anonymizeNames,
                             onChange = onAnonymizeNamesChange,
                         )
-                        GlassDivider(Modifier.padding(vertical = 14.dp))
-                        SwitchRow(
-                            title = "Kill-switch",
-                            subtitle = "При падении VPN блокировать трафик, кроме VPN-интерфейса (нужны права root/администратора)",
-                            checked = killSwitch,
-                            onChange = onKillSwitchChange,
-                        )
+
                         }
 
                     // ── Reliability & tools ────────────────────────────────
@@ -476,18 +452,6 @@ fun SettingsScreen(
                         }
                         Spacer(Modifier.height(10.dp))
                         GlassDivider(Modifier.padding(vertical = 6.dp))
-                        // ── URL-test: ping all profiles, connect the fastest ──
-                        PillButton(
-                            text = if (urlTestBusy) "Тестирую…" else "URL-тест: подключить самый быстрый",
-                            icon = Icons.Default.Speed,
-                            accent = true,
-                            isDark = glassDark,
-                            enabled = !urlTestBusy && profiles.isNotEmpty(),
-                            onClick = onUrlTest,
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                        Spacer(Modifier.height(10.dp))
-                        GlassDivider(Modifier.padding(vertical = 6.dp))
                         // ── Ping tool for any address ──
                         PillButton(
                             text = "Ping-инструмент",
@@ -519,46 +483,6 @@ fun SettingsScreen(
                         )
                     }
 
-                    // ── Split tunneling ─────────────────────────────────
-                    SectionLabel("Split tunneling")
-                    SettingsPanel(isDark = glassDark) {
-                        Text(
-                            "Какие адреса идут через туннель (для Xray-профилей). Домен, IP или CIDR — по одному в строке.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        Spacer(Modifier.height(8.dp))
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            listOf(
-                                "Выкл" to SettingsStore.SplitTunnelMode.OFF,
-                                "Исключить" to SettingsStore.SplitTunnelMode.EXCLUDE,
-                                "Только эти" to SettingsStore.SplitTunnelMode.ONLY,
-                            ).forEach { (label, mode) ->
-                                PillButton(
-                                    text = label,
-                                    icon = null,
-                                    accent = splitTunnelMode == mode,
-                                    isDark = glassDark,
-                                    onClick = { onSplitTunnelModeChange(mode) },
-                                    modifier = Modifier.weight(1f),
-                                )
-                            }
-                        }
-                        if (splitTunnelMode != SettingsStore.SplitTunnelMode.OFF) {
-                            Spacer(Modifier.height(8.dp))
-                            OutlinedTextField(
-                                value = splitTunnelText,
-                                onValueChange = { v ->
-                                    splitTunnelText = v
-                                    onSplitTunnelRulesChange(v.lines().map { it.trim() }.filter { it.isNotEmpty() })
-                                },
-                                modifier = Modifier.fillMaxWidth(),
-                                placeholder = { Text("example.com\n10.0.0.0/8") },
-                                minLines = 3,
-                                maxLines = 8,
-                            )
-                        }
-                    }
 
                     // ── Traffic history ──────────────────────────────────
                     SectionLabel("История трафика")
@@ -775,10 +699,16 @@ fun SettingsScreen(
             isDark = glassDark,
             tabs = listOf(
                 GlassTab(Icons.Default.PowerSettingsNew, "Подключение"),
+                GlassTab(Icons.Default.Build, "Инструменты"),
                 GlassTab(Icons.Default.Settings, "Настройки"),
             ),
-            selected = 1,
-            onSelect = { index -> if (index == 0) onBack() },
+            selected = 2,
+            onSelect = { index ->
+                when (index) {
+                    0 -> onBack()
+                    1 -> onTools()
+                }
+            },
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .padding(horizontal = 28.dp, vertical = 12.dp),

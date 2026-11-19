@@ -65,6 +65,7 @@ import com.crystaln.vpn.desktop.ui.screens.OnboardingScreen
 import com.crystaln.vpn.desktop.ui.screens.EditorScreen
 import com.crystaln.vpn.desktop.ui.screens.MainScreen
 import com.crystaln.vpn.desktop.ui.screens.SettingsScreen
+import com.crystaln.vpn.desktop.ui.screens.ToolsScreen
 import com.crystaln.vpn.desktop.ui.dialogs.ExportDialog
 import com.crystaln.vpn.desktop.ui.dialogs.ImportDialog
 import com.crystaln.vpn.desktop.ui.dialogs.PingToolDialog
@@ -759,6 +760,7 @@ fun CrystalnApp() {
                         onImport = { importMenu = true },
                         onConnect = { onConnect() },
                         onSettings = { nav = Nav.SETTINGS },
+                        onTools = { nav = Nav.TOOLS },
                         pingResults = pingResults,
                         onPing = { p -> pingProfile(p) },
                         pingAllRunning = pingAllRunning,
@@ -848,26 +850,9 @@ fun CrystalnApp() {
                             trafficLimitMb = v
                             SettingsStore.setTrafficLimitMb(cfg, v)
                         },
-                        splitTunnelMode = splitTunnelMode,
-                        onSplitTunnelModeChange = { m ->
-                            splitTunnelMode = m
-                            SettingsStore.setSplitTunnelMode(cfg, m)
-                        },
-                        splitTunnelRules = splitTunnelRules,
-                        onSplitTunnelRulesChange = { r ->
-                            splitTunnelRules = r
-                            SettingsStore.setSplitTunnelRules(cfg, r)
-                        },
-                        onUrlTest = { urlTest() },
-                        urlTestBusy = urlTestBusy,
                         onPingTool = { pingDialog = true },
                         onExportSettings = { exportSettingsOnly() },
                         onImportSettings = { importSettingsOnly() },
-                        killSwitch = killSwitch,
-                        onKillSwitchChange = { on ->
-                            killSwitch = on
-                            SettingsStore.setKillSwitch(cfg, on)
-                        },
                         tunnelMode = tunnelMode,
                         onTunnelModeChange = { m ->
                             tunnelMode = m
@@ -915,11 +900,37 @@ fun CrystalnApp() {
                         onCheckUpdates = { checkUpdates() },
                         updatesBusy = updatesBusy,
                         updateAvailable = updateRelease?.version,
+                        onTools = { nav = Nav.TOOLS },
+                        onBack = { nav = Nav.MAIN },
+                    )
+
+                    Nav.TOOLS -> ToolsScreen(
+                        isDark = dark,
+                        killSwitch = killSwitch,
+                        onKillSwitchChange = { on ->
+                            killSwitch = on
+                            SettingsStore.setKillSwitch(cfg, on)
+                        },
+                        splitTunnelMode = splitTunnelMode,
+                        onSplitTunnelModeChange = { m ->
+                            splitTunnelMode = m
+                            SettingsStore.setSplitTunnelMode(cfg, m)
+                        },
+                        splitTunnelRules = splitTunnelRules,
+                        onSplitTunnelRulesChange = { r ->
+                            splitTunnelRules = r
+                            SettingsStore.setSplitTunnelRules(cfg, r)
+                        },
+                        urlTestBusy = urlTestBusy,
+                        onUrlTest = { urlTest() },
+                        onPingTool = { pingDialog = true },
                         onDiagnostics = {
                             diagResults = null
                             nav = Nav.DIAGNOSTICS
                         },
                         onBack = { nav = Nav.MAIN },
+                        onMain = { nav = Nav.MAIN },
+                        onSettings = { nav = Nav.SETTINGS },
                     )
 
                     Nav.DIAGNOSTICS -> DiagnosticsScreen(
@@ -931,7 +942,7 @@ fun CrystalnApp() {
                         results = diagResults,
                         running = diagRunning,
                         onRun = { runDiagnostics() },
-                        onBack = { nav = Nav.SETTINGS },
+                        onBack = { nav = Nav.TOOLS },
                     )
 
                     Nav.EDITOR -> EditorScreen(
@@ -1055,4 +1066,4 @@ fun CrystalnApp() {
 }
 
 /** Screens of the desktop app, in navigation order. */
-internal enum class Nav { MAIN, SETTINGS, DIAGNOSTICS, EDITOR, ONBOARDING }
+internal enum class Nav { MAIN, SETTINGS, TOOLS, DIAGNOSTICS, EDITOR, ONBOARDING }
