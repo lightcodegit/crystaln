@@ -23,8 +23,10 @@ import androidx.compose.material.icons.filled.PowerSettingsNew
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -70,6 +72,7 @@ fun ToolsScreen(
             .background(MaterialTheme.colorScheme.background),
     ) {
         LiquidBlobs(isDark)
+        CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onBackground) {
         Column(
             Modifier
                 .fillMaxSize()
@@ -181,6 +184,7 @@ fun ToolsScreen(
                 }
                 Spacer(Modifier.height(96.dp))
             }
+        }
         }
 
         GlassTabBar(

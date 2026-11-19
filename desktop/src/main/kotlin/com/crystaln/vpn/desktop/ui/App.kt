@@ -958,7 +958,13 @@ fun CrystalnApp() {
                 }
             }
 
-            // Inline toast-like notice (desktop has no Toast).
+            // Inline toast-like notice (desktop has no Toast). Auto-dismiss.
+            LaunchedEffect(notice) {
+                if (notice.isNotBlank()) {
+                    delay(4000)
+                    notice = ""
+                }
+            }
             if (notice.isNotBlank()) {
                 Text(
                     notice,
