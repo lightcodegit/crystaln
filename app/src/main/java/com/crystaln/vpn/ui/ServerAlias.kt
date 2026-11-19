@@ -28,10 +28,13 @@ object ServerAlias {
     )
 
     /** Builds a flag emoji out of a two-letter ISO code. */
-    private fun flag(iso2: String): String = StringBuilder().apply {
-        appendCodePoint(0x1F1E6 + (iso2[0] - 'A'))
-        appendCodePoint(0x1F1E6 + (iso2[1] - 'A'))
-    }.toString()
+    private fun flag(iso2: String): String {
+        if (iso2.length != 2) return "🌐"
+        return StringBuilder().apply {
+            appendCodePoint(0x1F1E6 + (iso2[0] - 'A'))
+            appendCodePoint(0x1F1E6 + (iso2[1] - 'A'))
+        }.toString()
+    }
 
     /** Flag emoji guessed for the profile; 🌐 when nothing matches. */
     fun flagFor(p: Profile): String {

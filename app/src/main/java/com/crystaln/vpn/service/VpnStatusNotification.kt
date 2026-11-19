@@ -47,6 +47,7 @@ object VpnStatusNotification {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     private var job: Job? = null
+    private val lock = Any()
 
     /** Notification id of the currently shown status row (cleared by [stop]). */
     private var activeId = -1
@@ -106,15 +107,17 @@ object VpnStatusNotification {
 
     /** Cancels the ticker and removes the currently shown status row, if any. */
     fun stop() {
-        job?.cancel()
-        job = null
-        val id = activeId
-        val ctx = appContext
-        if (id >= 0 && ctx != null) {
-            NotificationManagerCompat.from(ctx).cancel(id)
+        synchronized(lock) {
+            job?.cancel()
+            job = null
+            val id = activeId
+            val ctx = appContext
+            if (id >= 0 && ctx != null) {
+                NotificationManagerCompat.from(ctx).cancel(id)
+            }
+            activeId = -1
+            appContext = null
         }
-        activeId = -1
-        appContext = null
     }
 
     private fun openIntent(context: Context, requestCode: Int): PendingIntent =
@@ -126,38 +129,39 @@ object VpnStatusNotification {
         )
 
     private fun begin(t: Target) {
-        job?.cancel()
-        activeId = t.id
-        appContext = t.appContext
-        lastRx = 0L
-        lastTx = 0L
+        synchronized(lock) {
+            job?.cancel()
+            activeId = t.id
+            appContext = t.appContext
+            lastRx = 0L
+            lastTx = 0L
+        }
         ensureChannel(t.appContext, t.channelId)
         t.postInitial(build(t, 0L, 0L))
-        job = scope.launch {
+        val newJob = scope.launch {
             var primed = false
             while (isActive) {
                 delay(SAMPLE_INTERVAL_MS)
-                // Counters come from the single VpnManager poller; the ticker
-                // only turns the published cumulative values into a rate.
                 val rx = VpnManager.current().rx
                 val tx = VpnManager.current().tx
                 val rxRate: Long
                 val txRate: Long
-                if (primed) {
-                    rxRate = (rx - lastRx).coerceAtLeast(0)
-                    txRate = (tx - lastTx).coerceAtLeast(0)
-                } else {
-                    // First sample only records the baseline — the cumulative
-                    // counters must not be shown as a one-second rate.
-                    rxRate = 0
-                    txRate = 0
-                    primed = true
+                synchronized(lock) {
+                    if (primed) {
+                        rxRate = (rx - lastRx).coerceAtLeast(0)
+                        txRate = (tx - lastTx).coerceAtLeast(0)
+                    } else {
+                        rxRate = 0
+                        txRate = 0
+                        primed = true
+                    }
+                    lastRx = rx
+                    lastTx = tx
                 }
-                lastRx = rx
-                lastTx = tx
                 NotificationManagerCompat.from(t.appContext).notify(t.id, build(t, rxRate, txRate))
             }
         }
+        synchronized(lock) { job = newJob }
     }
 
     private fun build(t: Target, rxRate: Long, txRate: Long): Notification {

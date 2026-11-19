@@ -62,10 +62,13 @@ object ProfileVault {
         try {
             val v = JSONObject(envelope.trim()).getJSONObject(MARKER)
             val iters = v.getInt("iters")
-            require(iters in 1..5_000_000) { "bad iters" }
+            require(iters in 1..1_000_000) { "bad iters" }
             val salt = unb64(v.getString("salt"))
             val iv = unb64(v.getString("iv"))
             val data = unb64(v.getString("data"))
+            require(salt.size == SALT_BYTES) { "bad salt" }
+            require(iv.size == IV_BYTES) { "bad iv" }
+            require(data.size >= GCM_TAG_BITS / 8) { "bad data" }
             val cipher = Cipher.getInstance("AES/GCM/NoPadding")
             cipher.init(
                 Cipher.DECRYPT_MODE,

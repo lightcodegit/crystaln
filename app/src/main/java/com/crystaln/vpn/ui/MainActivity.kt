@@ -1023,13 +1023,16 @@ class MainActivity : FragmentActivity() {
     private fun pingProfile(profile: Profile) {
         if (!pinging.add(profile.id)) return
         lifecycleScope.launch(Dispatchers.IO) {
-            val ms = when {
-                profile.isHysteria -> com.crystaln.vpn.hysteria.HysteriaPing.measure(this@MainActivity, profile)
-                profile.isSingBoxFamily -> com.crystaln.vpn.singbox.SingBoxPing.measure(this@MainActivity, profile)
-                else -> tcpPing(profile.address, profile.port)
+            try {
+                val ms = when {
+                    profile.isHysteria -> com.crystaln.vpn.hysteria.HysteriaPing.measure(this@MainActivity, profile)
+                    profile.isSingBoxFamily -> com.crystaln.vpn.singbox.SingBoxPing.measure(this@MainActivity, profile)
+                    else -> tcpPing(profile.address, profile.port)
+                }
+                pingResults[profile.id] = ms
+            } finally {
+                pinging.remove(profile.id)
             }
-            pingResults[profile.id] = ms
-            pinging.remove(profile.id)
         }
     }
 
@@ -1141,6 +1144,10 @@ class MainActivity : FragmentActivity() {
     private fun tcpPing(host: String, port: Int): Long = TcpPing.measure(host, port)
 
     private fun urlTestVisibleProfiles() {
+        if (VpnManager.isRunning()) {
+            Toast.makeText(this, "Сначала отключите VPN", Toast.LENGTH_SHORT).show()
+            return
+        }
         val list = ProfileStore.load(this)
         if (list.isEmpty()) return
         lifecycleScope.launch(Dispatchers.IO) {
@@ -1161,6 +1168,8 @@ class MainActivity : FragmentActivity() {
                 val best = live.minByOrNull { pingResults[it.id] ?: Long.MAX_VALUE }
                 withContext(Dispatchers.Main) {
                     if (best != null) {
+                        ProfileStore.select(this@MainActivity, best.id)
+                        refreshProfiles()
                         VpnManager.connect(this@MainActivity, best)
                         Toast.makeText(this@MainActivity, "URL-тест: ${best.name}", Toast.LENGTH_SHORT).show()
                     }
@@ -1343,7 +1352,7 @@ class MainActivity : FragmentActivity() {
         val conn = (java.net.URL(url).openConnection() as java.net.HttpURLConnection).apply {
             connectTimeout = 10_000
             readTimeout = 10_000
-            instanceFollowRedirects = true
+            instanceFollowRedirects = false
         }
         try {
             conn.inputStream.use { input ->

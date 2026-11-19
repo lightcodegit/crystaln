@@ -147,6 +147,9 @@ object SettingsStore {
     }
 
     fun setWallpaper(context: Context, fileName: String?) {
+        if (fileName != null && (fileName.contains('/') || fileName.contains('\\') || fileName.contains(".."))) {
+            return
+        }
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .edit().putString(KEY_WALLPAPER, fileName).apply()
     }

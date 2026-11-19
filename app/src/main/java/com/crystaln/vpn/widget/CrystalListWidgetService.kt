@@ -50,6 +50,9 @@ private class Factory(private val context: Context) : RemoteViewsService.RemoteV
     override fun getItemId(position: Int): Long = position.toLong()
 
     override fun getViewAt(position: Int): RemoteViews {
+        if (position !in profiles.indices) {
+            return RemoteViews(context.packageName, R.layout.widget_list_item)
+        }
         val profile = profiles[position]
         val st = VpnManager.current()
         val live = st.profile?.id == profile.id && st.state != VpnManager.State.OFF

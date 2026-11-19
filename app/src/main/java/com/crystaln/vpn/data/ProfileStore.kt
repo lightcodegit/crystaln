@@ -42,7 +42,13 @@ object ProfileStore {
                 val root = JSONObject(f.readText())
                 selected = root.optString("selected").ifEmpty { null }
                 val arr = root.optJSONArray("profiles") ?: JSONArray()
-                for (i in 0 until arr.length()) list += Profile.fromJson(arr.getJSONObject(i))
+                for (i in 0 until arr.length()) {
+                    try {
+                        list += Profile.fromJson(arr.getJSONObject(i))
+                    } catch (_: Exception) {
+                        // Skip a single malformed profile instead of discarding the whole store.
+                    }
+                }
             } catch (_: Exception) {
                 // Corrupt store: keep the broken file for manual recovery instead
                 // of letting a later save() wipe the user's profiles forever.
@@ -86,8 +92,8 @@ object ProfileStore {
     fun select(context: Context, id: String?) {
         synchronized(lock) {
             selectedId = id
+            save(context)
         }
-        save(context)
     }
 
     fun upsert(context: Context, profile: Profile) {
@@ -96,8 +102,8 @@ object ProfileStore {
             val idx = list.indexOfFirst { it.id == profile.id }
             if (idx >= 0) list[idx] = profile else list += profile
             if (selectedId == null) selectedId = profile.id
+            save(context)
         }
-        save(context)
     }
 
     fun remove(context: Context, id: String) {
@@ -105,8 +111,8 @@ object ProfileStore {
             val list = load(context)
             list.removeAll { it.id == id }
             if (selectedId == id) selectedId = list.firstOrNull()?.id
+            save(context)
         }
-        save(context)
     }
 
     data class MergeResult(

@@ -375,12 +375,17 @@ class OpenVpnService : VpnService() {
             return
         }
         val m = passwordNeedRegex.find(extra) ?: return
-        val type = m.groupValues[1]
+        val type = m.groupValues[1].filter { it.isLetterOrDigit() || it == '-' || it == '_' }
+        if (type.isEmpty()) return
         val what = m.groupValues[2]
+        // Strip control chars and escape single quotes so the credential cannot
+        // break out of the quoted management token.
+        fun sanitize(v: String): String = v.replace("\r", "").replace("\n", "")
+            .replace("'", "'\\''")
         if (what == "username") {
-            sendCommand("username '$type' ${profile.fields["ovpnUser"].orEmpty()}")
+            sendCommand("username '$type' ${sanitize(profile.fields["ovpnUser"].orEmpty())}")
         } else {
-            sendCommand("password '$type' ${profile.fields["ovpnPass"].orEmpty()}")
+            sendCommand("password '$type' ${sanitize(profile.fields["ovpnPass"].orEmpty())}")
         }
     }
 
@@ -509,8 +514,8 @@ class OpenVpnService : VpnService() {
      * flags the watch loop reacts to.
      */
     private fun readProcessLog(proc: Process, logFile: File) {
+        val writer = try { BufferedWriter(FileWriter(logFile, true)) } catch (_: Throwable) { return }
         try {
-            val writer = BufferedWriter(FileWriter(logFile, true))
             proc.inputStream.bufferedReader(Charsets.UTF_8).forEachLine { line ->
                 if (line.isBlank()) return@forEachLine
                 lastLogLine = line
@@ -526,12 +531,10 @@ class OpenVpnService : VpnService() {
                 if (line.startsWith("Options error") && optionsError == null) optionsError = line
                 if (line.contains("Initialization Sequence Completed")) connected = true
             }
-            try {
-                writer.close()
-            } catch (_: Throwable) {
-            }
         } catch (_: Throwable) {
             // Stream closed during shutdown.
+        } finally {
+            try { writer.close() } catch (_: Throwable) { }
         }
     }
 

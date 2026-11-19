@@ -68,7 +68,7 @@ object SubscriptionRefresher {
         val conn = (URL(url).openConnection() as HttpURLConnection).apply {
             connectTimeout = CONNECT_TIMEOUT_MS
             readTimeout = READ_TIMEOUT_MS
-            instanceFollowRedirects = true
+            instanceFollowRedirects = false
         }
         try {
             conn.inputStream.use { input ->
