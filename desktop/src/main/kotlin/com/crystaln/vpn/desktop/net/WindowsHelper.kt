@@ -168,8 +168,15 @@ object WindowsHelper {
         privDir.mkdirs()
         helper.writeText(HELPER_SCRIPT)
         val tokenFile = File(privDir, "token")
-        // Remove a stale token file from a previous run: its ACL may only
-        // grant read access, which would make overwriting it fail.
+        // A stale token from a previous run may only grant read access, so
+        // restore write access before deleting/recreating it.
+        try {
+            ProcessBuilder(
+                "icacls", tokenFile.absolutePath,
+                "/grant", "${System.getProperty("user.name")}:(F)",
+            ).start().waitFor()
+        } catch (_: Throwable) {
+        }
         tokenFile.delete()
         tokenFile.writeText(token)
         try {
