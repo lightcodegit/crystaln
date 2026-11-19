@@ -192,9 +192,10 @@ fun JellyGameOverlay(onDismiss: () -> Unit) {
                     ),
                 contentAlignment = Alignment.Center,
             ) {
-                androidx.compose.foundation.Image(
+                Icon(
                     painter = painterResource(R.drawable.ic_launcher),
                     contentDescription = null,
+                    tint = Color.Unspecified,
                     modifier = Modifier.size(46.dp),
                 )
             }
