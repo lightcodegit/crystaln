@@ -299,22 +299,67 @@ fun MainScreen(
                                 }
                             }
                         } else {
-                            items(profiles.filter(matched), key = { it.id }) { p ->
-                                ProfileCard(
-                                    profile = p,
-                                    selected = p.id == selectedId,
-                                    isDark = isDark,
-                                    ping = pingResults[p.id],
-                                    pingable = isPingable(p),
-                                    onPing = { onPing(p) },
-                                    onSelect = { onSelect(p) },
-                                    onEdit = { onEdit(p) },
-                                    onDelete = { onDelete(p) },
-                                    onShare = { onShare(p) },
-                                    totalTraffic = trafficStats[p.id],
+                            val groups = profiles.mapNotNull { it.group?.takeIf { g -> g.isNotBlank() } }.distinct()
+                            if (groups.isNotEmpty()) {
+                                groups.forEach { g ->
+                                    item(key = "group-$g") { SectionHeader(g) }
+                                    items(profiles.filter { it.group == g }, key = { it.id }) { p ->
+                                        ProfileCard(
+                                            profile = p,
+                                            selected = p.id == selectedId,
+                                            isDark = isDark,
+                                            ping = pingResults[p.id],
+                                            pingable = isPingable(p),
+                                            onPing = { onPing(p) },
+                                            onSelect = { onSelect(p) },
+                                            onEdit = { onEdit(p) },
+                                            onDelete = { onDelete(p) },
+                                            onShare = { onShare(p) },
+                                            totalTraffic = trafficStats[p.id],
 
-                                    aliasLabel = if (anonymizeNames) com.crystaln.vpn.ui.ServerAlias.label(p, profiles.indexOf(p)) else null,
-                                )
+                                            aliasLabel = if (anonymizeNames) com.crystaln.vpn.ui.ServerAlias.label(p, profiles.indexOf(p)) else null,
+                                        )
+                                    }
+                                }
+                                val ungrouped = profiles.filter { it.group.isNullOrBlank() }
+                                if (ungrouped.isNotEmpty()) {
+                                    item(key = "group-ungrouped") { SectionHeader("Без группы") }
+                                    items(ungrouped, key = { it.id }) { p ->
+                                        ProfileCard(
+                                            profile = p,
+                                            selected = p.id == selectedId,
+                                            isDark = isDark,
+                                            ping = pingResults[p.id],
+                                            pingable = isPingable(p),
+                                            onPing = { onPing(p) },
+                                            onSelect = { onSelect(p) },
+                                            onEdit = { onEdit(p) },
+                                            onDelete = { onDelete(p) },
+                                            onShare = { onShare(p) },
+                                            totalTraffic = trafficStats[p.id],
+
+                                            aliasLabel = if (anonymizeNames) com.crystaln.vpn.ui.ServerAlias.label(p, profiles.indexOf(p)) else null,
+                                        )
+                                    }
+                                }
+                            } else {
+                                items(profiles.filter(matched), key = { it.id }) { p ->
+                                    ProfileCard(
+                                        profile = p,
+                                        selected = p.id == selectedId,
+                                        isDark = isDark,
+                                        ping = pingResults[p.id],
+                                        pingable = isPingable(p),
+                                        onPing = { onPing(p) },
+                                        onSelect = { onSelect(p) },
+                                        onEdit = { onEdit(p) },
+                                        onDelete = { onDelete(p) },
+                                        onShare = { onShare(p) },
+                                        totalTraffic = trafficStats[p.id],
+
+                                        aliasLabel = if (anonymizeNames) com.crystaln.vpn.ui.ServerAlias.label(p, profiles.indexOf(p)) else null,
+                                    )
+                                }
                             }
                         }
                     }

@@ -213,6 +213,7 @@ private fun ProtocolChip(
 private fun prefill(map: MutableMap<String, String>, existing: Profile?, protocol: Protocol) {
     if (existing == null) return
     map["name"] = existing.name
+    map["group"] = existing.group.orEmpty()
     map["address"] = existing.address
     map["port"] = if (existing.port > 0) existing.port.toString() else ""
     map["wgConfig"] = existing.wgConfig
@@ -237,6 +238,7 @@ private fun buildProfile(
     val p = existing?.copy() ?: Profile(name = name, protocol = protocol)
     p.name = name
     p.protocol = protocol
+    p.group = v("group").ifEmpty { existing?.group }
 
     if (protocol == Protocol.WIREGUARD || protocol == Protocol.AMNEZIAWG) {
         p.wgConfig = v("wgConfig")
@@ -389,6 +391,7 @@ private fun XrayFields(
             Protocol.WIREGUARD, Protocol.AMNEZIAWG, Protocol.OPENVPN, Protocol.HYSTERIA2, Protocol.TUIC, Protocol.ANYTLS, Protocol.HYSTERIA1 -> Unit
         }
         TextFieldRow("name", "Название профиля", value, set)
+        TextFieldRow("group", "Группа (опционально)", value, set)
     }
 
     if (protocol in setOf(Protocol.VMESS, Protocol.VLESS, Protocol.TROJAN, Protocol.SHADOWSOCKS)) {
@@ -449,6 +452,7 @@ private fun TuicFields(
         TextFieldRow("uuid", "UUID", value, set)
         TextFieldRow("password", "Пароль", value, set)
         TextFieldRow("name", "Название профиля", value, set)
+        TextFieldRow("group", "Группа (опционально)", value, set)
     }
     SectionLabel("TUIC (QUIC)")
     GlassPanel(isDark = isDark) {
@@ -474,6 +478,7 @@ private fun AnyTlsFields(
         TextFieldRow("port", "Порт", value, set, numeric = true)
         TextFieldRow("password", "Пароль", value, set)
         TextFieldRow("name", "Название профиля", value, set)
+        TextFieldRow("group", "Группа (опционально)", value, set)
     }
     SectionLabel("AnyTLS (TLS)")
     GlassPanel(isDark = isDark) {
@@ -497,6 +502,7 @@ private fun Hysteria1Fields(
         TextFieldRow("port", "Порт", value, set, numeric = true)
         TextFieldRow("password", "Пароль (auth)", value, set)
         TextFieldRow("name", "Название профиля", value, set)
+        TextFieldRow("group", "Группа (опционально)", value, set)
     }
     SectionLabel("Hysteria v1")
     GlassPanel(isDark = isDark) {
@@ -524,6 +530,7 @@ private fun HysteriaFields(
         TextFieldRow("port", "Порт", value, set, numeric = true)
         TextFieldRow("password", "Пароль (auth)", value, set)
         TextFieldRow("name", "Название профиля", value, set)
+        TextFieldRow("group", "Группа (опционально)", value, set)
     }
     SectionLabel("Hysteria2 (QUIC)")
     GlassPanel(isDark = isDark) {
@@ -650,6 +657,7 @@ private fun OpenVpnFields(
     SectionLabel("Название")
     GlassPanel(isDark = isDark) {
         TextFieldRow("name", "Название профиля", value, set)
+        TextFieldRow("group", "Группа (опционально)", value, set)
     }
 }
 
@@ -675,6 +683,7 @@ private fun WireGuardFamilyFields(
     SectionLabel("Название")
     GlassPanel(isDark = isDark) {
         TextFieldRow("name", "Название профиля", value, set)
+        TextFieldRow("group", "Группа (опционально)", value, set)
     }
     if (protocol == Protocol.AMNEZIAWG) {
         SectionLabel("Параметры обфускации (AmneziaWG)")
