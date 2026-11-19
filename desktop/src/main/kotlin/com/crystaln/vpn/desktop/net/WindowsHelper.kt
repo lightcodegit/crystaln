@@ -158,8 +158,15 @@ object WindowsHelper {
      */
     private fun ensureHelper(): Boolean {
         if (readyObserved && readyFile.exists()) return true
+        // Kill a stale helper from a previous session that may still be
+        // running with an old token, otherwise commands fail with
+        // "foreign token".
+        helperPidFile.takeIf { it.exists() }?.readText()?.trim()?.let { pid ->
+            try { Runtime.getRuntime().exec(arrayOf("taskkill", "/PID", pid, "/F")).waitFor() } catch (_: Throwable) { }
+        }
         stopFile.delete()
         readyFile.delete()
+        helperPidFile.delete()
         // The session token must NOT appear in a process command line (any
         // local process can read Win32_Process CommandLine via WMI). Pass the
         // path of an ACL-restricted token file instead; the elevated helper
