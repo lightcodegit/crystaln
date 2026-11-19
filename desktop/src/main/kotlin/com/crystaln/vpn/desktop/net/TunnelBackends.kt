@@ -46,9 +46,14 @@ internal fun TunnelManager.connectXray(p: Profile) {
             splitTunnelRules = SettingsStore.splitTunnelRules(dataDir),
         )
         val bin = AppDirs.binDir()
+        bin.mkdirs()
+        if (!Binaries.status().xrayReady) {
+            logLine("Бинарники не найдены — загружаю…")
+            Binaries.downloadAll { logLine(it) }
+        }
         val st = Binaries.status()
         if (!st.xrayReady) {
-            throw IllegalStateException("Бинарник xray не найден — нажмите «Обновить бинарники»")
+            throw IllegalStateException("Бинарник xray не найден — проверьте сеть и нажмите «Обновить бинарники»")
         }
         if (SettingsStore.tunnelMode(dataDir) == SettingsStore.TunnelMode.TUN &&
             !com.crystaln.vpn.desktop.Platform.supportsTun
