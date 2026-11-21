@@ -146,6 +146,26 @@ object SubscriptionsStore {
         url
     }
 
+    /**
+     * True when [raw] is an http(s) URL with a real path — the shape of a
+     * subscription link. Returns the normalized URL, or null for proxy-style
+     * links (no path) and anything else.
+     *
+     * The clipboard/URL import flow routes such links to the subscription
+     * flow instead of parsing them as share links:
+     * [ShareLinkParser.parseHttpUrl] treats path>1 URLs as web pages, so a
+     * pasted subscription link used to end in the "nothing to import" toast.
+     */
+    fun isSubscriptionUrl(raw: String): String? {
+        val url = normalizeUrl(raw) ?: return null
+        return try {
+            val uri = URI(url)
+            if (uri.userInfo.isNullOrEmpty() && (uri.path ?: "").length > 1) url else null
+        } catch (_: Exception) {
+            null
+        }
+    }
+
     /** Backup export: the raw subscription rows. */
     fun exportJson(context: Context): JSONArray =
         JSONArray().apply { load(context).forEach { put(it.toJson()) } }

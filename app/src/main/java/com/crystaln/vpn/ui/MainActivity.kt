@@ -786,16 +786,16 @@ class MainActivity : FragmentActivity() {
                     Nav.SPLIT_TUNNEL -> SplitTunnelScreen(
                         isDark = dark,
                         mode = SettingsStore.splitMode(this@MainActivity),
-                        selected = SettingsStore.splitApps(this@MainActivity),
                         onModeChange = { m ->
                             SettingsStore.setSplitMode(this@MainActivity, m)
                         },
-                        onToggleApp = { pkg ->
+                        onToggleApp = { pkg, checked ->
                             val cur = SettingsStore.splitApps(this@MainActivity).toMutableSet()
-                            if (pkg in cur) cur.remove(pkg) else cur.add(pkg)
-                            SettingsStore.setSplitApps(this@MainActivity, cur)
+                            if (checked) cur.add(pkg) else cur.remove(pkg)
+                            SettingsStore.setSplitApps(this@MainActivity, cur.toSet())
                         },
                         onBack = { goBack() },
+                        wallpaperPath = wallpaperPath.value,
                     )
 
                     Nav.EDITOR -> EditorScreen(
@@ -1189,6 +1189,12 @@ class MainActivity : FragmentActivity() {
 
     /** Downloads a config from a URL (subscriptions are plain text too). */
     private fun importFromUrl(url: String) {
+        // A subscription link pasted into "Import by URL": add it as a
+        // subscription instead of downloading it as a config.
+        SubscriptionsStore.isSubscriptionUrl(url)?.let { subUrl ->
+            addSubscription(subUrl)
+            return
+        }
         lifecycleScope.launch(Dispatchers.IO) {
             val text = try {
                 downloadText(url)
@@ -1385,6 +1391,13 @@ class MainActivity : FragmentActivity() {
             refreshProfiles()
             refreshSubscriptions()
             Toast.makeText(this, summary, Toast.LENGTH_SHORT).show()
+            return
+        }
+        // A pasted/shared link to a subscription: add it through the
+        // subscription flow — the same one Settings → Subscriptions uses.
+        SubscriptionsStore.isSubscriptionUrl(text)?.let { url ->
+            completeOnboarding()
+            addSubscription(url)
             return
         }
         val parsed = ProfileImporter.parseText(text)
