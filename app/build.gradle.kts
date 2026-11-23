@@ -104,5 +104,5 @@ implementation("androidx.biometric:biometric:1.1.0")
     // Pure-JVM tests for parsers/config builders. Robolectric supplies the
     // android.* implementations (Uri/Base64/org.json) on the host JVM.
     testImplementation("junit:junit:4.13.2")
-    testImplementation("org.robolectric:robolectric:4.17")
+    testImplementation("org.robolectric:robolectric:4.18.1")
 }
