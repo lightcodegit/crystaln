@@ -93,9 +93,9 @@ implementation("androidx.biometric:biometric:1.1.0")
 
     // Camera + bundled QR scanner for the "import from QR code" flow
     // (bundled ML Kit works fully offline).
-    implementation("androidx.camera:camera-camera2:1.4.2")
-    implementation("androidx.camera:camera-lifecycle:1.4.2")
-    implementation("androidx.camera:camera-view:1.4.2")
+    implementation("androidx.camera:camera-camera2:1.7.0")
+    implementation("androidx.camera:camera-lifecycle:1.7.0")
+    implementation("androidx.camera:camera-view:1.7.0")
     implementation("com.google.mlkit:barcode-scanning:17.3.0")
 
     // QR encoder for the "share profile" dialog (pure JVM, no Android deps).
